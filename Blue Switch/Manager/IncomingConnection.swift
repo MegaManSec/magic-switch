@@ -1,6 +1,15 @@
 import Foundation
 import Network
 
+extension Notification.Name {
+  /// Posted on the main queue when this Mac receives a `.notification`
+  /// command from a peer. The AppDelegate observes it and briefly flashes
+  /// the status-bar icon — system notifications are unreliable on
+  /// ad-hoc-signed sandboxed builds, so this is the only visible signal
+  /// the user is guaranteed to see.
+  static let blueSwitchReceivedPing = Notification.Name("blueSwitchReceivedPing")
+}
+
 /// Per-accept handler. Owns the NWConnection, its SecureChannel, idle/total
 /// timers, and the (per-connection) decoder state. Self-retained until the
 /// connection terminates so it doesn't get released mid-flight.
@@ -188,6 +197,12 @@ final class IncomingConnection {
           title: String(components[0]),
           body: String(components[1])
         )
+        // Even if `UNUserNotificationCenter` silently drops the alert (it
+        // does on ad-hoc-signed sandboxed builds), the menu-bar flash
+        // observed in AppDelegate gives the user *some* visible signal.
+        DispatchQueue.main.async {
+          NotificationCenter.default.post(name: .blueSwitchReceivedPing, object: nil)
+        }
         // Ack before the sender tears down the connection. Without this,
         // `NWConnection.cancel()` on the sender side can drop the in-flight
         // payload before TCP delivers it.

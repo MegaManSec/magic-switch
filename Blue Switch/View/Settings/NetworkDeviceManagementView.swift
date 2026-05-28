@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Latest inline Ping result for a device. Carried in `pingResults` and
+/// rendered under the device row in the Registered list.
+struct PingResult {
+  let success: Bool
+  let message: String
+}
+
 private enum Constants {
   enum Strings {
     static let connectedDevices = "Connected Devices"
@@ -10,7 +17,7 @@ private enum Constants {
       "Make sure Blue Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh."
     static let connectionLimitMessage =
       "Only one device can be connected at a time. Remove the existing device first."
-    static let notify = "Notify"
+    static let notify = "Ping"
     static let add = "Add"
   }
 }
@@ -20,17 +27,32 @@ struct NetworkDeviceManagementView: View {
   // MARK: - Dependencies
 
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var pairing = PairingStore.shared
 
   // MARK: - State
 
   @State private var deviceToRemove: NetworkDevice?
+  /// Last Ping result per device id, surfaced inline because the OS-level
+  /// notification path is unreliable on ad-hoc-signed sandboxed builds.
+  @State private var pingResults: [String: PingResult] = [:]
 
   // MARK: - View Content
 
   private var formContent: some View {
     Form {
+      if !pairing.isPaired {
+        Section {
+          Text(
+            "Pair both Macs in the Pairing tab to enable Notify, Sync, and the menu-bar switch."
+          )
+          .font(.callout)
+          .foregroundColor(.secondary)
+        }
+      }
+
       RegisteredDevicesSectionView(
         devices: networkStore.networkDevices,
+        pingResults: pingResults,
         onDeviceNotify: handleDeviceNotification,
         onDeviceRemoveRequest: { deviceToRemove = $0 },
         onTrustPending: handleTrustPending
@@ -58,7 +80,8 @@ struct NetworkDeviceManagementView: View {
   // MARK: - Tooltips
 
   fileprivate enum Help {
-    static let notify = "Send a test notification to this Mac."
+    static let notify =
+      "Send a test message over the secure channel — confirms both Macs can reach each other."
     static let add = "Add this Mac to your registered list."
     static let sync = "Send your peripheral list to this Mac so it knows about them."
     static let remove = "Remove this Mac from the registered list."
@@ -80,7 +103,19 @@ struct NetworkDeviceManagementView: View {
   // MARK: - Private Methods
 
   private func handleDeviceNotification(_ device: NetworkDevice) {
-    networkStore.sendNotification(to: device)
+    pingResults[device.id] = PingResult(success: true, message: "Pinging \(device.name)…")
+    networkStore.sendNotification(to: device) { result in
+      switch result {
+      case .success:
+        pingResults[device.id] = PingResult(
+          success: true, message: "\(device.name) responded."
+        )
+      case .failure(let err):
+        pingResults[device.id] = PingResult(
+          success: false, message: err.userMessage
+        )
+      }
+    }
   }
 
   private func handleDeviceRegistration(_ device: NetworkDevice) {
@@ -101,6 +136,7 @@ private struct RegisteredDevicesSectionView: View {
 
   // MARK: - Properties
   let devices: [NetworkDevice]
+  let pingResults: [String: PingResult]
   let onDeviceNotify: (NetworkDevice) -> Void
   let onDeviceRemoveRequest: (NetworkDevice) -> Void
   let onTrustPending: (NetworkDevice) -> Void
@@ -117,6 +153,7 @@ private struct RegisteredDevicesSectionView: View {
           buttonTitle: Constants.Strings.notify,
           actionHelp: NetworkDeviceManagementView.Help.notify,
           requiresPairing: true,
+          pingResults: pingResults,
           action: onDeviceNotify,
           onDelete: onDeviceRemoveRequest,
           onSyncPeripherals: { device in
@@ -185,6 +222,7 @@ private struct NetworkDeviceListView: View {
   let buttonTitle: String
   let actionHelp: String
   let requiresPairing: Bool
+  let pingResults: [String: PingResult]
   let action: (NetworkDevice) -> Void
   let onDelete: ((NetworkDevice) -> Void)?
   let onSyncPeripherals: ((NetworkDevice) -> Void)?
@@ -197,6 +235,7 @@ private struct NetworkDeviceListView: View {
     buttonTitle: String,
     actionHelp: String,
     requiresPairing: Bool = false,
+    pingResults: [String: PingResult] = [:],
     action: @escaping (NetworkDevice) -> Void,
     onDelete: ((NetworkDevice) -> Void)? = nil,
     onSyncPeripherals: ((NetworkDevice) -> Void)? = nil,
@@ -206,6 +245,7 @@ private struct NetworkDeviceListView: View {
     self.buttonTitle = buttonTitle
     self.actionHelp = actionHelp
     self.requiresPairing = requiresPairing
+    self.pingResults = pingResults
     self.action = action
     self.onDelete = onDelete
     self.onSyncPeripherals = onSyncPeripherals
@@ -268,6 +308,12 @@ private struct NetworkDeviceListView: View {
             .accessibilityLabel("Trust new key for \(device.name)")
           }
           .padding(.vertical, 2)
+        }
+
+        if let ping = pingResults[device.id] {
+          Text(ping.message)
+            .font(.caption)
+            .foregroundColor(ping.success ? .secondary : .red)
         }
       }
     }

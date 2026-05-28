@@ -69,6 +69,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// timer flips the peripheral back to `.disconnected` so the UI unsticks.
   private var pairTimers: [String: DispatchSourceTimer] = [:]
 
+  /// Global IOBluetooth connect observer. Fires for *any* device the OS
+  /// pairs/connects, including ones the user connects via the system
+  /// Bluetooth menu (not via Blue Switch). Used to keep the Peripheral tab
+  /// live without polling.
+  private var globalConnectObserver: IOBluetoothUserNotification?
+
   // MARK: - Computed Properties
 
   var availablePeripherals: [BluetoothPeripheral] {
@@ -86,6 +92,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private override init() {
     super.init()
     loadPeripherals()
+    fetchConnectedPeripherals()
+    registerForSystemBluetoothConnects()
+  }
+
+  /// Register for every Bluetooth connect the OS sees, so the Peripheral
+  /// tab updates immediately when the user pairs/connects a device via the
+  /// system Bluetooth menu instead of via Blue Switch. The handler just
+  /// re-snapshots state; that's cheap and avoids us trying to keep our
+  /// own model in sync incrementally.
+  private func registerForSystemBluetoothConnects() {
+    globalConnectObserver = IOBluetoothDevice.register(
+      forConnectNotifications: self,
+      selector: #selector(handleSystemBluetoothConnect(_:fromDevice:))
+    )
+  }
+
+  @objc private func handleSystemBluetoothConnect(
+    _ notification: IOBluetoothUserNotification,
+    fromDevice device: IOBluetoothDevice
+  ) {
     fetchConnectedPeripherals()
   }
 

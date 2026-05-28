@@ -6,6 +6,7 @@ struct PairingSettingsView: View {
   // MARK: - State
 
   @ObservedObject private var pairing = PairingStore.shared
+  @ObservedObject private var networkStore = NetworkDeviceStore.shared
 
   @State private var showGenerateSheet = false
   @State private var showEnterSheet = false
@@ -75,6 +76,11 @@ struct PairingSettingsView: View {
       Text("Paired")
         .font(.title2)
         .bold()
+      if networkStore.networkDevices.isEmpty {
+        Text("Now pick the other Mac in Settings → Device to start switching.")
+          .font(.callout)
+          .foregroundColor(.secondary)
+      }
       if let fingerprint = pairing.fingerprint {
         VStack(alignment: .leading, spacing: 4) {
           Text("Fingerprint")

@@ -151,37 +151,22 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
   }
 
-  func sendNotification(to device: NetworkDevice) {
+  func sendNotification(
+    to device: NetworkDevice,
+    completion: ((Result<Void, OutgoingFailure>) -> Void)? = nil
+  ) {
     guard PairingStore.shared.isPaired else {
-      NotificationManager.showNotification(
-        title: "Not Paired",
-        body: "Pair this Mac first to send notifications to \(device.name).",
-        identifier: "notify-not-paired-\(device.id)"
-      )
+      completion?(.failure(.notPaired))
       return
     }
 
     let senderName = Host.current().localizedName ?? "another Mac"
     // Put the sender's name in the title so the receiver's Notification
-    // Center entry is informative at a glance (previously the title was the
-    // generic "New Notification" and the sender's name was buried in the body).
+    // Center entry is informative at a glance.
     let title = "Notification from \(senderName)"
     let body = "Sent via Blue Switch."
     sendNotificationOverSecure(to: device, title: title, message: body) { result in
-      switch result {
-      case .success:
-        NotificationManager.showNotification(
-          title: "Notification Sent",
-          body: "Notification sent to \(device.name)",
-          identifier: "notify-sent-\(device.id)"
-        )
-      case .failure(let err):
-        NotificationManager.showNotification(
-          title: "Couldn't Notify \(device.name)",
-          body: err.userMessage,
-          identifier: "notify-failed-\(device.id)"
-        )
-      }
+      completion?(result)
     }
   }
 
