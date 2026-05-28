@@ -28,6 +28,11 @@ struct NetworkDevice: Identifiable, Codable {
   /// impersonation attempts and the routing info is not updated.
   var fingerprint: String?
 
+  /// When a peer advertises a fingerprint that does not match the stored
+  /// pin, the new one is held here pending an explicit user "Trust" action
+  /// (which moves it into `fingerprint`). nil means no mismatch is pending.
+  var pendingFingerprint: String?
+
   // MARK: - Initialization
 
   /// Creates a new network device instance
@@ -60,7 +65,8 @@ struct NetworkDevice: Identifiable, Codable {
   /// Updates the device information with data from another device, applying
   /// the TOFU fingerprint pin: a mismatch between our stored fingerprint and
   /// the peer's advertised fingerprint causes us to drop the new routing
-  /// info and mark the device inactive (likely impersonation).
+  /// info, mark the device inactive, and stash the incoming fingerprint as
+  /// `pendingFingerprint` so the user can explicitly trust it later.
   mutating func update(with device: NetworkDevice) {
     if let stored = fingerprint,
       let incoming = device.fingerprint,
@@ -68,11 +74,13 @@ struct NetworkDevice: Identifiable, Codable {
     {
       isActive = false
       lastUpdated = Date()
+      pendingFingerprint = incoming
       return
     }
     if fingerprint == nil, let incoming = device.fingerprint {
       fingerprint = incoming
     }
+    pendingFingerprint = nil
     host = device.host
     port = device.port
     lastUpdated = Date()

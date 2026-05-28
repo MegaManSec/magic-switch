@@ -82,12 +82,33 @@ final class PairingStore: ObservableObject {
   }
 
   /// Derives K from a pairing code and stores it in the keychain.
-  func pair(withCode code: String) throws {
-    let normalized = Self.normalize(code)
-    guard Self.isValid(normalized) else { throw PairingError.invalidCode }
-    let key = try Self.deriveKey(fromCode: normalized)
-    try writeKeyData(key)
-    refreshState()
+  /// Runs the PBKDF2 derivation off-main (600k iterations is ~half a second)
+  /// and reports back on main. The published state is updated before the
+  /// completion fires.
+  func pair(
+    withCode code: String,
+    completion: @escaping (Result<Void, PairingError>) -> Void
+  ) {
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      guard let self = self else { return }
+      let normalized = Self.normalize(code)
+      guard Self.isValid(normalized) else {
+        DispatchQueue.main.async { completion(.failure(.invalidCode)) }
+        return
+      }
+      do {
+        let key = try Self.deriveKey(fromCode: normalized)
+        try self.writeKeyData(key)
+        DispatchQueue.main.async {
+          self.refreshState()
+          completion(.success(()))
+        }
+      } catch let error as PairingError {
+        DispatchQueue.main.async { completion(.failure(error)) }
+      } catch {
+        DispatchQueue.main.async { completion(.failure(.derivationFailed)) }
+      }
+    }
   }
 
   /// Removes the stored PSK.

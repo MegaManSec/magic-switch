@@ -12,7 +12,10 @@ protocol NotificationManaging {
   /// - Parameters:
   ///   - title: The notification title
   ///   - body: The notification message
-  static func showNotification(title: String, body: String)
+  ///   - identifier: Optional stable identifier. Re-posting with the same
+  ///     identifier replaces the previous notification rather than stacking,
+  ///     so rapid retries coalesce instead of flooding Notification Centre.
+  static func showNotification(title: String, body: String, identifier: String?)
 }
 
 final class NotificationManager: NotificationManaging {
@@ -51,10 +54,10 @@ final class NotificationManager: NotificationManaging {
     }
   }
 
-  static func showNotification(title: String, body: String) {
+  static func showNotification(title: String, body: String, identifier: String? = nil) {
     let content = createNotificationContent(title: title, body: body)
     let request = UNNotificationRequest(
-      identifier: UUID().uuidString,
+      identifier: identifier ?? UUID().uuidString,
       content: content,
       trigger: nil
     )

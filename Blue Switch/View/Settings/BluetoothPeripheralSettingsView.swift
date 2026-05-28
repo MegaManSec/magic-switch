@@ -6,6 +6,10 @@ struct BluetoothPeripheralSettingsView: View {
 
   @StateObject private var bluetoothStore = BluetoothPeripheralStore.shared
 
+  // MARK: - State
+
+  @State private var peripheralToRemove: BluetoothPeripheral?
+
   // MARK: - View Content
 
   private var content: some View {
@@ -13,7 +17,7 @@ struct BluetoothPeripheralSettingsView: View {
       RegisteredPeripheralsSectionView(
         peripherals: bluetoothStore.peripherals,
         onPeripheralToggleConnection: handlePeripheralToggleConnection,
-        onPeripheralRemove: handlePeripheralRemove
+        onPeripheralRemoveRequest: { peripheralToRemove = $0 }
       )
 
       AvailablePeripheralsSectionView(
@@ -22,6 +26,18 @@ struct BluetoothPeripheralSettingsView: View {
       )
     }
     .onAppear(perform: handleOnAppear)
+    .alert(item: $peripheralToRemove) { peripheral in
+      Alert(
+        title: Text("Remove \(peripheral.name)?"),
+        message: Text(
+          "It will be removed from Blue Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals."
+        ),
+        primaryButton: .destructive(Text("Remove")) {
+          bluetoothStore.removeFromList(peripheral)
+        },
+        secondaryButton: .cancel()
+      )
+    }
   }
 
   var body: some View {
@@ -45,10 +61,6 @@ struct BluetoothPeripheralSettingsView: View {
     }
   }
 
-  private func handlePeripheralRemove(_ peripheral: BluetoothPeripheral) {
-    bluetoothStore.removeFromList(peripheral)
-  }
-
   private func handlePeripheralAdd(_ peripheral: BluetoothPeripheral) {
     bluetoothStore.addPeripheral(peripheral)
   }
@@ -66,19 +78,22 @@ private struct RegisteredPeripheralsSectionView: View {
 
   let peripherals: [BluetoothPeripheral]
   let onPeripheralToggleConnection: (BluetoothPeripheral) -> Void
-  let onPeripheralRemove: (BluetoothPeripheral) -> Void
+  let onPeripheralRemoveRequest: (BluetoothPeripheral) -> Void
 
   var body: some View {
     Section(header: Text("Registered Peripherals")) {
       if peripherals.isEmpty {
-        Text("No registered peripherals")
-          .foregroundColor(.secondary)
+        Text(
+          "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar."
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
       } else {
         PeripheralListView(
           peripherals: peripherals,
           showConnectionStatus: true,
           primaryAction: onPeripheralToggleConnection,
-          secondaryAction: onPeripheralRemove
+          secondaryAction: onPeripheralRemoveRequest
         )
       }
     }
@@ -93,8 +108,11 @@ private struct AvailablePeripheralsSectionView: View {
   var body: some View {
     Section(header: Text("Available Peripherals")) {
       if peripherals.isEmpty {
-        Text("No available peripherals found")
-          .foregroundColor(.secondary)
+        Text(
+          "No Bluetooth peripherals to add. Pair a keyboard, mouse, or trackpad with this Mac in System Settings first."
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
       } else {
         PeripheralListView(
           peripherals: peripherals,
@@ -153,12 +171,14 @@ private struct PeripheralRowView: View {
             .foregroundColor(.red)
         }
         .help("Remove this peripheral from Blue Switch's list.")
+        .accessibilityLabel("Remove \(peripheral.name) from list")
       } else {
         Button(action: primaryAction) {
           Image(systemName: "plus.circle")
             .foregroundColor(.blue)
         }
         .help("Add this peripheral to Blue Switch's list.")
+        .accessibilityLabel("Add \(peripheral.name) to list")
       }
     }
   }

@@ -9,6 +9,8 @@ final class MenuBarView: MenuBarPresentable {
 
   private enum Constants {
     enum Menu {
+      static let macsHeader = "Macs"
+      static let peripheralsHeader = "Peripherals"
       static let settings = "Settings..."
       static let quit = "Quit"
     }
@@ -16,6 +18,13 @@ final class MenuBarView: MenuBarPresentable {
     enum KeyEquivalents {
       static let settings = ","
       static let quit = "q"
+    }
+
+    enum Symbols {
+      static let mac = "desktopcomputer"
+      static let peripheral = "keyboard"
+      static let settings = "gearshape"
+      static let quit = "power"
     }
   }
 
@@ -36,52 +45,74 @@ final class MenuBarView: MenuBarPresentable {
   private func createMenu() -> NSMenu {
     let menu = NSMenu()
 
-    addDeviceItems(to: menu)
-    addSettingsItems(to: menu)
-    addQuitItem(to: menu)
+    let macs = networkStore.networkDevices
+    if !macs.isEmpty {
+      menu.addItem(makeSectionHeader(Constants.Menu.macsHeader))
+      for device in macs {
+        menu.addItem(
+          makeItem(title: device.name, symbol: Constants.Symbols.mac, action: nil))
+      }
+      menu.addItem(.separator())
+    }
+
+    let peripherals = bluetoothStore.peripherals
+    if !peripherals.isEmpty {
+      menu.addItem(makeSectionHeader(Constants.Menu.peripheralsHeader))
+      for peripheral in peripherals {
+        menu.addItem(
+          makeItem(
+            title: peripheral.name, symbol: Constants.Symbols.peripheral, action: nil))
+      }
+      menu.addItem(.separator())
+    }
+
+    menu.addItem(
+      makeItem(
+        title: Constants.Menu.settings,
+        symbol: Constants.Symbols.settings,
+        action: #selector(AppDelegate.openPreferencesWindow),
+        keyEquivalent: Constants.KeyEquivalents.settings))
+
+    menu.addItem(
+      makeItem(
+        title: Constants.Menu.quit,
+        symbol: Constants.Symbols.quit,
+        action: #selector(NSApplication.terminate(_:)),
+        keyEquivalent: Constants.KeyEquivalents.quit))
 
     return menu
   }
 
-  private func addDeviceItems(to menu: NSMenu) {
-    addNetworkDeviceItems(to: menu)
-    addSeparator(to: menu)
-    addBluetoothPeripheralItems(to: menu)
-    addSeparator(to: menu)
-  }
-
-  private func addNetworkDeviceItems(to menu: NSMenu) {
-    for device in networkStore.networkDevices {
-      menu.addItem(NSMenuItem(title: device.name, action: nil, keyEquivalent: ""))
+  private func makeItem(
+    title: String,
+    symbol: String,
+    action: Selector?,
+    keyEquivalent: String = ""
+  ) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+    if let img = NSImage(systemSymbolName: symbol, accessibilityDescription: title) {
+      item.image = img
     }
+    return item
   }
 
-  private func addBluetoothPeripheralItems(to menu: NSMenu) {
-    for device in bluetoothStore.peripherals {
-      menu.addItem(NSMenuItem(title: device.name, action: nil, keyEquivalent: ""))
+  /// Bold, disabled, non-selectable section header. Uses the native
+  /// `NSMenuItem.sectionHeader(title:)` on macOS 14+ and a manual styled
+  /// item on earlier versions.
+  private func makeSectionHeader(_ title: String) -> NSMenuItem {
+    if #available(macOS 14.0, *) {
+      return NSMenuItem.sectionHeader(title: title)
     }
-  }
-
-  private func addSettingsItems(to menu: NSMenu) {
-    menu.addItem(
-      NSMenuItem(
-        title: Constants.Menu.settings,
-        action: #selector(AppDelegate.openPreferencesWindow),
-        keyEquivalent: Constants.KeyEquivalents.settings
-      ))
-  }
-
-  private func addQuitItem(to menu: NSMenu) {
-    menu.addItem(
-      NSMenuItem(
-        title: Constants.Menu.quit,
-        action: #selector(NSApplication.terminate(_:)),
-        keyEquivalent: Constants.KeyEquivalents.quit
-      ))
-  }
-
-  private func addSeparator(to menu: NSMenu) {
-    menu.addItem(NSMenuItem.separator())
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.attributedTitle = NSAttributedString(
+      string: title,
+      attributes: [
+        .font: NSFont.boldSystemFont(ofSize: NSFont.smallSystemFontSize),
+        .foregroundColor: NSColor.secondaryLabelColor,
+      ]
+    )
+    item.isEnabled = false
+    return item
   }
 
   private func presentMenu(_ menu: NSMenu, for statusItem: NSStatusItem) {

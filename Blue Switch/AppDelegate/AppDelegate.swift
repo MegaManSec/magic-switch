@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem!
   private var settingsWindowController: NSWindowController?
   private var bluetoothStateObserver: AnyCancellable?
+  private var pairingObserver: AnyCancellable?
   private var lastBluetoothState: CBManagerState = .unknown
 
   // MARK: - Constants
@@ -40,6 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       .receive(on: DispatchQueue.main)
       .sink { [weak self] state in
         self?.handleBluetoothStateChange(state)
+        self?.refreshStatusBarIcon()
+      }
+    pairingObserver = PairingStore.shared.$isPaired
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.refreshStatusBarIcon()
       }
     BluetoothManager.shared.setup()
   }
@@ -79,17 +86,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     guard let button = statusItem.button else { return }
 
     configureStatusBarButton(button)
+    refreshStatusBarIcon()
   }
 
   private func configureStatusBarButton(_ button: NSStatusBarButton) {
-    if let customImage = NSImage(named: "StatusBarIcon") {
-      customImage.size = NSSize(width: 24, height: 24)
-      customImage.isTemplate = true
-      button.image = customImage
-    }
     button.target = self
     button.action = #selector(handleClick(_:))
     button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+  }
+
+  /// Updates the menu-bar icon based on the combined Pairing + Bluetooth
+  /// state. When the app cannot function (unpaired, Bluetooth off, etc.) we
+  /// show a triangle exclamation mark instead of the regular icon so the
+  /// user can tell at a glance.
+  private func refreshStatusBarIcon() {
+    guard let button = statusItem?.button else { return }
+    let needsAttention =
+      !PairingStore.shared.isPaired
+      || (BluetoothManager.shared.state != .poweredOn
+        && BluetoothManager.shared.state != .unknown)
+
+    if needsAttention {
+      let image = NSImage(
+        systemSymbolName: "exclamationmark.triangle.fill",
+        accessibilityDescription: "Blue Switch needs attention")
+      image?.isTemplate = true
+      button.image = image
+      button.toolTip = statusBarTooltip()
+    } else if let normal = NSImage(named: "StatusBarIcon") {
+      normal.size = NSSize(width: 24, height: 24)
+      normal.isTemplate = true
+      button.image = normal
+      button.toolTip = "Blue Switch"
+    }
+    button.setAccessibilityLabel(statusBarTooltip())
+  }
+
+  private func statusBarTooltip() -> String {
+    if !PairingStore.shared.isPaired {
+      return "Blue Switch: not paired. Open Settings → Pairing."
+    }
+    switch BluetoothManager.shared.state {
+    case .poweredOff:
+      return "Blue Switch: Bluetooth is off."
+    case .unauthorized:
+      return "Blue Switch: Bluetooth permission denied."
+    case .unsupported:
+      return "Blue Switch: Bluetooth not supported on this Mac."
+    case .resetting:
+      return "Blue Switch: Bluetooth is resetting."
+    case .poweredOn, .unknown:
+      return "Blue Switch"
+    @unknown default:
+      return "Blue Switch"
+    }
   }
 
   // MARK: - Action Handlers
@@ -155,40 +205,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       waitForDisconnection { [weak self] allDisconnected in
         guard let self = self else { return }
         if allDisconnected {
-          self.networkStore.executeCommand(.connectAll) { success in
-            if !success {
+          self.networkStore.executeCommand(.connectAll) { result in
+            if case .failure(let err) = result {
               NotificationManager.showNotification(
-                title: "Error",
-                body: "Connection process failed on target device"
+                title: "Switch Failed",
+                body: err.userMessage,
+                identifier: "switch-connect-failed"
               )
             }
           }
         } else {
           NotificationManager.showNotification(
-            title: "Error",
-            body: "Failed to disconnect devices"
+            title: "Switch Failed",
+            body: "Couldn't disconnect Bluetooth peripherals from this Mac.",
+            identifier: "switch-disconnect-local-failed"
           )
         }
       }
     case .allDisconnected:
-      networkStore.executeCommand(.unregisterAll) { [weak self] success in
+      networkStore.executeCommand(.unregisterAll) { [weak self] result in
         guard let self = self else { return }
-        if success {
+        switch result {
+        case .success:
           self.bluetoothStore.peripherals.forEach { peripheral in
             self.bluetoothStore.connectPeripheral(peripheral)
           }
-        } else {
+        case .failure(let err):
           NotificationManager.showNotification(
-            title: "Error",
-            body: "Failed to request device disconnection from peer"
+            title: "Switch Failed",
+            body: err.userMessage,
+            identifier: "switch-disconnect-remote-failed"
           )
         }
       }
     case .partial:
       NotificationManager.showNotification(
-        title: "Warning",
+        title: "Peripherals in mixed state",
         body:
-          "Some devices are connected while others are disconnected. Please ensure all devices are in the same state."
+          "Some peripherals are connected to this Mac and others aren't. Open Settings → Peripheral and either connect or remove each one so they're all in the same state, then click the menu bar icon again.",
+        identifier: "switch-mixed-state"
       )
     }
   }

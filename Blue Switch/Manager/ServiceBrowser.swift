@@ -35,6 +35,14 @@ final class ServiceBrowser: NSObject, ServiceBrowsing {
     serviceBrowser?.stop()
     services.removeAll()
   }
+
+  /// Tear down and re-start browsing. Used by the manual "refresh" affordance
+  /// when Bonjour gets confused (network switch, wake from sleep) and the
+  /// in-memory list goes stale.
+  func refresh() {
+    stopBrowsing()
+    startBrowsing()
+  }
 }
 
 // MARK: - NetServiceBrowserDelegate

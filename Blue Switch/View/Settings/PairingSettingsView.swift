@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Settings tab for managing the device-pairing pre-shared key.
@@ -92,6 +93,28 @@ struct PairingSettingsView: View {
   }
 }
 
+// MARK: - Selectable code helper
+
+extension View {
+  /// Applies `.textSelection(.enabled)` on macOS 12+, no-op otherwise. The
+  /// project's deployment target still includes 11.x where the modifier
+  /// isn't available.
+  @ViewBuilder
+  func userSelectable() -> some View {
+    if #available(macOS 12.0, *) {
+      self.textSelection(.enabled)
+    } else {
+      self
+    }
+  }
+}
+
+private func copyToPasteboard(_ text: String) {
+  let pb = NSPasteboard.general
+  pb.clearContents()
+  pb.setString(text, forType: .string)
+}
+
 // MARK: - Generate Code Sheet
 
 private struct GenerateCodeSheet: View {
@@ -99,13 +122,29 @@ private struct GenerateCodeSheet: View {
   @ObservedObject private var pairing = PairingStore.shared
   @State private var code: String = ""
   @State private var errorMessage: String?
+  @State private var isPairing = false
+
+  private var formattedCode: String {
+    PairingStore.formatCode(code)
+  }
 
   var body: some View {
     VStack(spacing: 20) {
       Text("Pairing Code")
         .font(.headline)
-      Text(PairingStore.formatCode(code))
+      Text(formattedCode)
         .font(.system(size: 32, weight: .bold, design: .monospaced))
+        .userSelectable()
+        .accessibilityLabel("Pairing code: \(formattedCode)")
+      HStack {
+        Button {
+          copyToPasteboard(formattedCode)
+        } label: {
+          Label("Copy", systemImage: "doc.on.doc")
+        }
+        .help("Copy the pairing code to the clipboard.")
+        .accessibilityLabel("Copy pairing code")
+      }
       Text("Enter this code on your other Mac.")
         .foregroundColor(.secondary)
         .font(.caption)
@@ -115,30 +154,44 @@ private struct GenerateCodeSheet: View {
           .font(.caption)
       }
       HStack {
+        if isPairing {
+          ProgressView()
+            .controlSize(.small)
+        }
+        Spacer()
         Button("Cancel") {
           isPresented = false
         }
+        .disabled(isPairing)
         .help("Close without saving this code.")
         Button("I've entered this on my other Mac") {
-          do {
-            try pairing.pair(withCode: code)
-            isPresented = false
-          } catch {
-            errorMessage = "Failed to save pairing key."
-          }
+          startPair()
         }
         .keyboardShortcut(.defaultAction)
+        .disabled(isPairing)
         .help("Save this code as the pairing key on this Mac.")
       }
     }
     .padding(24)
     .frame(width: 460)
     .onAppear {
-      // Fresh code per sheet presentation; the @State default initializer
-      // can be reused across re-evaluations and would otherwise show a
-      // previously-shown-but-discarded code.
       code = PairingStore.generateCode()
       errorMessage = nil
+      isPairing = false
+    }
+  }
+
+  private func startPair() {
+    isPairing = true
+    errorMessage = nil
+    pairing.pair(withCode: code) { result in
+      isPairing = false
+      switch result {
+      case .success:
+        isPresented = false
+      case .failure:
+        errorMessage = "Failed to save pairing key."
+      }
     }
   }
 }
@@ -150,6 +203,7 @@ private struct EnterCodeSheet: View {
   @ObservedObject private var pairing = PairingStore.shared
   @State private var input: String = ""
   @State private var errorMessage: String?
+  @State private var isPairing = false
 
   var body: some View {
     VStack(spacing: 20) {
@@ -158,6 +212,7 @@ private struct EnterCodeSheet: View {
       TextField("XXXX-XXXX-XXXX", text: $input)
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .font(.system(.title2, design: .monospaced))
+        .disabled(isPairing)
         .onChange(of: input) { newValue in
           let normalized = PairingStore.normalize(newValue)
           let limited = String(normalized.prefix(PairingStore.codeLength))
@@ -172,29 +227,52 @@ private struct EnterCodeSheet: View {
           .font(.caption)
       }
       HStack {
+        if isPairing {
+          ProgressView()
+            .controlSize(.small)
+        }
+        Spacer()
         Button("Cancel") {
           isPresented = false
         }
+        .disabled(isPairing)
         .help("Close without pairing.")
         Button("Pair") {
-          let normalized = PairingStore.normalize(input)
-          guard PairingStore.isValid(normalized) else {
-            errorMessage = "Code must be 12 characters from the pairing alphabet."
-            return
-          }
-          do {
-            try pairing.pair(withCode: normalized)
-            isPresented = false
-          } catch {
-            errorMessage = "Failed to derive or save pairing key."
-          }
+          startPair()
         }
         .keyboardShortcut(.defaultAction)
+        .disabled(isPairing)
         .help("Save the entered code as the pairing key on this Mac.")
       }
     }
     .padding(24)
     .frame(width: 420)
+  }
+
+  private func startPair() {
+    let normalized = PairingStore.normalize(input)
+    guard PairingStore.isValid(normalized) else {
+      errorMessage = "Code must be 12 characters from the pairing alphabet."
+      return
+    }
+    isPairing = true
+    errorMessage = nil
+    pairing.pair(withCode: normalized) { result in
+      isPairing = false
+      switch result {
+      case .success:
+        isPresented = false
+      case .failure(let err):
+        switch err {
+        case .invalidCode:
+          errorMessage = "Invalid code."
+        case .derivationFailed:
+          errorMessage = "Couldn't derive a key from that code."
+        case .keychainFailed:
+          errorMessage = "Couldn't save the key to the keychain."
+        }
+      }
+    }
   }
 }
 

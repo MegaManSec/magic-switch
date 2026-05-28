@@ -95,10 +95,32 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         NotificationManager.showNotification(
           title: "Identity Mismatch",
           body:
-            "\(device.name) is advertising a different pairing key. Re-pair if you trust this device, otherwise this could be an impersonation attempt."
+            "\(device.name) is advertising a new pairing key. Open Settings → Device and choose Trust if you re-paired the other Mac yourself.",
+          identifier: "identity-mismatch-\(device.id)"
         )
       }
     }
+  }
+
+  /// Promote `pendingFingerprint` to the stored pin and re-mark the device
+  /// active. Invoked from the UI when the user explicitly trusts a new key
+  /// after an Identity Mismatch (e.g., they re-paired the other Mac).
+  func trustPendingFingerprint(for deviceID: String) {
+    guard let index = networkDevices.firstIndex(where: { $0.id == deviceID }),
+      let pending = networkDevices[index].pendingFingerprint
+    else { return }
+    networkDevices[index].fingerprint = pending
+    networkDevices[index].pendingFingerprint = nil
+    networkDevices[index].isActive = true
+    networkDevices[index].lastUpdated = Date()
+    saveNetworkDevices()
+  }
+
+  /// Tear down and re-start Bonjour browsing. Used by the "Refresh" button
+  /// when the discovered list goes stale (network change, sleep/wake).
+  func refreshDiscovery() {
+    discoveredNetworkDevices = []
+    serviceBrowser.refresh()
   }
 
   /// Adds a newly discovered network device
@@ -130,20 +152,34 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     guard PairingStore.shared.isPaired else {
       NotificationManager.showNotification(
         title: "Not Paired",
-        body: "Pair this Mac first to send notifications to \(device.name)."
+        body: "Pair this Mac first to send notifications to \(device.name).",
+        identifier: "notify-not-paired-\(device.id)"
       )
       return
     }
 
-    let title = "New Notification"
-    let body =
-      "You have a new notification from \(Host.current().localizedName ?? "Unknown Device")"
-    sendNotificationOverSecure(to: device, title: title, message: body)
-
-    NotificationManager.showNotification(
-      title: "Notification Sent",
-      body: "Notification sent to \(device.name)"
-    )
+    let senderName = Host.current().localizedName ?? "another Mac"
+    // Put the sender's name in the title so the receiver's Notification
+    // Center entry is informative at a glance (previously the title was the
+    // generic "New Notification" and the sender's name was buried in the body).
+    let title = "Notification from \(senderName)"
+    let body = "Sent via Blue Switch."
+    sendNotificationOverSecure(to: device, title: title, message: body) { result in
+      switch result {
+      case .success:
+        NotificationManager.showNotification(
+          title: "Notification Sent",
+          body: "Notification sent to \(device.name)",
+          identifier: "notify-sent-\(device.id)"
+        )
+      case .failure(let err):
+        NotificationManager.showNotification(
+          title: "Couldn't Notify \(device.name)",
+          body: err.userMessage,
+          identifier: "notify-failed-\(device.id)"
+        )
+      }
+    }
   }
 
   // MARK: - Private Methods
@@ -205,16 +241,18 @@ extension NetworkDeviceStore {
   }
 
   /// Executes a command on the first connected device through a secure channel.
-  func executeCommand(_ command: DeviceCommand, completion: @escaping (Bool) -> Void) {
+  func executeCommand(
+    _ command: DeviceCommand,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
     guard let device = networkDevices.first else {
       print("No connected devices found")
-      completion(false)
+      completion(.failure(.connectionFailed("no registered device")))
       return
     }
 
     guard PairingStore.shared.isPaired else {
-      print("executeCommand failed: not paired")
-      completion(false)
+      completion(.failure(.notPaired))
       return
     }
 
@@ -249,10 +287,13 @@ extension NetworkDeviceStore {
 
   /// Sends a notification through a secure channel.
   func sendNotificationOverSecure(
-    to device: NetworkDevice, title: String, message: String
+    to device: NetworkDevice,
+    title: String,
+    message: String,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     guard PairingStore.shared.isPaired else {
-      print("sendNotification failed: not paired")
+      completion(.failure(.notPaired))
       return
     }
 
@@ -276,7 +317,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { _ in }
+      completion: completion
     )
   }
 }
@@ -284,7 +325,11 @@ extension NetworkDeviceStore {
 extension NetworkDeviceStore {
   func sendPeripheralSync(peripherals: [BluetoothPeripheral], to device: NetworkDevice) {
     guard PairingStore.shared.isPaired else {
-      print("sendPeripheralSync failed: not paired")
+      NotificationManager.showNotification(
+        title: "Not Paired",
+        body: "Pair this Mac first to sync the peripheral list to \(device.name).",
+        identifier: "sync-not-paired-\(device.id)"
+      )
       return
     }
 
@@ -314,7 +359,17 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { _ in }
+      completion: { result in
+        // Sync is a routine background-ish operation, so we stay quiet on
+        // success and only surface failures.
+        if case .failure(let err) = result {
+          NotificationManager.showNotification(
+            title: "Couldn't Sync \(device.name)",
+            body: err.userMessage,
+            identifier: "sync-failed-\(device.id)"
+          )
+        }
+      }
     )
   }
 }
