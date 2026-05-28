@@ -7,10 +7,12 @@ import Foundation
 /// per `vX.Y.Z` tag, so `releases/latest` is the canonical "newest stable
 /// version" — a single unauthenticated request, no pagination. The check is
 /// silent: any network/parse failure leaves the last known state untouched and
-/// is never surfaced to the user. We hit the network at most once per 24h
-/// (persisted in `UserDefaults`) so a menu-bar process that runs for days
-/// doesn't poll GitHub on a loop. Results drive the right-click menu and the
-/// Settings → Other tab; we never auto-update, just link to the release page.
+/// is never surfaced to the user. An hourly timer re-evaluates a 24h gate
+/// (both persisted in `UserDefaults`), so the network is hit at most once per
+/// day, while a transient failure — which doesn't advance the gate — is retried
+/// on the next tick instead of waiting for a relaunch. Results drive the
+/// right-click menu and the Settings → Other tab; we never auto-update, just
+/// link to the release page.
 final class UpdateChecker: ObservableObject {
   // MARK: - Singleton
 
@@ -32,6 +34,9 @@ final class UpdateChecker: ObservableObject {
     /// GitHub's API rejects requests without a User-Agent (403).
     static let userAgent = "Magic-Switch"
     static let checkInterval: TimeInterval = 24 * 60 * 60
+    /// Timer cadence. Each tick just re-checks the 24h gate, so it rarely fires
+    /// a real request; it mainly bounds how soon a failed check is retried.
+    static let pollInterval: TimeInterval = 60 * 60
     static let requestTimeout: TimeInterval = 10
     /// Persisted state, namespaced like the rest of the app's UserDefaults keys.
     static let lastCheckedKey = "com.magicswitch.updatecheck.lastChecked"
@@ -54,6 +59,10 @@ final class UpdateChecker: ObservableObject {
   /// user reopening Settings repeatedly). Main-thread only.
   private var isChecking = false
 
+  /// Hourly poll, retained for the singleton's lifetime, so a long-running app
+  /// re-checks (and retries failures) without needing a relaunch.
+  private var pollTimer: DispatchSourceTimer?
+
   // MARK: - Computed Properties
 
   /// The running app's marketing version, e.g. "2.3.1". Debug builds report
@@ -75,14 +84,27 @@ final class UpdateChecker: ObservableObject {
     // Surface the cached result immediately so the menu / Settings reflect the
     // last successful check without waiting for a network round trip.
     latestVersion = UserDefaults.standard.string(forKey: Constants.latestVersionKey)
+    startPolling()
+  }
+
+  /// Tick hourly and let `checkIfNeeded` decide whether the 24h gate has
+  /// opened. A failed attempt doesn't advance the gate, so a transient error
+  /// self-heals on the next tick (~1h) instead of waiting for a relaunch. The
+  /// first tick is one interval out — app launch does the immediate check.
+  private func startPolling() {
+    let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+    timer.schedule(deadline: .now() + Constants.pollInterval, repeating: Constants.pollInterval)
+    timer.setEventHandler { [weak self] in self?.checkIfNeeded() }
+    timer.resume()
+    pollTimer = timer
   }
 
   // MARK: - Public Methods
 
   /// Fetch the latest release if it's been at least 24h since the last
   /// successful check. Returns immediately; `latestVersion` updates
-  /// asynchronously on success. Call from the main thread (app launch, view
-  /// `onAppear`).
+  /// asynchronously on success. Called on the main thread from app launch, the
+  /// Settings `onAppear`, and the hourly `pollTimer`.
   func checkIfNeeded() {
     guard !isChecking else { return }
     if let last = UserDefaults.standard.object(forKey: Constants.lastCheckedKey) as? Date,
