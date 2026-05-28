@@ -26,6 +26,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupActivationPolicyTracking()
   }
 
+  /// Fires when the user clicks the Dock icon with no visible windows.
+  /// In this menu-bar app a Dock click without a Settings window present
+  /// has no useful default action — interpret it as "I'm done with the
+  /// Dock entry, go back to menu-bar-only." Returning `false` suppresses
+  /// any AppKit default reopen behaviour.
+  func applicationShouldHandleReopen(
+    _ sender: NSApplication, hasVisibleWindows flag: Bool
+  ) -> Bool {
+    if !flag {
+      NSApp.setActivationPolicy(.accessory)
+      return false
+    }
+    return true
+  }
+
   deinit {
     if let token = windowCloseObserver {
       NotificationCenter.default.removeObserver(token)
@@ -322,23 +337,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     return true
   }
 
-  /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`. The
-  /// previous code hosted `SettingsView` inside a manually-built `NSWindow`,
-  /// which suppresses SwiftUI `.help(...)` tooltips; routing through the
-  /// `Settings` scene fixes that.
+  /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`.
   ///
-  /// Bumps the activation policy to `.regular` so a Dock icon shows while
-  /// Settings is visible — the close observer set up in
-  /// `setupActivationPolicyTracking` flips it back to `.accessory`.
+  /// Bumps the activation policy to `.regular` so a Dock icon appears while
+  /// Settings is visible (the close observer in
+  /// `setupActivationPolicyTracking` flips it back to `.accessory`). The
+  /// `sendAction(showSettingsWindow:)` call is deferred one runloop tick so
+  /// AppKit can finish tearing down the right-click menu we were invoked
+  /// from before SwiftUI tries to bring up Settings — without that, the
+  /// Settings window sometimes silently fails to appear. After dispatching,
+  /// we also defensively look for any open Settings window and bring it to
+  /// front; SwiftUI's `showSettingsWindow:` handler doesn't always
+  /// `makeKeyAndOrderFront` after an `.accessory`→`.regular` transition.
   @objc func openSettingsWindow(_ sender: Any?) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
-    // macOS 13 renamed the standard selector; fall back for older releases.
-    let modern = Selector(("showSettingsWindow:"))
-    let legacy = Selector(("showPreferencesWindow:"))
-    if !NSApp.sendAction(modern, to: nil, from: nil) {
-      NSApp.sendAction(legacy, to: nil, from: nil)
+    DispatchQueue.main.async {
+      // macOS 13 renamed the standard selector; fall back for older releases.
+      let modern = Selector(("showSettingsWindow:"))
+      let legacy = Selector(("showPreferencesWindow:"))
+      if !NSApp.sendAction(modern, to: nil, from: nil) {
+        NSApp.sendAction(legacy, to: nil, from: nil)
+      }
+      // Second tick: if SwiftUI has installed (or reused) a settings window,
+      // bring it forward explicitly. Matched by title because the SwiftUI
+      // Settings scene doesn't give us a stable identifier across macOS
+      // versions; "Settings" and "Preferences" cover both pre- and post-13.
+      DispatchQueue.main.async {
+        if let window = Self.findSettingsWindow() {
+          window.makeKeyAndOrderFront(nil)
+        }
+      }
     }
+  }
+
+  private static func findSettingsWindow() -> NSWindow? {
+    for window in NSApp.windows where window.level == .normal {
+      if window.title == "Settings" || window.title == "Preferences" {
+        return window
+      }
+    }
+    return nil
   }
 
   /// Drops the app back to `.accessory` (no Dock icon) once the last normal
