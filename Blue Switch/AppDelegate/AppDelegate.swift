@@ -1,6 +1,7 @@
 import Cocoa
 import Combine
 import CoreBluetooth
+import SwiftUI
 
 /// Application delegate handling lifecycle and UI setup
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -16,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var pairingObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
   private var lastBluetoothState: CBManagerState = .unknown
+  /// Cached Settings window controller. We host `SettingsView` in a manual
+  /// `NSWindow` rather than going through SwiftUI's `Settings` scene because
+  /// the scene's `showSettingsWindow:` action silently fails to produce a
+  /// visible window in this app (LSUIElement + `.accessory`).
+  private var settingsWindowController: NSWindowController?
 
   // MARK: - Lifecycle Methods
 
@@ -337,47 +343,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     return true
   }
 
-  /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`.
-  ///
-  /// Bumps the activation policy to `.regular` so a Dock icon appears while
-  /// Settings is visible (the close observer in
-  /// `setupActivationPolicyTracking` flips it back to `.accessory`). The
-  /// `sendAction(showSettingsWindow:)` call is deferred one runloop tick so
-  /// AppKit can finish tearing down the right-click menu we were invoked
-  /// from before SwiftUI tries to bring up Settings — without that, the
-  /// Settings window sometimes silently fails to appear. After dispatching,
-  /// we also defensively look for any open Settings window and bring it to
-  /// front; SwiftUI's `showSettingsWindow:` handler doesn't always
-  /// `makeKeyAndOrderFront` after an `.accessory`→`.regular` transition.
+  /// Opens the Settings window. We deliberately don't route through the
+  /// SwiftUI `Settings { ... }` scene + `sendAction(showSettingsWindow:)`
+  /// here — that path produces a Dock icon and an active app but no
+  /// visible window on this codebase (LSUIElement + `.accessory` default),
+  /// likely because the scene isn't fully wired up when invoked from a
+  /// status-menu action handler. We host `SettingsView` in a plain
+  /// `NSWindow` instead. Tooltips (`.help(...)`) need the window to be
+  /// properly key under `.regular` to fire — hence the policy bump +
+  /// `makeKeyAndOrderFront(_:)`.
   @objc func openSettingsWindow(_ sender: Any?) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
-    DispatchQueue.main.async {
-      // macOS 13 renamed the standard selector; fall back for older releases.
-      let modern = Selector(("showSettingsWindow:"))
-      let legacy = Selector(("showPreferencesWindow:"))
-      if !NSApp.sendAction(modern, to: nil, from: nil) {
-        NSApp.sendAction(legacy, to: nil, from: nil)
-      }
-      // Second tick: if SwiftUI has installed (or reused) a settings window,
-      // bring it forward explicitly. Matched by title because the SwiftUI
-      // Settings scene doesn't give us a stable identifier across macOS
-      // versions; "Settings" and "Preferences" cover both pre- and post-13.
-      DispatchQueue.main.async {
-        if let window = Self.findSettingsWindow() {
-          window.makeKeyAndOrderFront(nil)
-        }
-      }
+    if settingsWindowController == nil {
+      settingsWindowController = makeSettingsWindowController()
     }
+    settingsWindowController?.showWindow(nil)
+    settingsWindowController?.window?.makeKeyAndOrderFront(nil)
   }
 
-  private static func findSettingsWindow() -> NSWindow? {
-    for window in NSApp.windows where window.level == .normal {
-      if window.title == "Settings" || window.title == "Preferences" {
-        return window
-      }
-    }
-    return nil
+  private func makeSettingsWindowController() -> NSWindowController {
+    let window = NSWindow(
+      contentRect: NSRect(origin: .zero, size: NSSize(width: 600, height: 400)),
+      styleMask: [.titled, .closable],
+      backing: .buffered,
+      defer: false
+    )
+    window.center()
+    window.title = "Settings"
+    // Keep the window object around after the user closes it so re-opening
+    // is just `makeKeyAndOrderFront`, not a full reconstruct.
+    window.isReleasedWhenClosed = false
+    window.contentView = NSHostingView(rootView: SettingsView())
+    return NSWindowController(window: window)
   }
 
   /// Drops the app back to `.accessory` (no Dock icon) once the last normal
