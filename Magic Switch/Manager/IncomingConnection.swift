@@ -8,6 +8,16 @@ extension Notification.Name {
   /// ad-hoc-signed sandboxed builds, so this is the only visible signal
   /// the user is guaranteed to see.
   static let magicSwitchReceivedPing = Notification.Name("magicSwitchReceivedPing")
+  /// Posted when this Mac is being handed peripherals by a peer (we just
+  /// received `.connectAll`). AppDelegate switches the status-bar icon to
+  /// the "receiving peripherals" state.
+  static let magicSwitchReceivedConnectAll = Notification.Name(
+    "magicSwitchReceivedConnectAll")
+  /// Posted when this Mac is being asked to release peripherals back to a
+  /// peer (we just received `.unregisterAll`). AppDelegate switches the
+  /// status-bar icon to the "sending peripherals" state.
+  static let magicSwitchReceivedUnregisterAll = Notification.Name(
+    "magicSwitchReceivedUnregisterAll")
 }
 
 /// Per-accept handler. Owns the NWConnection, its SecureChannel, idle/total
@@ -166,6 +176,7 @@ final class IncomingConnection {
     case .connectAll:
       let store = bluetoothStore
       DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .magicSwitchReceivedConnectAll, object: nil)
         store.peripherals.forEach { peripheral in
           store.connectPeripheral(peripheral)
         }
@@ -175,10 +186,15 @@ final class IncomingConnection {
     case .unregisterAll:
       let store = bluetoothStore
       DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .magicSwitchReceivedUnregisterAll, object: nil)
         store.peripherals.forEach { peripheral in
           store.unregisterFromPC(peripheral)
         }
       }
+      sendString(DeviceCommand.operationSuccess.rawValue)
+      lastReceivedCommand = nil
+    case .ping:
+      // Pure no-op preflight; just acknowledge.
       sendString(DeviceCommand.operationSuccess.rawValue)
       lastReceivedCommand = nil
     default:

@@ -205,6 +205,12 @@ enum DeviceCommand: String, Codable {
   /// Two-frame: opcode then a single peripheral's MAC address. The peer
   /// connects just that peripheral.
   case connectOne = "CONNECT_ONE"
+  /// Single-frame no-op the peer immediately acks. Used as a secure-channel
+  /// preflight: a TCP-open `checkHealth` doesn't prove the peer's app will
+  /// accept commands, but a PING that handshakes + receives OP_SUCCESS
+  /// does. Lets the switch action bail out before touching local Bluetooth
+  /// state if the peer can't actually take a command right now.
+  case ping = "PING"
 }
 
 // MARK: - Health Check Extension

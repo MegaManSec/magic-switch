@@ -33,6 +33,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var pingObserver: NSObjectProtocol?
   /// Resets the status-bar icon back to its real state after a Ping flash.
   private var pingFlashTimer: DispatchSourceTimer?
+  /// Observers for inbound peripheral-handoff posts from `IncomingConnection`.
+  private var transferReceiveObserver: NSObjectProtocol?
+  private var transferReleaseObserver: NSObjectProtocol?
+  /// Direction the status-bar icon should currently advertise. `idle` falls
+  /// through to the normal/needs-attention logic in `refreshStatusBarIcon`.
+  private enum TransferState {
+    case idle
+    case sending  // peripherals are leaving this Mac
+    case receiving  // peripherals are arriving at this Mac
+  }
+  private var transferState: TransferState = .idle
+  /// Auto-clears the transfer state on the receiver side (the receiver
+  /// only knows "I just got CONNECT_ALL"; it doesn't have a clean "all
+  /// peripherals settled" signal, so we revert after a fixed window).
+  private var transferAutoEndTimer: DispatchSourceTimer?
 
   // MARK: - Lifecycle Methods
 
@@ -42,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupStatusBar()
     setupActivationPolicyTracking()
     setupPingFlashObserver()
+    setupTransferObservers()
   }
 
   /// Fires when the user clicks the Dock icon with no visible windows.
@@ -114,6 +130,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     if let token = pingObserver {
       NotificationCenter.default.removeObserver(token)
     }
+    if let token = transferReceiveObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    if let token = transferReleaseObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
   }
 
   // MARK: - Setup Methods
@@ -181,12 +203,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     button.sendAction(on: [.leftMouseUp, .rightMouseUp])
   }
 
-  /// Updates the menu-bar icon based on the combined Pairing + Bluetooth
-  /// state. When the app cannot function (unpaired, Bluetooth off, etc.) we
-  /// show a triangle exclamation mark instead of the regular icon so the
-  /// user can tell at a glance.
+  /// Updates the menu-bar icon based on transfer state (highest priority),
+  /// then Pairing + Bluetooth state. Transfer state shows arrow icons so
+  /// the user can tell at a glance that peripherals are moving, and in
+  /// which direction. When the app cannot function (unpaired, Bluetooth
+  /// off, etc.) we show a triangle exclamation mark instead.
   private func refreshStatusBarIcon() {
     guard let button = statusItem?.button else { return }
+
+    switch transferState {
+    case .sending:
+      let img = NSImage(
+        systemSymbolName: "arrow.up.right.circle.fill",
+        accessibilityDescription: "Sending peripherals to the other Mac")
+      img?.isTemplate = true
+      button.image = img
+      button.toolTip = "Sending peripherals to the other Mac…"
+      button.setAccessibilityLabel(button.toolTip ?? "")
+      return
+    case .receiving:
+      let img = NSImage(
+        systemSymbolName: "arrow.down.left.circle.fill",
+        accessibilityDescription: "Receiving peripherals from the other Mac")
+      img?.isTemplate = true
+      button.image = img
+      button.toolTip = "Receiving peripherals from the other Mac…"
+      button.setAccessibilityLabel(button.toolTip ?? "")
+      return
+    case .idle:
+      break
+    }
+
     let needsAttention =
       !PairingStore.shared.isPaired
       || (BluetoothManager.shared.state != .poweredOn
@@ -206,6 +253,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       button.toolTip = "Magic Switch"
     }
     button.setAccessibilityLabel(statusBarTooltip())
+  }
+
+  /// Set the transfer-direction icon for the duration of a transfer.
+  /// Sender uses this directly and clears it via `endTransfer()` when the
+  /// secure-channel exchange completes (success or failure-with-rollback).
+  private func beginTransfer(_ state: TransferState) {
+    transferAutoEndTimer?.cancel()
+    transferAutoEndTimer = nil
+    transferState = state
+    refreshStatusBarIcon()
+  }
+
+  /// Same as `beginTransfer` but auto-reverts after 5s. Used by the
+  /// receiver side, which can't tell when "all peripherals settled."
+  private func beginTransferAutoEnd(_ state: TransferState) {
+    transferState = state
+    refreshStatusBarIcon()
+    transferAutoEndTimer?.cancel()
+    let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+    timer.schedule(deadline: .now() + 5.0)
+    timer.setEventHandler { [weak self] in self?.endTransfer() }
+    timer.resume()
+    transferAutoEndTimer = timer
+  }
+
+  private func endTransfer() {
+    transferAutoEndTimer?.cancel()
+    transferAutoEndTimer = nil
+    transferState = .idle
+    refreshStatusBarIcon()
+  }
+
+  /// Observes `IncomingConnection`'s transfer-direction posts so the
+  /// receiving Mac's status bar reflects what's happening to it.
+  private func setupTransferObservers() {
+    transferReceiveObserver = NotificationCenter.default.addObserver(
+      forName: .magicSwitchReceivedConnectAll, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.beginTransferAutoEnd(.receiving)
+    }
+    transferReleaseObserver = NotificationCenter.default.addObserver(
+      forName: .magicSwitchReceivedUnregisterAll, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.beginTransferAutoEnd(.sending)
+    }
   }
 
   private func statusBarTooltip() -> String {
@@ -285,30 +377,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func handleSwitchAction(status: BluetoothPeripheralStore.ConnectionStatus) {
     switch status {
     case .allConnected:
-      bluetoothStore.peripherals.forEach { peripheral in
-        bluetoothStore.unregisterFromPC(peripheral)
-      }
-      waitForDisconnection { [weak self] allDisconnected in
+      // Show "sending" immediately on the click — feedback before the
+      // secure-channel round trip. Preflight the secure channel BEFORE we
+      // touch local Bluetooth state. `checkHealth` earlier proved the TCP
+      // port is open, but not that the peer's app will accept commands —
+      // if the peer's app isn't actually running or the secure channel
+      // can't be established, we'd otherwise disconnect locally and then
+      // fail to hand peripherals over, leaving them paired nowhere.
+      beginTransfer(.sending)
+      networkStore.executeCommand(.ping) { [weak self] preflight in
         guard let self = self else { return }
-        if allDisconnected {
-          self.networkStore.executeCommand(.connectAll) { result in
-            if case .failure(let err) = result {
-              NotificationManager.showNotification(
-                title: "Switch Failed",
-                body: err.userMessage,
-                identifier: "switch-connect-failed"
-              )
-            }
-          }
-        } else {
+        switch preflight {
+        case .failure(let err):
+          self.endTransfer()
           NotificationManager.showNotification(
-            title: "Switch Failed",
-            body: "Couldn't disconnect Bluetooth peripherals from this Mac.",
-            identifier: "switch-disconnect-local-failed"
+            title: "Switch Cancelled",
+            body:
+              "Couldn't reach the other Mac (\(err.userMessage)) — peripherals stay on this Mac.",
+            identifier: "switch-preflight-failed"
           )
+        case .success:
+          self.performHandoffToPeer()
         }
       }
     case .allDisconnected:
+      // Show "receiving" immediately. No preflight needed here:
+      // `executeCommand(.unregisterAll)` *is* the preflight — if it fails,
+      // nothing has changed locally yet.
+      beginTransfer(.receiving)
       networkStore.executeCommand(.unregisterAll) { [weak self] result in
         guard let self = self else { return }
         switch result {
@@ -316,7 +412,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           self.bluetoothStore.peripherals.forEach { peripheral in
             self.bluetoothStore.connectPeripheral(peripheral)
           }
+          self.endTransfer()
         case .failure(let err):
+          self.endTransfer()
           NotificationManager.showNotification(
             title: "Switch Failed",
             body: err.userMessage,
@@ -331,6 +429,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           "Some peripherals are connected to this Mac and others aren't. Open Settings → Peripheral and either connect or remove each one so they're all in the same state, then click the menu bar icon again.",
         identifier: "switch-mixed-state"
       )
+    }
+  }
+
+  /// Disconnect peripherals locally then hand them to the peer. Called only
+  /// after a successful preflight, but the peer can still die between the
+  /// preflight and `CONNECT_ALL` — if it does, re-connect peripherals
+  /// locally rather than leave them stranded.
+  private func performHandoffToPeer() {
+    bluetoothStore.peripherals.forEach { peripheral in
+      bluetoothStore.unregisterFromPC(peripheral)
+    }
+    waitForDisconnection { [weak self] allDisconnected in
+      guard let self = self else { return }
+      guard allDisconnected else {
+        self.endTransfer()
+        NotificationManager.showNotification(
+          title: "Switch Failed",
+          body: "Couldn't disconnect Bluetooth peripherals from this Mac.",
+          identifier: "switch-disconnect-local-failed"
+        )
+        return
+      }
+      self.networkStore.executeCommand(.connectAll) { [weak self] result in
+        guard let self = self else { return }
+        if case .failure(let err) = result {
+          // Rollback: peer didn't take the peripherals, so re-pair them
+          // locally. Without this the user is left with peripherals paired
+          // nowhere.
+          self.bluetoothStore.peripherals.forEach { peripheral in
+            self.bluetoothStore.connectPeripheral(peripheral)
+          }
+          self.endTransfer()
+          NotificationManager.showNotification(
+            title: "Switch Failed",
+            body: "\(err.userMessage) Peripherals reconnected to this Mac.",
+            identifier: "switch-connect-failed"
+          )
+        } else {
+          self.endTransfer()
+        }
+      }
     }
   }
 
