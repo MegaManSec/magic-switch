@@ -28,6 +28,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// from "user pressed Cmd+Q with Settings focused or chose Quit from
   /// the Dock" (just close the window, keep running).
   private var quitFromStatusBarMenu = false
+  /// Token for the `.blueSwitchReceivedPing` observer registered in
+  /// `setupPingFlashObserver`.
+  private var pingObserver: NSObjectProtocol?
+  /// Resets the status-bar icon back to its real state after a Ping flash.
+  private var pingFlashTimer: DispatchSourceTimer?
 
   // MARK: - Lifecycle Methods
 
@@ -36,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupBluetooth()
     setupStatusBar()
     setupActivationPolicyTracking()
+    setupPingFlashObserver()
   }
 
   /// Fires when the user clicks the Dock icon with no visible windows.
@@ -103,6 +109,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   deinit {
     if let token = windowCloseObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    if let token = pingObserver {
       NotificationCenter.default.removeObserver(token)
     }
   }
@@ -382,6 +391,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   /// Tag of the Device tab in `SettingsView`. Keep in sync if tabs reorder.
   private static let deviceTabIndex = 1
+
+  /// Observes `.blueSwitchReceivedPing` (posted by `IncomingConnection`
+  /// when this Mac handles a `.notification` command) and flashes the
+  /// status-bar icon. This is the fallback signal for the case where
+  /// `UNUserNotificationCenter` silently drops the alert — which it does
+  /// reliably on ad-hoc-signed sandboxed builds where notification
+  /// authorization can't be granted.
+  private func setupPingFlashObserver() {
+    pingObserver = NotificationCenter.default.addObserver(
+      forName: .blueSwitchReceivedPing,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.flashStatusBarIcon()
+    }
+  }
+
+  /// Briefly swap the status-bar icon to a "bell" symbol, then restore
+  /// the real state via `refreshStatusBarIcon()`. If a subsequent
+  /// state-change (pairing flip, Bluetooth state) triggers a refresh
+  /// during the flash window, the flash gets cut short — that's fine,
+  /// the state change is more important to surface.
+  private func flashStatusBarIcon() {
+    guard let button = statusItem?.button else { return }
+    let flash = NSImage(
+      systemSymbolName: "bell.badge.fill",
+      accessibilityDescription: "Received a ping from the other Mac"
+    )
+    flash?.isTemplate = true
+    button.image = flash
+    pingFlashTimer?.cancel()
+    let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+    timer.schedule(deadline: .now() + 3.0)
+    timer.setEventHandler { [weak self] in self?.refreshStatusBarIcon() }
+    timer.resume()
+    pingFlashTimer = timer
+  }
 
   /// AppKit's auto-validation routes through here for menu items targeting
   /// this delegate. Mac entries are enabled only when the peer is currently
