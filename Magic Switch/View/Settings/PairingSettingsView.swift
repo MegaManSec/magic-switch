@@ -77,9 +77,15 @@ struct PairingSettingsView: View {
         .font(.title2)
         .bold()
       if networkStore.networkDevices.isEmpty {
-        Text("Now pick the other Mac in Settings → Device to start switching.")
-          .font(.callout)
-          .foregroundColor(.secondary)
+        // Mirrors the prerequisite hint on the Device tab — accent-coloured
+        // Label so the "do this next" affordance reads as actionable
+        // instead of looking like throwaway helper text.
+        Label(
+          "Now pick the other Mac in Settings → Device to start switching.",
+          systemImage: "arrow.right.circle.fill"
+        )
+        .font(.callout.bold())
+        .foregroundColor(.accentColor)
       }
       if let fingerprint = pairing.fingerprint {
         VStack(alignment: .leading, spacing: 4) {

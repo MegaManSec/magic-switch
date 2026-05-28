@@ -52,11 +52,17 @@ struct NetworkDeviceManagementView: View {
     Form {
       if !pairing.isPaired {
         Section {
-          Text(
-            "Pair both Macs in the Pairing tab to enable Notify, Sync, and the menu-bar switch."
+          // Label + accent colour reads as "do this next" without alarming
+          // (red/yellow would imply error, which this isn't). The user is
+          // here to configure something; flag the missing prerequisite so
+          // they don't have to figure out from disabled buttons + tooltips
+          // why nothing works.
+          Label(
+            "Pair both Macs in the Pairing tab to enable Ping, Sync, and the menu-bar switch.",
+            systemImage: "arrow.right.circle.fill"
           )
-          .font(.callout)
-          .foregroundColor(.secondary)
+          .font(.callout.bold())
+          .foregroundColor(.accentColor)
         }
       }
 
@@ -74,6 +80,12 @@ struct NetworkDeviceManagementView: View {
         onDeviceRegister: handleDeviceRegistration
       )
     }
+    // Clear stale Ping/Sync results whenever the user comes back to this
+    // tab (or first opens it). Keeps "<device> responded." / failure lines
+    // from sticking around across Settings sessions when they're no longer
+    // meaningful. Within a single tab visit, repeated actions still
+    // overwrite each other (existing behaviour, unchanged).
+    .onAppear { operationResults.removeAll() }
     .alert(item: $deviceToRemove) { device in
       Alert(
         title: Text("Remove \(device.name)?"),
