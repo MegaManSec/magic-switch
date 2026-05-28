@@ -59,9 +59,21 @@ final class MenuBarView: MenuBarPresentable {
     if !peripherals.isEmpty {
       menu.addItem(makeSectionHeader(Constants.Menu.peripheralsHeader))
       for peripheral in peripherals {
-        menu.addItem(
-          makeItem(
-            title: peripheral.name, symbol: Constants.Symbols.peripheral, action: nil))
+        let state = bluetoothStore.connectionState(for: peripheral.id)
+        let title = state == .connecting ? "\(peripheral.name) (Pairing…)" : peripheral.name
+        // Disable while pairing; otherwise wire to the per-peripheral switch.
+        let item = makeItem(
+          title: title,
+          symbol: Constants.Symbols.peripheral,
+          action: state == .connecting
+            ? nil : #selector(AppDelegate.handlePeripheralMenuClick(_:)))
+        // Checkmark for "currently on this Mac" so users can see at a
+        // glance which side holds which peripheral.
+        item.state = state == .connected ? .on : .off
+        // Pass the MAC down to the action handler; clicking dispatches
+        // take-from-peer or send-to-peer based on current state.
+        item.representedObject = peripheral.id
+        menu.addItem(item)
       }
       menu.addItem(.separator())
     }

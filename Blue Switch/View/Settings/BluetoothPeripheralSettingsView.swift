@@ -53,11 +53,14 @@ struct BluetoothPeripheralSettingsView: View {
   private func handlePeripheralToggleConnection(_ peripheral: BluetoothPeripheral) {
     switch bluetoothStore.connectionState(for: peripheral.id) {
     case .connected:
-      bluetoothStore.unregisterFromPC(peripheral)
+      // Symmetric to the disconnected case: release locally then ask the
+      // peer to take it, so a "Remove from PC" actually hands the
+      // peripheral over instead of leaving it floating.
+      bluetoothStore.sendPeripheralToPeer(peripheral)
     case .disconnected:
-      // Coordinated path asks the peer to release first if it's holding
-      // the peripheral, otherwise pairing locally would just hang.
-      bluetoothStore.connectPeripheralCoordinated(peripheral)
+      // Ask the peer to release first if it's holding the peripheral —
+      // pairing locally without that step would just hang.
+      bluetoothStore.takePeripheralFromPeer(peripheral)
     case .connecting:
       break  // Pairing in flight; button is disabled in the UI.
     }

@@ -278,6 +278,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   // MARK: - Settings Management
 
+  /// Right-click menu's per-peripheral switch. `representedObject` carries
+  /// the peripheral's MAC; we dispatch based on the current local
+  /// connection state — if it's here, send it to the peer; if it's
+  /// elsewhere, ask the peer to release it.
+  @objc func handlePeripheralMenuClick(_ sender: NSMenuItem) {
+    guard let address = sender.representedObject as? String else { return }
+    let store = bluetoothStore
+    guard let peripheral = store.peripherals.first(where: { $0.id == address }) else { return }
+    switch store.connectionState(for: address) {
+    case .connected:
+      store.sendPeripheralToPeer(peripheral)
+    case .disconnected:
+      store.takePeripheralFromPeer(peripheral)
+    case .connecting:
+      break
+    }
+  }
+
   /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`. The
   /// previous code hosted `SettingsView` inside a manually-built `NSWindow`,
   /// which suppresses SwiftUI `.help(...)` tooltips; routing through the

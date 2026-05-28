@@ -132,32 +132,28 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     print("\(peripheral.name) has been removed from the list")
   }
 
-  /// Per-peripheral entry point used by the Peripheral tab. Mirrors the
-  /// menu-bar switch choreography (see `AppDelegate.handleSwitchAction`'s
-  /// `.allDisconnected` branch): if there's a paired peer holding our
-  /// peripherals, ask it to release them before we try to pair locally.
-  /// Apple's Magic devices only honor one host at a time, so without this
-  /// step `IOBluetoothDevicePair.start()` just hangs (and the watchdog
-  /// would have to time it out).
+  /// Asks the peer to release just this peripheral, then pairs it
+  /// locally. Used by the Peripheral tab's "Connect to PC" button and by
+  /// the right-click menu's per-peripheral switch. Apple's Magic devices
+  /// only honor one host at a time, so `IOBluetoothDevicePair.start()`
+  /// would hang otherwise.
   ///
-  /// Note that we send `UNREGISTER_ALL`, not a per-peripheral release,
-  /// because the wire protocol has no per-peripheral unregister opcode.
-  /// Other peripherals on the peer get released too — same semantics as
-  /// the menu-bar switch.
-  func connectPeripheralCoordinated(_ peripheral: BluetoothPeripheral) {
+  /// Falls back to a plain local pair if there's no paired peer, the
+  /// peer is offline, or we're not paired ourselves.
+  func takePeripheralFromPeer(_ peripheral: BluetoothPeripheral) {
     let networkStore = NetworkDeviceStore.shared
     guard let device = networkStore.networkDevices.first,
       PairingStore.shared.isPaired,
       device.isActive
     else {
-      // No peer to coordinate with — just pair locally.
       connectPeripheral(peripheral)
       return
     }
 
     setConnectionState(.connecting, for: peripheral.id)
     schedulePairWatchdog(for: peripheral)
-    networkStore.executeCommand(.unregisterAll) { [weak self] result in
+    networkStore.executeUnregisterOne(address: peripheral.id, on: device) {
+      [weak self] result in
       guard let self = self else { return }
       switch result {
       case .success:
@@ -168,10 +164,77 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           title: "Couldn't Switch",
           body:
             "Couldn't ask \(device.name) to release \(peripheral.name): \(err.userMessage)",
-          identifier: "coord-connect-failed-\(peripheral.id)"
+          identifier: "take-failed-\(peripheral.id)"
         )
       }
     }
+  }
+
+  /// The inverse direction: release the peripheral locally, wait for the
+  /// IOBluetooth-level disconnect to land, then ask the peer to take it.
+  /// Used by the Peripheral tab's "Remove from PC" button and by the
+  /// right-click menu's per-peripheral switch when the peripheral is
+  /// currently on this Mac.
+  ///
+  /// Falls back to a plain local unregister if there's no paired peer.
+  func sendPeripheralToPeer(_ peripheral: BluetoothPeripheral) {
+    let networkStore = NetworkDeviceStore.shared
+    guard let device = networkStore.networkDevices.first,
+      PairingStore.shared.isPaired,
+      device.isActive
+    else {
+      unregisterFromPC(peripheral)
+      return
+    }
+    unregisterFromPC(peripheral)
+    waitForLocalDisconnect(of: peripheral) { success in
+      guard success else {
+        NotificationManager.showNotification(
+          title: "Couldn't Switch",
+          body: "\(peripheral.name) didn't disconnect from this Mac.",
+          identifier: "send-disconnect-failed-\(peripheral.id)"
+        )
+        return
+      }
+      networkStore.executeConnectOne(address: peripheral.id, on: device) { result in
+        if case .failure(let err) = result {
+          NotificationManager.showNotification(
+            title: "Couldn't Switch",
+            body:
+              "Couldn't ask \(device.name) to take \(peripheral.name): \(err.userMessage)",
+            identifier: "send-connect-failed-\(peripheral.id)"
+          )
+        }
+      }
+    }
+  }
+
+  /// Polls IOBluetooth (not the cached `connectionStates`) every 0.5s up
+  /// to 5 times, waiting for the device to actually disconnect. Same
+  /// pattern as `AppDelegate.waitForDisconnection`, but for a single
+  /// peripheral instead of the full set.
+  private func waitForLocalDisconnect(
+    of peripheral: BluetoothPeripheral,
+    completion: @escaping (Bool) -> Void
+  ) {
+    var attempts = 0
+    let maxAttempts = 5
+    func check() {
+      attempts += 1
+      bluetoothQueue.async {
+        let connected = IOBluetoothDevice(addressString: peripheral.id)?.isConnected() ?? false
+        DispatchQueue.main.async {
+          if !connected {
+            completion(true)
+          } else if attempts < maxAttempts {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { check() }
+          } else {
+            completion(false)
+          }
+        }
+      }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { check() }
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
