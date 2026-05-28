@@ -155,40 +155,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       waitForDisconnection { [weak self] allDisconnected in
         guard let self = self else { return }
         if allDisconnected {
-          self.networkStore.executeCommand(.connectAll) { success in
-            if !success {
+          self.networkStore.executeCommand(.connectAll) { result in
+            if case .failure(let err) = result {
               NotificationManager.showNotification(
-                title: "Error",
-                body: "Connection process failed on target device"
+                title: "Switch Failed",
+                body: err.userMessage,
+                identifier: "switch-connect-failed"
               )
             }
           }
         } else {
           NotificationManager.showNotification(
-            title: "Error",
-            body: "Failed to disconnect devices"
+            title: "Switch Failed",
+            body: "Couldn't disconnect Bluetooth peripherals from this Mac.",
+            identifier: "switch-disconnect-local-failed"
           )
         }
       }
     case .allDisconnected:
-      networkStore.executeCommand(.unregisterAll) { [weak self] success in
+      networkStore.executeCommand(.unregisterAll) { [weak self] result in
         guard let self = self else { return }
-        if success {
+        switch result {
+        case .success:
           self.bluetoothStore.peripherals.forEach { peripheral in
             self.bluetoothStore.connectPeripheral(peripheral)
           }
-        } else {
+        case .failure(let err):
           NotificationManager.showNotification(
-            title: "Error",
-            body: "Failed to request device disconnection from peer"
+            title: "Switch Failed",
+            body: err.userMessage,
+            identifier: "switch-disconnect-remote-failed"
           )
         }
       }
     case .partial:
       NotificationManager.showNotification(
-        title: "Warning",
+        title: "Mixed State",
         body:
-          "Some devices are connected while others are disconnected. Please ensure all devices are in the same state."
+          "Some peripherals are connected and others aren't. Connect or disconnect them all before switching.",
+        identifier: "switch-mixed-state"
       )
     }
   }

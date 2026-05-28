@@ -1,6 +1,39 @@
 import Foundation
 import Network
 
+/// Categorised outgoing-side failure. Carries enough information for the
+/// caller to render a useful user-facing notification without needing to
+/// know about `SecureChannel` internals.
+enum OutgoingFailure: Error {
+  case notPaired
+  case connectionFailed(String)
+  case connectTimeout
+  case handshakeFailed(SecureChannelError)
+  case bodyFailed
+
+  /// Short, user-facing reason. Callers prepend the device name.
+  var userMessage: String {
+    switch self {
+    case .notPaired:
+      return "This Mac isn't paired yet. Open the Pairing tab in Settings."
+    case .connectionFailed:
+      return "Couldn't reach the other Mac on the network."
+    case .connectTimeout:
+      return "The other Mac didn't respond in time."
+    case .handshakeFailed(.authFailed):
+      return "Pairing codes don't match. Re-pair both Macs with the same code."
+    case .handshakeFailed(.handshakeTimeout):
+      return "The other Mac didn't respond to the secure handshake."
+    case .handshakeFailed(.replay), .handshakeFailed(.decryptionFailed):
+      return "Couldn't establish a secure connection (possible tampering)."
+    case .handshakeFailed:
+      return "Couldn't establish a secure connection."
+    case .bodyFailed:
+      return "The connection dropped mid-message."
+    }
+  }
+}
+
 /// Single-shot authenticated client connection to a peer Blue Switch instance.
 /// Owns its NWConnection + SecureChannel; tears itself down once `run` is
 /// complete (success or failure).
@@ -39,16 +72,18 @@ final class OutgoingConnection {
   // MARK: - Public API
 
   /// Runs the handshake then invokes `body` with the live secure channel.
-  /// `body` must call `done(_:)` to release the connection.
+  /// `body` must call `done(_:)` to release the connection. The completion
+  /// receives a `Result` whose failure case carries a categorised reason
+  /// (see `OutgoingFailure`) so the caller can render a useful notification.
   func run(
     body: @escaping (SecureChannel, @escaping (Bool) -> Void) -> Void,
-    completion: @escaping (Bool) -> Void
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     selfRef = self
 
     guard let psk = pairingStore.currentKey() else {
       print("OutgoingConnection: not paired, aborting send")
-      completion(false)
+      completion(.failure(.notPaired))
       release()
       return
     }
@@ -62,7 +97,7 @@ final class OutgoingConnection {
     timer.schedule(deadline: .now() + Self.connectionTimeout)
     timer.setEventHandler { [weak self] in
       guard let self = self else { return }
-      self.finish(success: false, completion: completion)
+      self.finish(.failure(.connectTimeout), completion: completion)
     }
     timer.resume()
     connectTimer = timer
@@ -77,16 +112,19 @@ final class OutgoingConnection {
             self.connectTimer?.cancel()
             self.connectTimer = nil
             body(channel) { ok in
-              self.finish(success: ok, completion: completion)
+              self.finish(
+                ok ? .success(()) : .failure(.bodyFailed), completion: completion)
             }
           case .failure(let err):
             print("OutgoingConnection handshake failed: \(err)")
-            self.finish(success: false, completion: completion)
+            self.finish(.failure(.handshakeFailed(err)), completion: completion)
           }
         }
       case .failed(let error):
         print("OutgoingConnection failed: \(error)")
-        self.finish(success: false, completion: completion)
+        self.finish(
+          .failure(.connectionFailed(error.localizedDescription)),
+          completion: completion)
       case .cancelled:
         // No-op; finish handled explicitly.
         break
@@ -99,14 +137,17 @@ final class OutgoingConnection {
 
   // MARK: - Helpers
 
-  private func finish(success: Bool, completion: @escaping (Bool) -> Void) {
+  private func finish(
+    _ result: Result<Void, OutgoingFailure>,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
     guard !finished else { return }
     finished = true
     connectTimer?.cancel()
     connectTimer = nil
     channel?.cancel()
     connection.cancel()
-    completion(success)
+    completion(result)
     release()
   }
 
