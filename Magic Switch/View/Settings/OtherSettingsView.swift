@@ -6,6 +6,7 @@ struct OtherSettingsView: View {
   // MARK: - Properties
 
   @Environment(\.openURL) private var openURL
+  @ObservedObject private var updateChecker = UpdateChecker.shared
   @State private var launchAtLogin: Bool = false
 
   // MARK: - View Content
@@ -27,8 +28,24 @@ struct OtherSettingsView: View {
           action: showLicenseInfo
         )
       }
+      Section {
+        if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
+          SettingsRowView(
+            title: "Update Available — v\(latest)",
+            help:
+              "A newer version of Magic Switch is available. Opens the release page in your browser.",
+            action: openLatestRelease
+          )
+        }
+        HStack {
+          Text("Version")
+          Spacer()
+          Text(updateChecker.currentVersion)
+            .foregroundColor(.secondary)
+        }
+      }
     }
-    .onAppear(perform: refreshLaunchAtLogin)
+    .onAppear(perform: refreshOnAppear)
   }
 
   var body: some View {
@@ -47,6 +64,18 @@ struct OtherSettingsView: View {
     guard let url = URL(string: "https://github.com/MegaManSec/magic-switch/blob/main/LICENSE")
     else { return }
     openURL(url)
+  }
+
+  private func openLatestRelease() {
+    guard let url = updateChecker.releasePageURL else { return }
+    openURL(url)
+  }
+
+  /// Refresh launch-at-login state and nudge the update check. `checkIfNeeded`
+  /// respects the 24h cadence, so opening Settings rarely fires a real request.
+  private func refreshOnAppear() {
+    refreshLaunchAtLogin()
+    updateChecker.checkIfNeeded()
   }
 
   private func refreshLaunchAtLogin() {

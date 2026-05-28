@@ -9,6 +9,7 @@ final class MenuBarView: MenuBarPresentable {
 
   private enum Constants {
     enum Menu {
+      static let updateAvailable = "Update Available"
       static let macsHeader = "Macs"
       static let peripheralsHeader = "Peripherals"
       static let settings = "Settings..."
@@ -21,6 +22,7 @@ final class MenuBarView: MenuBarPresentable {
     }
 
     enum Symbols {
+      static let update = "arrow.down.circle.fill"
       static let mac = "desktopcomputer"
       static let peripheral = "keyboard"
       static let settings = "gearshape"
@@ -32,6 +34,7 @@ final class MenuBarView: MenuBarPresentable {
 
   private let networkStore = NetworkDeviceStore.shared
   private let bluetoothStore = BluetoothPeripheralStore.shared
+  private let updateChecker = UpdateChecker.shared
 
   // MARK: - Public Methods
 
@@ -44,6 +47,19 @@ final class MenuBarView: MenuBarPresentable {
 
   private func createMenu() -> NSMenu {
     let menu = NSMenu()
+
+    // Surface an available update at the very top — the most visible spot.
+    // Clicking opens the release page in the browser; nothing destructive, so
+    // it stays enabled (no `validateMenuItem` arm needed).
+    if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
+      let update = makeItem(
+        title: "\(Constants.Menu.updateAvailable): v\(latest)",
+        symbol: Constants.Symbols.update,
+        action: #selector(AppDelegate.openLatestReleasePage(_:)))
+      update.toolTip = "A newer version of Magic Switch is available. Opens the release page."
+      menu.addItem(update)
+      menu.addItem(.separator())
+    }
 
     let macs = networkStore.networkDevices
     if !macs.isEmpty {

@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupActivationPolicyTracking()
     setupPingFlashObserver()
     setupTransferObservers()
+    // Best-effort, silent, throttled to once per 24h. Drives the "Update
+    // Available" affordances in the right-click menu and Settings → Other.
+    UpdateChecker.shared.checkIfNeeded()
   }
 
   /// Fires when the user clicks the Dock icon. If a window is already
@@ -534,6 +537,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   /// Tag of the Device tab in `SettingsView`. Keep in sync if tabs reorder.
   private static let deviceTabIndex = 1
+
+  /// Opens the newest release in the default browser. Wired to the "Update
+  /// Available" item in the right-click menu (see `MenuBarView`).
+  @objc func openLatestReleasePage(_ sender: Any?) {
+    guard let url = UpdateChecker.shared.releasePageURL else { return }
+    NSWorkspace.shared.open(url)
+  }
 
   /// Observes `.magicSwitchReceivedPing` (posted by `IncomingConnection`
   /// when this Mac handles a `.notification` command) and flashes the
