@@ -13,11 +13,12 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Setup
 
-Three Settings tabs to know — two of them use the word "pair" in different senses, which can be confusing:
+Four Settings tabs to know — two of them use the word "pair" in different senses, which can be confusing:
 
 - **Peripheral** — the Bluetooth devices Magic Switch hands back and forth (Magic Keyboard / Mouse / Trackpad).
 - **Device** — the *other Mac on your network* you're swapping with.
 - **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Magic Switch.
+- **Other** — app preferences: turn on **Launch at Login**, see the installed version, and get notified about updates. Magic Switch checks the [releases page](https://github.com/MegaManSec/magic-switch/releases) about once a day and surfaces **Update Available** here and in the menu-bar menu; it never updates itself.
 
 Do this on **both** Macs.
 
@@ -42,12 +43,15 @@ Until step 4 completes, the switch action and peripheral sync refuse to talk to 
 | Right-click menu bar icon → peripheral  | Switch just that one peripheral. Checkmark = currently on this Mac                              |
 | Right-click menu bar icon → Settings    | Open the Settings window                                                                        |
 
+The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs.
+
 ## Troubleshooting
 
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
 - Same network; not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
+- On the **Device** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
 
 ## Developer notes
 
@@ -99,7 +103,9 @@ Two Macs discover each other over Bonjour, then exchange short commands over a s
 
 ## Security model
 
-The LAN channel uses a shared symmetric key derived from the twelve-character pairing code via PBKDF2-HMAC-SHA256 (600k iterations) and stored in the Keychain. Per connection, both sides exchange a 32-byte nonce and derive direction-specific session keys via HKDF; messages are framed as length-prefixed ChaCha20-Poly1305 sealed boxes with monotonic counter nonces. Failed authentications are rate-limited per source IP (5 failures / 60s → 15-minute block).
+The LAN channel uses a shared symmetric key derived from the twelve-character pairing code via PBKDF2-HMAC-SHA256 (600k iterations) and stored in the Keychain. Per connection, both sides exchange a 32-byte nonce and derive direction-specific session keys via HKDF; messages are framed as length-prefixed ChaCha20-Poly1305 sealed boxes with monotonic counter nonces. Failed authentications are rate-limited per source IP (5 failures / 60s → 15-minute block), and the client side backs off after 5 failed outgoing attempts in the same window.
+
+Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, that peer is dropped and the Device tab makes you explicitly **Trust** the new identity before switching resumes — so a key change or impersonation attempt is surfaced rather than silently accepted.
 
 Known limits:
 - The build isn't code-signed or notarized.
@@ -107,4 +113,4 @@ Known limits:
 
 ## License
 
-GNU GPL v3.0. See [LICENSE](../LICENSE).
+GNU GPL v3.0. See [LICENSE](LICENSE).
