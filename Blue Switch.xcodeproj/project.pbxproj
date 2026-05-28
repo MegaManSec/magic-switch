@@ -61,6 +61,7 @@
 		076AB2102CE9D690004D45F0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		076AB2132CE9D690004D45F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		076AB2142CE9D690004D45F0 /* Blue_Switch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Blue_Switch.entitlements; sourceTree = "<group>"; };
+		0A00001000000000000000B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		077473F22CD8426D00571393 /* Blue Switch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Blue Switch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -184,6 +185,7 @@
 				076AB2122CE9D690004D45F0 /* View */,
 				076AB2132CE9D690004D45F0 /* Assets.xcassets */,
 				076AB2142CE9D690004D45F0 /* Blue_Switch.entitlements */,
+				0A00001000000000000000B0 /* Info.plist */,
 			);
 			path = "Blue Switch";
 			sourceTree = "<group>";
@@ -439,10 +441,8 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"Blue Switch/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bluetooth is required to connect with nearby devices";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Local network access is needed to discover devices";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Blue Switch/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -468,10 +468,8 @@
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"Blue Switch/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Bluetooth is required to connect with nearby devices";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Local network access is needed to discover devices";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Blue Switch/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

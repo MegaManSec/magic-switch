@@ -132,10 +132,13 @@ final class IncomingConnection {
       print("Dropping non-UTF8 frame")
       return
     }
-    if let command = DeviceCommand(rawValue: message) {
+    // Order matters: if a command is awaiting its data frame, this is that
+    // data — even if the payload happens to be parseable as a `DeviceCommand`
+    // raw value (e.g. an attacker sending `OP_SUCCESS` as a notification body).
+    if let pending = lastReceivedCommand {
+      handleCommandData(message, for: pending)
+    } else if let command = DeviceCommand(rawValue: message) {
       handleCommand(command)
-    } else if let last = lastReceivedCommand {
-      handleCommandData(message, for: last)
     } else {
       print("Unexpected payload with no pending command")
     }

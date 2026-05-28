@@ -67,6 +67,15 @@ extension ServiceBrowser: NetServiceDelegate {
   func netServiceDidResolveAddress(_ sender: NetService) {
     guard let addresses = sender.addresses else { return }
 
+    // Read the peer's PSK fingerprint from the TXT record, if it advertises
+    // one. Missing means the peer is unpaired or running an older build —
+    // both are acceptable on first contact; the TOFU pin captures the
+    // fingerprint the first time we see it.
+    let fingerprint: String? = sender.txtRecordData().flatMap { data in
+      let parsed = NetService.dictionary(fromTXTRecord: data)
+      return parsed["fp"].flatMap { String(data: $0, encoding: .utf8) }
+    }
+
     for addressData in addresses {
       if let host = getHost(from: addressData), sender.port != 0 {
         let device = NetworkDevice(
@@ -74,7 +83,8 @@ extension ServiceBrowser: NetServiceDelegate {
           name: sender.name,
           host: host,
           port: sender.port,
-          isActive: true
+          isActive: true,
+          fingerprint: fingerprint
         )
 
         DispatchQueue.main.async {

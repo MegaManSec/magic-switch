@@ -36,6 +36,16 @@ struct NetworkDeviceManagementView: View {
     }
   }
 
+  // MARK: - Tooltips
+
+  fileprivate enum Help {
+    static let notify = "Send a test notification to this Mac."
+    static let connect = "Add this Mac to your registered list."
+    static let sync = "Send your peripheral list to this Mac."
+    static let remove = "Remove this Mac from the registered list."
+    static let needsPairing = "Pair this Mac in the Pairing tab first."
+  }
+
   var body: some View {
     if #available(macOS 13.0, *) {
       formContent
@@ -77,6 +87,8 @@ private struct RegisteredDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.notify,
+          actionHelp: NetworkDeviceManagementView.Help.notify,
+          requiresPairing: true,
           action: onDeviceNotify,
           onDelete: onDeviceRemove,
           onSyncPeripherals: { device in
@@ -116,6 +128,7 @@ private struct AvailableDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.connect,
+          actionHelp: NetworkDeviceManagementView.Help.connect,
           action: onDeviceRegister
         )
       }
@@ -128,22 +141,34 @@ private struct NetworkDeviceListView: View {
 
   let devices: [NetworkDevice]
   let buttonTitle: String
+  let actionHelp: String
+  let requiresPairing: Bool
   let action: (NetworkDevice) -> Void
   let onDelete: ((NetworkDevice) -> Void)?
   let onSyncPeripherals: ((NetworkDevice) -> Void)?
 
+  @ObservedObject private var pairing = PairingStore.shared
+
   init(
     devices: [NetworkDevice],
     buttonTitle: String,
+    actionHelp: String,
+    requiresPairing: Bool = false,
     action: @escaping (NetworkDevice) -> Void,
     onDelete: ((NetworkDevice) -> Void)? = nil,
     onSyncPeripherals: ((NetworkDevice) -> Void)? = nil
   ) {
     self.devices = devices
     self.buttonTitle = buttonTitle
+    self.actionHelp = actionHelp
+    self.requiresPairing = requiresPairing
     self.action = action
     self.onDelete = onDelete
     self.onSyncPeripherals = onSyncPeripherals
+  }
+
+  private var blockedByPairing: Bool {
+    requiresPairing && !pairing.isPaired
   }
 
   var body: some View {
@@ -154,14 +179,20 @@ private struct NetworkDeviceListView: View {
         Button(action: { action(device) }) {
           Text(buttonTitle)
         }
-        .disabled(!device.isActive)
+        .disabled(!device.isActive || blockedByPairing)
+        .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
 
         if let onSync = onSyncPeripherals {
           Button(action: { onSync(device) }) {
             Image(systemName: "arrow.triangle.2.circlepath")
               .foregroundColor(.blue)
           }
-          .disabled(!device.isActive)
+          .disabled(!device.isActive || blockedByPairing)
+          .help(
+            blockedByPairing
+              ? NetworkDeviceManagementView.Help.needsPairing
+              : NetworkDeviceManagementView.Help.sync
+          )
         }
 
         if let onDelete = onDelete {
@@ -169,6 +200,7 @@ private struct NetworkDeviceListView: View {
             Image(systemName: "trash")
               .foregroundColor(.red)
           }
+          .help(NetworkDeviceManagementView.Help.remove)
         }
       }
     }

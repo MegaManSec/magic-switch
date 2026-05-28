@@ -26,6 +26,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
+          # semantic-release needs full history to determine the next version.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Node.js
@@ -45,15 +47,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OUTPUT="$(semantic-release --dry-run --no-ci)"
-          NEW_RELEASE_VERSION=$(echo "$OUTPUT" | grep 'The next release version is' | sed 's/.*is \([0-9.]*\).*/\1/')
-          if [ -z "$NEW_RELEASE_VERSION" ]; then
-            NEW_RELEASE_VERSION="0.0.0"
-            echo "First commit detected, setting initial version to 0.0.0"
+          # Extract just the version triple to avoid picking up trailing
+          # punctuation if the log format ever changes slightly.
+          NEW_RELEASE_VERSION=$(echo "$OUTPUT" \
+            | grep -oE 'next release version is [0-9]+\.[0-9]+\.[0-9]+' \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
+            || true)
+          if [ -n "$NEW_RELEASE_VERSION" ]; then
+            echo "Will release v$NEW_RELEASE_VERSION"
+            echo "new-release-version=$NEW_RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "No releasable commits since the last tag; skipping build & release."
           fi
-          echo "new-release-version=$NEW_RELEASE_VERSION" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
+    # Gate build on a real release version. The previous code defaulted an
+    # empty extraction to "0.0.0", which then built and tagged a v0.0.0
+    # release, overwriting tag history.
+    if: needs.version.outputs.new-release-version != ''
     runs-on: macos-latest
     permissions:
       contents: read
@@ -117,6 +129,7 @@ jobs:
     needs:
       - version
       - build
+    if: needs.version.outputs.new-release-version != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,6 +141,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download Build Artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4

@@ -26,21 +26,25 @@ struct SettingsView: View {
         .tabItem {
           Label(TabItem.devices.text, systemImage: TabItem.devices.image)
         }
+        .help("Manage Bluetooth peripherals (keyboards, mice) to switch between Macs.")
 
       NetworkDeviceManagementView()
         .tabItem {
           Label(TabItem.mac.text, systemImage: TabItem.mac.image)
         }
+        .help("Manage the other Macs on your network.")
 
       PairingSettingsView()
         .tabItem {
           Label(TabItem.pairing.text, systemImage: TabItem.pairing.image)
         }
+        .help("Set up the pairing key between this Mac and your other Mac.")
 
       OtherSettingsView()
         .tabItem {
           Label(TabItem.other.text, systemImage: TabItem.other.image)
         }
+        .help("License and other settings.")
     }
     .frame(width: windowSize.width, height: windowSize.height)
   }

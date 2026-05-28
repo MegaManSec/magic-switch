@@ -9,18 +9,19 @@ protocol BluetoothManaging {
   var state: CBManagerState { get }
 }
 
-final class BluetoothManager: NSObject, BluetoothManaging {
+/// Publishes the live `CBManagerState`. Other components subscribe via
+/// `@Published var state` (Combine) to react to powerOff / unauthorized
+/// transitions and surface them to the user.
+final class BluetoothManager: NSObject, ObservableObject, BluetoothManaging {
   // MARK: - Singleton
 
   static let shared = BluetoothManager()
 
   // MARK: - Properties
 
-  private var centralManager: CBCentralManager?
+  @Published private(set) var state: CBManagerState = .unknown
 
-  var state: CBManagerState {
-    centralManager?.state ?? .unknown
-  }
+  private var centralManager: CBCentralManager?
 
   // MARK: - Initialization
 
@@ -42,25 +43,11 @@ final class BluetoothManager: NSObject, BluetoothManaging {
 
 extension BluetoothManager: CBCentralManagerDelegate {
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
-    let message: String
-
-    switch central.state {
-    case .poweredOn:
-      message = "Bluetooth is available"
-    case .poweredOff:
-      message = "Bluetooth is powered off"
-    case .unauthorized:
-      message = "Bluetooth use is not authorized"
-    case .unsupported:
-      message = "Device does not support Bluetooth"
-    case .resetting:
-      message = "Bluetooth is resetting"
-    case .unknown:
-      message = "Bluetooth state is unknown"
-    @unknown default:
-      message = "Unexpected Bluetooth state"
+    // CB delegate callbacks fire on the queue we passed to the initializer;
+    // hop to main before publishing so subscribers (typically UI) don't see
+    // mutations from a background thread.
+    DispatchQueue.main.async { [weak self] in
+      self?.state = central.state
     }
-
-    print(message)
   }
 }

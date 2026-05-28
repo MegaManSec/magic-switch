@@ -70,7 +70,20 @@ final class SecureChannel {
   /// Performs the handshake and verifies the peer's transcript MAC. On
   /// success calls `completion(.success(()))`; on failure closes the
   /// connection and returns the relevant error.
-  func performHandshake(completion: @escaping (Result<Void, SecureChannelError>) -> Void) {
+  func performHandshake(
+    completion outerCompletion: @escaping (Result<Void, SecureChannelError>) -> Void
+  ) {
+    // Single-shot latch: the timeout fires `connection.cancel()`, which then
+    // propagates to any in-flight `sendRaw`/`receiveRaw` as a connection
+    // error and triggers their own completion path. Without this, the outer
+    // completion would be invoked twice.
+    var completed = false
+    let completion: (Result<Void, SecureChannelError>) -> Void = { result in
+      guard !completed else { return }
+      completed = true
+      outerCompletion(result)
+    }
+
     var localNonce = Data(count: Self.nonceLength)
     _ = localNonce.withUnsafeMutableBytes { buf in
       SecRandomCopyBytes(kSecRandomDefault, Self.nonceLength, buf.baseAddress!)
