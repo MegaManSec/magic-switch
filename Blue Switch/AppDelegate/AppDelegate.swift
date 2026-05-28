@@ -324,7 +324,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       forName: NSWindow.willCloseNotification,
       object: nil,
       queue: .main
-    ) { [weak self] _ in
+    ) { [weak self] notification in
+      // Only react when a normal-level window closes. The right-click
+      // NSMenu fires willClose as soon as the user picks Settings —
+      // reacting to that races against the Settings window actually
+      // appearing (we'd flip back to .accessory before SwiftUI has put
+      // the window on screen, killing the open). Status-item windows
+      // and popovers live at non-`.normal` levels and would hit the
+      // same race.
+      guard let window = notification.object as? NSWindow,
+        window.level == .normal
+      else { return }
       // `willClose` fires while the closing window is still flagged visible;
       // defer one runloop tick so the count reflects the post-close state.
       DispatchQueue.main.async {
