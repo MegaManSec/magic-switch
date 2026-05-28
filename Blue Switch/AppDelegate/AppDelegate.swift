@@ -26,6 +26,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupActivationPolicyTracking()
   }
 
+  /// Fires when the user clicks the Dock icon with no visible windows.
+  /// In this menu-bar app a Dock click without a Settings window present
+  /// has no useful default action — interpret it as "I'm done with the
+  /// Dock entry, go back to menu-bar-only." Returning `false` suppresses
+  /// any AppKit default reopen behaviour.
+  func applicationShouldHandleReopen(
+    _ sender: NSApplication, hasVisibleWindows flag: Bool
+  ) -> Bool {
+    if !flag {
+      NSApp.setActivationPolicy(.accessory)
+      return false
+    }
+    return true
+  }
+
   deinit {
     if let token = windowCloseObserver {
       NotificationCenter.default.removeObserver(token)
@@ -296,23 +311,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`. The
-  /// previous code hosted `SettingsView` inside a manually-built `NSWindow`,
-  /// which suppresses SwiftUI `.help(...)` tooltips; routing through the
-  /// `Settings` scene fixes that.
+  /// Right-click menu's Mac entry. Switches the persisted Settings tab to
+  /// Device and opens Settings, so the row has an actual affordance instead
+  /// of just being a greyed-out label.
+  @objc func handleMacMenuClick(_ sender: NSMenuItem) {
+    // Tag matches `SettingsView`'s Device tab — kept in sync via this constant.
+    UserDefaults.standard.set(Self.deviceTabIndex, forKey: "settings-selected-tab")
+    openSettingsWindow(sender)
+  }
+
+  /// Tag of the Device tab in `SettingsView`. Keep in sync if tabs reorder.
+  private static let deviceTabIndex = 1
+
+  /// AppKit's auto-validation routes through here for menu items targeting
+  /// this delegate. Mac entries are enabled only when the peer is currently
+  /// reachable on the network (`device.isActive`); everything else passes
+  /// through.
+  @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+    if menuItem.action == #selector(handleMacMenuClick(_:)) {
+      guard let id = menuItem.representedObject as? String,
+        let device = networkStore.networkDevices.first(where: { $0.id == id })
+      else { return false }
+      return device.isActive
+    }
+    return true
+  }
+
+  /// Open the SwiftUI `Settings` scene declared in `Blue_SwitchApp`.
   ///
-  /// Bumps the activation policy to `.regular` so a Dock icon shows while
-  /// Settings is visible — the close observer set up in
-  /// `setupActivationPolicyTracking` flips it back to `.accessory`.
+  /// Bumps the activation policy to `.regular` so a Dock icon appears while
+  /// Settings is visible (the close observer in
+  /// `setupActivationPolicyTracking` flips it back to `.accessory`). The
+  /// `sendAction(showSettingsWindow:)` call is deferred one runloop tick so
+  /// AppKit can finish tearing down the right-click menu we were invoked
+  /// from before SwiftUI tries to bring up Settings — without that, the
+  /// Settings window sometimes silently fails to appear. After dispatching,
+  /// we also defensively look for any open Settings window and bring it to
+  /// front; SwiftUI's `showSettingsWindow:` handler doesn't always
+  /// `makeKeyAndOrderFront` after an `.accessory`→`.regular` transition.
   @objc func openSettingsWindow(_ sender: Any?) {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
-    // macOS 13 renamed the standard selector; fall back for older releases.
-    let modern = Selector(("showSettingsWindow:"))
-    let legacy = Selector(("showPreferencesWindow:"))
-    if !NSApp.sendAction(modern, to: nil, from: nil) {
-      NSApp.sendAction(legacy, to: nil, from: nil)
+    DispatchQueue.main.async {
+      // macOS 13 renamed the standard selector; fall back for older releases.
+      let modern = Selector(("showSettingsWindow:"))
+      let legacy = Selector(("showPreferencesWindow:"))
+      if !NSApp.sendAction(modern, to: nil, from: nil) {
+        NSApp.sendAction(legacy, to: nil, from: nil)
+      }
+      // Second tick: if SwiftUI has installed (or reused) a settings window,
+      // bring it forward explicitly. Matched by title because the SwiftUI
+      // Settings scene doesn't give us a stable identifier across macOS
+      // versions; "Settings" and "Preferences" cover both pre- and post-13.
+      DispatchQueue.main.async {
+        if let window = Self.findSettingsWindow() {
+          window.makeKeyAndOrderFront(nil)
+        }
+      }
     }
+  }
+
+  private static func findSettingsWindow() -> NSWindow? {
+    for window in NSApp.windows where window.level == .normal {
+      if window.title == "Settings" || window.title == "Preferences" {
+        return window
+      }
+    }
+    return nil
   }
 
   /// Drops the app back to `.accessory` (no Dock icon) once the last normal
