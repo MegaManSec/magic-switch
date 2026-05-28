@@ -193,14 +193,14 @@ private struct PeripheralRowView: View {
     switch connectionState {
     case .connected:
       Button("Remove from PC", action: primaryAction)
-        .help("Disconnect and unpair this peripheral from your Mac.")
+        .help("Release this peripheral. If a peer Mac is paired, it'll take ownership.")
     case .connecting:
       Button("Pairing…", action: {})
         .disabled(true)
         .help("Pairing in progress…")
     case .disconnected:
       Button("Connect to PC", action: primaryAction)
-        .help("Pair this peripheral with your Mac.")
+        .help("Pair this peripheral with your Mac. Asks the peer to release it first if needed.")
     }
   }
 }

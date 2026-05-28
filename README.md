@@ -35,10 +35,11 @@ Until step 4 completes, the switch action and peripheral sync refuse to talk to 
 
 ## Usage
 
-| Action                    | Result                                              |
-| ------------------------- | --------------------------------------------------- |
-| Left-click menu bar icon  | Hand peripherals between the two Macs               |
-| Right-click menu bar icon | Open Settings / show registered peripherals & peers |
+| Action                                  | Result                                                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Left-click menu bar icon                | Hand all peripherals between the two Macs at once                                               |
+| Right-click menu bar icon → peripheral  | Switch just that one peripheral. Checkmark = currently on this Mac                              |
+| Right-click menu bar icon → Settings    | Open the Settings window                                                                        |
 
 ## Troubleshooting
 
