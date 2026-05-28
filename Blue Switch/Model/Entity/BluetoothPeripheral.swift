@@ -1,6 +1,14 @@
 import Foundation
 import IOBluetooth
 
+/// Runtime connection state of a peripheral. Not persisted — owned by
+/// `BluetoothPeripheralStore`, surfaced to views via `connectionState(for:)`.
+enum PeripheralConnectionState: Equatable {
+  case disconnected
+  case connecting
+  case connected
+}
+
 /// Represents a Bluetooth peripheral device with its connection state and identity information
 struct BluetoothPeripheral: Identifiable, Codable {
   // MARK: - Properties
@@ -10,14 +18,6 @@ struct BluetoothPeripheral: Identifiable, Codable {
 
   /// Display name of the Bluetooth device
   var name: String
-
-  /// Indicates whether the device is currently connected
-  var isConnected: Bool {
-    if let btDevice = IOBluetoothDevice(addressString: id) {
-      return btDevice.isConnected()
-    }
-    return false
-  }
 
   // MARK: - Codable
 

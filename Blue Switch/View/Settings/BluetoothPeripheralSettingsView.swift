@@ -35,10 +35,13 @@ struct BluetoothPeripheralSettingsView: View {
   // MARK: - Private Methods
 
   private func handlePeripheralToggleConnection(_ peripheral: BluetoothPeripheral) {
-    if peripheral.isConnected {
+    switch bluetoothStore.connectionState(for: peripheral.id) {
+    case .connected:
       bluetoothStore.unregisterFromPC(peripheral)
-    } else {
+    case .disconnected:
       bluetoothStore.connectPeripheral(peripheral)
+    case .connecting:
+      break  // Pairing in flight; button is disabled in the UI.
     }
   }
 
@@ -133,17 +136,18 @@ private struct PeripheralRowView: View {
   let primaryAction: () -> Void
   var secondaryAction: (() -> Void)?
 
+  @ObservedObject private var store = BluetoothPeripheralStore.shared
+
+  private var connectionState: PeripheralConnectionState {
+    store.connectionState(for: peripheral.id)
+  }
+
   var body: some View {
     HStack {
       Text(peripheral.name)
       Spacer()
       if showConnectionStatus {
-        Button(peripheral.isConnected ? "Remove from PC" : "Connect to PC", action: primaryAction)
-          .help(
-            peripheral.isConnected
-              ? "Disconnect and unpair this peripheral from your Mac."
-              : "Pair this peripheral with your Mac."
-          )
+        connectionButton
         Button(action: { secondaryAction?() }) {
           Image(systemName: "minus.circle")
             .foregroundColor(.red)
@@ -156,6 +160,22 @@ private struct PeripheralRowView: View {
         }
         .help("Add this peripheral to Blue Switch's list.")
       }
+    }
+  }
+
+  @ViewBuilder
+  private var connectionButton: some View {
+    switch connectionState {
+    case .connected:
+      Button("Remove from PC", action: primaryAction)
+        .help("Disconnect and unpair this peripheral from your Mac.")
+    case .connecting:
+      Button("Pairing…", action: {})
+        .disabled(true)
+        .help("Pairing in progress…")
+    case .disconnected:
+      Button("Connect to PC", action: primaryAction)
+        .help("Pair this peripheral with your Mac.")
     }
   }
 }
