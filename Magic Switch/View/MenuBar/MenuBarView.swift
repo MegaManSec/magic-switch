@@ -65,10 +65,9 @@ final class MenuBarView: MenuBarPresentable {
     if !macs.isEmpty {
       menu.addItem(makeSectionHeader(Constants.Menu.macsHeader))
       for device in macs {
-        // Click opens Settings → Device. Enabled state is driven by
-        // `validateMenuItem` on AppDelegate using `device.isActive`, so a
-        // peer that's gone offline greys out for a meaningful reason
-        // instead of "this row has no action wired up".
+        // Click runs the switch (handoff) with this Mac. Enabled state is
+        // driven by `validateMenuItem` on AppDelegate using `device.isActive`,
+        // so a peer that's gone offline greys out instead of failing silently.
         let item = makeItem(
           title: device.name,
           symbol: Constants.Symbols.mac,
@@ -76,7 +75,7 @@ final class MenuBarView: MenuBarPresentable {
         item.representedObject = device.id
         item.toolTip =
           device.isActive
-          ? "Open Settings → Device"
+          ? "Switch peripherals between this Mac and \(device.name)."
           : "\(device.name) isn't reachable on the network right now."
         menu.addItem(item)
       }

@@ -39,9 +39,10 @@ Until step 4 completes, the switch action and peripheral sync refuse to talk to 
 
 | Action                                  | Result                                                                                          |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Left-click menu bar icon                | Hand all peripherals between the two Macs at once                                               |
-| Right-click menu bar icon → peripheral  | Switch just that one peripheral. Checkmark = currently on this Mac                              |
-| Right-click menu bar icon → Settings    | Open the Settings window                                                                        |
+| Click the menu-bar icon (either button) | Open the menu |
+| Menu → a Mac | Hand all peripherals between this Mac and that one |
+| Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac |
+| Menu → Settings | Open the Settings window |
 
 The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs.
 

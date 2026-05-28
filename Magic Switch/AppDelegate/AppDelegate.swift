@@ -327,11 +327,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   @objc private func handleClick(_ sender: NSStatusBarButton) {
     guard let event = NSApp.currentEvent else { return }
 
+    // Both buttons open the menu; the switch is triggered by clicking a Mac
+    // row inside it (see `handleMacMenuClick`).
     switch event.type {
-    case .rightMouseUp:
+    case .rightMouseUp, .leftMouseUp:
       showMenu()
-    case .leftMouseUp:
-      handleLeftClick()
     default:
       break
     }
@@ -341,16 +341,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     MenuBarView().showMenu(statusItem: statusItem)
   }
 
-  private func handleLeftClick() {
-    guard let targetDevice = networkStore.networkDevices.first else {
-      NotificationManager.showNotification(
-        title: "Error",
-        body: "No devices connected. Please connect a device first."
-      )
-      return
-    }
-
-    targetDevice.checkHealth { [weak self] result in
+  /// Runs the switch handoff with `device`. Triggered by clicking a Mac row in
+  /// the menu. `checkHealth` confirms the peer's TCP port is open before we
+  /// touch any local Bluetooth state.
+  private func performSwitch(with device: NetworkDevice) {
+    device.checkHealth { [weak self] result in
       // `checkHealth` fires on its own queue. Hop to main before any UI or
       // store mutations, and before calling `checkActualConnectionStatusAsync`
       // (which expects to be invoked from main).
@@ -359,7 +354,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch result {
         case .success:
           self.bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
-            self?.handleSwitchAction(status: status, device: targetDevice)
+            self?.handleSwitchAction(status: status, device: device)
           }
         case .failure(let error):
           NotificationManager.showNotification(
@@ -526,17 +521,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  /// Right-click menu's Mac entry. Switches the persisted Settings tab to
-  /// Device and opens Settings, so the row has an actual affordance instead
-  /// of just being a greyed-out label.
+  /// Menu's Mac entry. Performs the peripheral switch (handoff) with the
+  /// clicked Mac. `validateMenuItem` greys the row out when the peer isn't
+  /// reachable, so this only fires for an active device.
   @objc func handleMacMenuClick(_ sender: NSMenuItem) {
-    // Tag matches `SettingsView`'s Device tab — kept in sync via this constant.
-    UserDefaults.standard.set(Self.deviceTabIndex, forKey: "settings-selected-tab")
-    openSettingsWindow(sender)
+    guard let id = sender.representedObject as? String,
+      let device = networkStore.networkDevices.first(where: { $0.id == id })
+    else { return }
+    performSwitch(with: device)
   }
-
-  /// Tag of the Device tab in `SettingsView`. Keep in sync if tabs reorder.
-  private static let deviceTabIndex = 1
 
   /// Opens the newest release in the default browser. Wired to the "Update
   /// Available" item in the right-click menu (see `MenuBarView`).
