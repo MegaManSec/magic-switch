@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: |
           xcodebuild build \
-            -project "Blue Switch.xcodeproj" \
-            -scheme "Blue Switch" \
+            -project "Magic Switch.xcodeproj" \
+            -scheme "Magic Switch" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO

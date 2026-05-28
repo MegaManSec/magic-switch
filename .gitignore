@@ -63,3 +63,7 @@ fastlane/test_output
 
 # Additional
 .DS_Store
+
+# Claude Code session artifacts
+.claude/
+CLAUDE.md
