@@ -32,8 +32,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// "Pairing…" before giving up. Magic peripherals typically pair within
     /// a couple of seconds; if the device is currently held by the other
     /// Mac, `IOBluetoothDevicePair.start()` has no built-in timeout and the
-    /// state would otherwise stick forever.
-    static let pairTimeout: TimeInterval = 20
+    /// state would otherwise stick forever. 60s is generous — first-time
+    /// cross-Mac handoffs (peripheral arbitrating between recently-seen
+    /// hosts) can legitimately take 30-45s, and a false-positive timeout
+    /// is worse than waiting a beat longer.
+    static let pairTimeout: TimeInterval = 60
   }
 
   // MARK: - Dependencies
@@ -143,8 +146,25 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       btDevice.perform(Selector(("remove")))
       print("Device information removed: \(peripheral.name)")
       setConnectionState(.disconnected, for: peripheral.id)
+      return
+    }
+
+    // Fallback path: a future macOS that renames or removes the private
+    // `-remove` selector lands here. `closeConnection` doesn't fully
+    // unpair (the device stays in System Settings → Bluetooth's list), but
+    // it breaks the active session so the peer can take ownership.
+    let result = btDevice.closeConnection()
+    if result == kIOReturnSuccess {
+      print("Fell back to closeConnection() for \(peripheral.name)")
+      setConnectionState(.disconnected, for: peripheral.id)
     } else {
-      print("Failed to remove device information: \(peripheral.name)")
+      print("Failed to release \(peripheral.name): closeConnection returned \(result)")
+      NotificationManager.showNotification(
+        title: "Couldn't Release Peripheral",
+        body:
+          "Magic Switch couldn't release \(peripheral.name) from this Mac. Try Forget This Device in System Settings → Bluetooth.",
+        identifier: "unregister-failed-\(peripheral.id)"
+      )
     }
   }
 
@@ -260,7 +280,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         }
       }
     }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { check() }
+    // First check fires immediately; the IOBluetooth disconnect issued by
+    // `unregisterFromPC` is synchronous, so the peripheral is often
+    // already gone. Polled retry covers the few cases where it isn't.
+    check()
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {

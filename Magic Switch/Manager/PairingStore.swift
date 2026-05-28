@@ -60,7 +60,15 @@ final class PairingStore: ObservableObject {
   static func generateCode() -> String {
     let alphabet = Array(codeAlphabet)
     var bytes = [UInt8](repeating: 0, count: codeLength)
-    _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    // `SecRandomCopyBytes` failing is extremely unlikely on a healthy
+    // system, but if it did and we ignored the status we'd silently
+    // generate "AAAAAAAAAAAA" (every byte still zero) — i.e. a guessable
+    // pairing key. Crash hard instead.
+    precondition(
+      status == errSecSuccess,
+      "SecRandomCopyBytes failed with status \(status); refusing to generate a weak pairing code."
+    )
     var result = ""
     for byte in bytes {
       result.append(alphabet[Int(byte) % alphabet.count])
@@ -76,10 +84,22 @@ final class PairingStore: ObservableObject {
     return "\(String(chars[0...3]))-\(String(chars[4...7]))-\(String(chars[8...11]))"
   }
 
-  /// Normalizes free-form user input: uppercase, strip dashes/spaces.
+  /// Normalizes free-form user input: uppercase, then apply Crockford's
+  /// look-alike substitutions (I/L → 1, O → 0, U → V) so common typos of
+  /// the excluded letters resolve to the visually-similar canonical
+  /// character instead of being silently dropped. Anything still outside
+  /// the alphabet (dashes, spaces, etc.) is then filtered out.
   static func normalize(_ input: String) -> String {
     let upper = input.uppercased()
-    return upper.filter { codeAlphabet.contains($0) }
+    let substituted = upper.map { char -> Character in
+      switch char {
+      case "I", "L": return "1"
+      case "O": return "0"
+      case "U": return "V"
+      default: return char
+      }
+    }
+    return String(substituted).filter { codeAlphabet.contains($0) }
   }
 
   /// Validates that `code` is exactly `codeLength` chars in the alphabet.

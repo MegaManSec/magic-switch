@@ -83,14 +83,14 @@ struct PairingSettingsView: View {
       }
       if let fingerprint = pairing.fingerprint {
         VStack(alignment: .leading, spacing: 4) {
-          Text("Fingerprint")
+          Text("Your fingerprint")
             .font(.caption)
             .foregroundColor(.secondary)
           Text(fingerprint)
             .font(.system(.title3, design: .monospaced))
         }
       }
-      Text("Verify the same fingerprint appears on your other Mac.")
+      Text("Compare with the fingerprint shown on your other Mac — they should match.")
         .foregroundColor(.secondary)
       Button("Unpair") {
         showUnpairAlert = true
@@ -137,7 +137,17 @@ private struct GenerateCodeSheet: View {
   @ObservedObject private var pairing = PairingStore.shared
   @State private var code: String = ""
   @State private var errorMessage: String?
-  @State private var isPairing = false
+  @State private var saveState: SaveState = .saving
+
+  /// Progress of the auto-save kicked off in `onAppear`. The Done button is
+  /// gated on `.saved` so the user can't dismiss with the keychain write
+  /// still in flight (which would leave us thinking we're paired before
+  /// PBKDF2 finishes).
+  private enum SaveState {
+    case saving
+    case saved
+    case failed
+  }
 
   private var formattedCode: String {
     PairingStore.formatCode(code)
@@ -160,53 +170,70 @@ private struct GenerateCodeSheet: View {
         .help("Copy the pairing code to the clipboard.")
         .accessibilityLabel("Copy pairing code")
       }
-      Text("Enter this code on your other Mac.")
-        .foregroundColor(.secondary)
-        .font(.caption)
+      Text(
+        "Enter this code on your other Mac. Order doesn't matter — both Macs derive the same key from the same code."
+      )
+      .foregroundColor(.secondary)
+      .font(.caption)
+      .multilineTextAlignment(.center)
       if let error = errorMessage {
         Text(error)
           .foregroundColor(.red)
           .font(.caption)
       }
       HStack {
-        if isPairing {
+        if saveState == .saving {
           ProgressView()
             .controlSize(.small)
+          Text("Saving…")
+            .font(.caption)
+            .foregroundColor(.secondary)
         }
         Spacer()
-        Button("Cancel") {
+        Button("Discard") {
+          discard()
+        }
+        .help("Remove the saved key from this Mac and close.")
+        Button("Done") {
           isPresented = false
         }
-        .disabled(isPairing)
-        .help("Close without saving this code.")
-        Button("I've entered this on my other Mac") {
-          startPair()
-        }
         .keyboardShortcut(.defaultAction)
-        .disabled(isPairing)
-        .help("Save this code as the pairing key on this Mac.")
+        .disabled(saveState != .saved)
+        .help("Close. The pairing key stays saved on this Mac.")
       }
     }
     .padding(24)
     .frame(width: 460)
     .onAppear {
-      code = PairingStore.generateCode()
-      errorMessage = nil
-      isPairing = false
+      generateAndSave()
     }
   }
 
-  private func startPair() {
-    isPairing = true
+  /// Generate the code and persist it immediately. This removes the failure
+  /// mode where a user generated a code, shared it with the peer, the peer
+  /// pair'd, then this side cancelled the sheet without saving — leaving
+  /// the peer paired alone and confusing the first handshake.
+  private func generateAndSave() {
+    code = PairingStore.generateCode()
     errorMessage = nil
+    saveState = .saving
     pairing.pair(withCode: code) { result in
-      isPairing = false
       switch result {
       case .success:
-        isPresented = false
+        saveState = .saved
       case .failure:
+        saveState = .failed
         errorMessage = "Failed to save pairing key."
       }
+    }
+  }
+
+  private func discard() {
+    pairing.unpair { _ in
+      // Best effort: close even if unpair returns a non-zero OSStatus. The
+      // main Pairing view's own Unpair flow surfaces keychain errors; we
+      // don't need to double up here.
+      isPresented = false
     }
   }
 }

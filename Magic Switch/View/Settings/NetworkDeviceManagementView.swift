@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Latest inline Ping result for a device. Carried in `pingResults` and
-/// rendered under the device row in the Registered list.
-struct PingResult {
+/// Latest inline action result for a device (Ping or Sync). Carried in
+/// `operationResults` and rendered under the device row. Either action
+/// overwrites the previous result, so there's only ever one status line
+/// per row — whichever the user did most recently.
+struct OperationResult {
   let success: Bool
   let message: String
 }
@@ -32,9 +34,17 @@ struct NetworkDeviceManagementView: View {
   // MARK: - State
 
   @State private var deviceToRemove: NetworkDevice?
-  /// Last Ping result per device id, surfaced inline because the OS-level
-  /// notification path is unreliable on ad-hoc-signed sandboxed builds.
-  @State private var pingResults: [String: PingResult] = [:]
+  /// Set when the user clicks Trust on an identity-mismatched device.
+  /// Triggers the confirmation alert below; the actual pin promotion only
+  /// happens after the user confirms.
+  @State private var deviceToTrust: NetworkDevice?
+  /// Last Ping/Sync result per device id, surfaced inline because the
+  /// OS-level notification path is unreliable on ad-hoc-signed sandboxed
+  /// builds.
+  @State private var operationResults: [String: OperationResult] = [:]
+  /// Used by `handleSyncPeripherals` to snapshot the count of peripherals
+  /// being synced for the inline success message.
+  @ObservedObject private var bluetoothStore = BluetoothPeripheralStore.shared
 
   // MARK: - View Content
 
@@ -52,9 +62,10 @@ struct NetworkDeviceManagementView: View {
 
       RegisteredDevicesSectionView(
         devices: networkStore.networkDevices,
-        pingResults: pingResults,
+        operationResults: operationResults,
         onDeviceNotify: handleDeviceNotification,
         onDeviceRemoveRequest: { deviceToRemove = $0 },
+        onSyncPeripherals: handleSyncPeripherals,
         onTrustPending: handleTrustPending
       )
 
@@ -71,6 +82,18 @@ struct NetworkDeviceManagementView: View {
         ),
         primaryButton: .destructive(Text("Remove")) {
           networkStore.removeNetworkDevice(device: device)
+        },
+        secondaryButton: .cancel()
+      )
+    }
+    .alert(item: $deviceToTrust) { device in
+      Alert(
+        title: Text("Trust new pairing key for \(device.name)?"),
+        message: Text(
+          "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
+        ),
+        primaryButton: .destructive(Text("Trust")) {
+          networkStore.trustPendingFingerprint(for: device.id)
         },
         secondaryButton: .cancel()
       )
@@ -103,15 +126,15 @@ struct NetworkDeviceManagementView: View {
   // MARK: - Private Methods
 
   private func handleDeviceNotification(_ device: NetworkDevice) {
-    pingResults[device.id] = PingResult(success: true, message: "Pinging \(device.name)…")
+    operationResults[device.id] = OperationResult(success: true, message: "Pinging \(device.name)…")
     networkStore.sendNotification(to: device) { result in
       switch result {
       case .success:
-        pingResults[device.id] = PingResult(
+        operationResults[device.id] = OperationResult(
           success: true, message: "\(device.name) responded."
         )
       case .failure(let err):
-        pingResults[device.id] = PingResult(
+        operationResults[device.id] = OperationResult(
           success: false, message: err.userMessage
         )
       }
@@ -123,22 +146,46 @@ struct NetworkDeviceManagementView: View {
   }
 
   private func handleTrustPending(_ device: NetworkDevice) {
-    networkStore.trustPendingFingerprint(for: device.id)
+    // Request the confirmation alert; actual promotion happens in its
+    // primaryButton. TOFU pin overrides are destructive — we won't do it
+    // without explicit acknowledgement.
+    deviceToTrust = device
+  }
+
+  private func handleSyncPeripherals(_ device: NetworkDevice) {
+    let peripherals = bluetoothStore.peripherals
+    let count = peripherals.count
+    let noun = count == 1 ? "peripheral" : "peripherals"
+    operationResults[device.id] = OperationResult(
+      success: true,
+      message: "Syncing \(count) \(noun) to \(device.name)…"
+    )
+    networkStore.sendPeripheralSync(peripherals: peripherals, to: device) { result in
+      switch result {
+      case .success:
+        operationResults[device.id] = OperationResult(
+          success: true,
+          message: "Synced \(count) \(noun) to \(device.name)."
+        )
+      case .failure(let err):
+        operationResults[device.id] = OperationResult(
+          success: false,
+          message: err.userMessage
+        )
+      }
+    }
   }
 }
 
 // MARK: - Supporting Views
 
 private struct RegisteredDevicesSectionView: View {
-  // MARK: - Dependencies
-  @ObservedObject private var bluetoothStore = BluetoothPeripheralStore.shared
-  @ObservedObject private var networkStore = NetworkDeviceStore.shared
-
   // MARK: - Properties
   let devices: [NetworkDevice]
-  let pingResults: [String: PingResult]
+  let operationResults: [String: OperationResult]
   let onDeviceNotify: (NetworkDevice) -> Void
   let onDeviceRemoveRequest: (NetworkDevice) -> Void
+  let onSyncPeripherals: (NetworkDevice) -> Void
   let onTrustPending: (NetworkDevice) -> Void
 
   var body: some View {
@@ -153,15 +200,10 @@ private struct RegisteredDevicesSectionView: View {
           buttonTitle: Constants.Strings.notify,
           actionHelp: NetworkDeviceManagementView.Help.notify,
           requiresPairing: true,
-          pingResults: pingResults,
+          operationResults: operationResults,
           action: onDeviceNotify,
           onDelete: onDeviceRemoveRequest,
-          onSyncPeripherals: { device in
-            networkStore.sendPeripheralSync(
-              peripherals: bluetoothStore.peripherals,
-              to: device
-            )
-          },
+          onSyncPeripherals: onSyncPeripherals,
           onTrustPending: onTrustPending
         )
       }
@@ -222,7 +264,7 @@ private struct NetworkDeviceListView: View {
   let buttonTitle: String
   let actionHelp: String
   let requiresPairing: Bool
-  let pingResults: [String: PingResult]
+  let operationResults: [String: OperationResult]
   let action: (NetworkDevice) -> Void
   let onDelete: ((NetworkDevice) -> Void)?
   let onSyncPeripherals: ((NetworkDevice) -> Void)?
@@ -235,7 +277,7 @@ private struct NetworkDeviceListView: View {
     buttonTitle: String,
     actionHelp: String,
     requiresPairing: Bool = false,
-    pingResults: [String: PingResult] = [:],
+    operationResults: [String: OperationResult] = [:],
     action: @escaping (NetworkDevice) -> Void,
     onDelete: ((NetworkDevice) -> Void)? = nil,
     onSyncPeripherals: ((NetworkDevice) -> Void)? = nil,
@@ -245,7 +287,7 @@ private struct NetworkDeviceListView: View {
     self.buttonTitle = buttonTitle
     self.actionHelp = actionHelp
     self.requiresPairing = requiresPairing
-    self.pingResults = pingResults
+    self.operationResults = operationResults
     self.action = action
     self.onDelete = onDelete
     self.onSyncPeripherals = onSyncPeripherals
@@ -310,10 +352,10 @@ private struct NetworkDeviceListView: View {
           .padding(.vertical, 2)
         }
 
-        if let ping = pingResults[device.id] {
-          Text(ping.message)
+        if let result = operationResults[device.id] {
+          Text(result.message)
             .font(.caption)
-            .foregroundColor(ping.success ? .secondary : .red)
+            .foregroundColor(result.success ? .secondary : .red)
         }
       }
     }

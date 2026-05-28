@@ -237,17 +237,15 @@ extension NetworkDeviceStore {
     }
   }
 
-  /// Executes a command on the first connected device through a secure channel.
+  /// Executes a command on `device` through a secure channel. The caller
+  /// must pick the target device — keeping this explicit matches the per-
+  /// peripheral senders (`executeUnregisterOne` / `executeConnectOne`) and
+  /// avoids burying the single-device assumption inside this function.
   func executeCommand(
     _ command: DeviceCommand,
+    on device: NetworkDevice,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
-    guard let device = networkDevices.first else {
-      print("No connected devices found")
-      completion(.failure(.connectionFailed("no registered device")))
-      return
-    }
-
     guard PairingStore.shared.isPaired else {
       completion(.failure(.notPaired))
       return
@@ -334,13 +332,18 @@ extension NetworkDeviceStore {
 }
 
 extension NetworkDeviceStore {
-  func sendPeripheralSync(peripherals: [BluetoothPeripheral], to device: NetworkDevice) {
+  /// Push this Mac's registered peripheral list to `device`. Completion
+  /// receives the categorised outgoing result so the caller can render
+  /// inline UI feedback (the Device tab does this under each row). The
+  /// store no longer surfaces its own notifications for sync — callers
+  /// decide how to report success/failure.
+  func sendPeripheralSync(
+    peripherals: [BluetoothPeripheral],
+    to device: NetworkDevice,
+    completion: ((Result<Void, OutgoingFailure>) -> Void)? = nil
+  ) {
     guard PairingStore.shared.isPaired else {
-      NotificationManager.showNotification(
-        title: "Not Paired",
-        body: "Pair this Mac first to sync the peripheral list to \(device.name).",
-        identifier: "sync-not-paired-\(device.id)"
-      )
+      completion?(.failure(.notPaired))
       return
     }
 
@@ -348,6 +351,7 @@ extension NetworkDeviceStore {
       let jsonString = String(data: data, encoding: .utf8)
     else {
       print("sendPeripheralSync: failed to encode peripherals")
+      completion?(.failure(.connectionFailed("encode failed")))
       return
     }
 
@@ -383,15 +387,7 @@ extension NetworkDeviceStore {
         }
       },
       completion: { result in
-        // Sync is a routine background-ish operation, so we stay quiet on
-        // success and only surface failures.
-        if case .failure(let err) = result {
-          NotificationManager.showNotification(
-            title: "Couldn't Sync \(device.name)",
-            body: err.userMessage,
-            identifier: "sync-failed-\(device.id)"
-          )
-        }
+        completion?(result)
       }
     )
   }

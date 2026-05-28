@@ -73,10 +73,14 @@ final class SecureChannel {
   func performHandshake(
     completion outerCompletion: @escaping (Result<Void, SecureChannelError>) -> Void
   ) {
-    // Single-shot latch: the timeout fires `connection.cancel()`, which then
-    // propagates to any in-flight `sendRaw`/`receiveRaw` as a connection
-    // error and triggers their own completion path. Without this, the outer
-    // completion would be invoked twice.
+    // Single-shot latch on the outer completion. The 5-second timeout fires
+    // `connection.cancel()`, which then propagates to any in-flight
+    // `sendRaw`/`receiveRaw` as a connection error and re-enters this
+    // completion path with `.connectionClosed` *after* we've already
+    // reported `.handshakeTimeout`. The race is by design — `cancel()` is
+    // the cleanest way to abort all the nested I/O — so we just absorb the
+    // duplicate via the latch instead of trying to suppress one path or the
+    // other.
     var completed = false
     let completion: (Result<Void, SecureChannelError>) -> Void = { result in
       guard !completed else { return }
@@ -85,9 +89,16 @@ final class SecureChannel {
     }
 
     var localNonce = Data(count: Self.nonceLength)
-    _ = localNonce.withUnsafeMutableBytes { buf in
+    let nonceStatus = localNonce.withUnsafeMutableBytes { buf in
       SecRandomCopyBytes(kSecRandomDefault, Self.nonceLength, buf.baseAddress!)
     }
+    // Same rationale as `PairingStore.generateCode`: if the syscall fails
+    // we'd silently negotiate a session with an all-zero nonce — replayable
+    // and predictable. Crash rather than weaken the channel.
+    precondition(
+      nonceStatus == errSecSuccess,
+      "SecRandomCopyBytes failed with status \(nonceStatus); refusing to handshake with a weak nonce."
+    )
 
     let timeoutWork = DispatchWorkItem { [weak self] in
       guard let self = self else { return }

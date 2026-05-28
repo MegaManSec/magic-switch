@@ -119,6 +119,9 @@ final class RateLimiter {
     guard case .hostPort(let host, _) = endpoint else { return "unknown" }
     switch host {
     case .ipv4(let addr):
+      // `IPv4Address`/`IPv6Address` only conform to
+      // `CustomDebugStringConvertible`; `debugDescription` is the
+      // documented printing API for them, not a debug-only helper.
       return addr.debugDescription
     case .ipv6(let addr):
       let raw = addr.debugDescription

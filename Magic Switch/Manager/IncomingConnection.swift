@@ -26,7 +26,11 @@ extension Notification.Name {
 final class IncomingConnection {
   // MARK: - Constants
 
+  /// Cuts off slow-talkers. Reset on every successful frame.
   private static let idleTimeout: TimeInterval = 30
+  /// Hard cap on a single connection regardless of idle activity. Without it,
+  /// a well-behaved-looking attacker could keep `idleTimer` happy with
+  /// well-formed sealed frames indefinitely and pin a listener slot forever.
   private static let totalBudget: TimeInterval = 5 * 60
 
   // MARK: - Dependencies
@@ -181,6 +185,13 @@ final class IncomingConnection {
           store.connectPeripheral(peripheral)
         }
       }
+      // Best-effort ack: OP_SUCCESS here means "command received and
+      // dispatched," not "all peripherals successfully connected." Local
+      // pair work is async and may still fail (out of range, peer never
+      // released, etc.). The peer's goal ("you now hold these") is
+      // satisfied as long as we attempt — tracking per-peripheral results
+      // and aggregating would require holding the connection open until
+      // every IOBluetooth callback lands, which isn't worth the complexity.
       sendString(DeviceCommand.operationSuccess.rawValue)
       lastReceivedCommand = nil
     case .unregisterAll:
@@ -191,6 +202,7 @@ final class IncomingConnection {
           store.unregisterFromPC(peripheral)
         }
       }
+      // See connectAll above for the best-effort-ack rationale.
       sendString(DeviceCommand.operationSuccess.rawValue)
       lastReceivedCommand = nil
     case .ping:

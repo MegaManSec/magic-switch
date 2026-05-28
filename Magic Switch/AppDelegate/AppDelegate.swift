@@ -60,16 +60,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupTransferObservers()
   }
 
-  /// Fires when the user clicks the Dock icon with no visible windows.
-  /// In this menu-bar app a Dock click without a Settings window present
-  /// has no useful default action — interpret it as "I'm done with the
-  /// Dock entry, go back to menu-bar-only." Returning `false` suppresses
-  /// any AppKit default reopen behaviour.
+  /// Fires when the user clicks the Dock icon. If a window is already
+  /// visible AppKit will bring it forward (return true). If not, the Dock
+  /// icon only exists because Settings was open recently — reopen it,
+  /// since that's the only useful action there is for this menu-bar app.
   func applicationShouldHandleReopen(
     _ sender: NSApplication, hasVisibleWindows flag: Bool
   ) -> Bool {
     if !flag {
-      NSApp.setActivationPolicy(.accessory)
+      openSettingsWindow(sender)
       return false
     }
     return true
@@ -141,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   // MARK: - Setup Methods
 
   private func setupNotifications() {
-    NotificationManager.requestAuthorization()
+    NotificationManager.requestAuthorizationIfNeeded()
   }
 
   private func setupBluetooth() {
@@ -357,7 +356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch result {
         case .success:
           self.bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
-            self?.handleSwitchAction(status: status)
+            self?.handleSwitchAction(status: status, device: targetDevice)
           }
         case .failure(let error):
           NotificationManager.showNotification(
@@ -374,7 +373,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  private func handleSwitchAction(status: BluetoothPeripheralStore.ConnectionStatus) {
+  private func handleSwitchAction(
+    status: BluetoothPeripheralStore.ConnectionStatus,
+    device: NetworkDevice
+  ) {
     switch status {
     case .allConnected:
       // Show "sending" immediately on the click — feedback before the
@@ -385,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       // can't be established, we'd otherwise disconnect locally and then
       // fail to hand peripherals over, leaving them paired nowhere.
       beginTransfer(.sending)
-      networkStore.executeCommand(.ping) { [weak self] preflight in
+      networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
         guard let self = self else { return }
         switch preflight {
         case .failure(let err):
@@ -397,7 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             identifier: "switch-preflight-failed"
           )
         case .success:
-          self.performHandoffToPeer()
+          self.performHandoffToPeer(device: device)
         }
       }
     case .allDisconnected:
@@ -405,7 +407,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       // `executeCommand(.unregisterAll)` *is* the preflight — if it fails,
       // nothing has changed locally yet.
       beginTransfer(.receiving)
-      networkStore.executeCommand(.unregisterAll) { [weak self] result in
+      networkStore.executeCommand(.unregisterAll, on: device) { [weak self] result in
         guard let self = self else { return }
         switch result {
         case .success:
@@ -426,7 +428,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       NotificationManager.showNotification(
         title: "Peripherals in mixed state",
         body:
-          "Some peripherals are connected to this Mac and others aren't. Open Settings → Peripheral and either connect or remove each one so they're all in the same state, then click the menu bar icon again.",
+          "Some peripherals are on this Mac, others aren't. Right-click the menu bar icon to switch each peripheral individually, then left-click to handle them all at once.",
         identifier: "switch-mixed-state"
       )
     }
@@ -436,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// after a successful preflight, but the peer can still die between the
   /// preflight and `CONNECT_ALL` — if it does, re-connect peripherals
   /// locally rather than leave them stranded.
-  private func performHandoffToPeer() {
+  private func performHandoffToPeer(device: NetworkDevice) {
     bluetoothStore.peripherals.forEach { peripheral in
       bluetoothStore.unregisterFromPC(peripheral)
     }
@@ -451,7 +453,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         return
       }
-      self.networkStore.executeCommand(.connectAll) { [weak self] result in
+      self.networkStore.executeCommand(.connectAll, on: device) { [weak self] result in
         guard let self = self else { return }
         if case .failure(let err) = result {
           // Rollback: peer didn't take the peripherals, so re-pair them
@@ -494,9 +496,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
 
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-      check()
-    }
+    // First check fires immediately — `unregisterFromPC` issues the
+    // IOBluetooth disconnect synchronously, so the device is often already
+    // disconnected by the time we get here. Falls through to the polled
+    // retry loop if not.
+    check()
   }
 
   // MARK: - Settings Management
