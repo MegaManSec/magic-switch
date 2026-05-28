@@ -1,165 +1,70 @@
-<div align="center">
-  <a href="https://github.com/HoshimuraYuto/blue-switch">
-    <img width="128" src="./assets/icon.png" alt="logo">
-  </a>
-  <h1>Blue Switch</h1>
-</div>
+# Blue Switch
 
-<p align="center" style="display: flex; justify-content: center; gap: 20px;">
-  <a href="https://ko-fi.com/hoshimurayuto">
-    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Buy Me a Coffee at ko-fi.com" height="32">
-  </a>
-</p>
+A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magic Mouse between two Macs with one click — no KVM, no cables.
 
-[English](./README.md) | [日本語](./README.ja.md)
+This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.com/HoshimuraYuto/blue-switch). The original ships an unauthenticated, unencrypted LAN protocol that lets anyone on the same Wi-Fi take over your Bluetooth peripherals or spoof notifications. This fork replaces that channel with a sealed, mutually-authenticated channel keyed by a 9-character pairing code you share between your two Macs.
 
-## 🌟 What is Blue Switch?
+## Installation
 
-Blue Switch is a macOS application that allows you to switch Bluetooth devices like **Magic Keyboard**, **Magic Trackpad**, and **Magic Mouse** between computers with just one click.
+1. Grab the latest build from the [releases page](https://github.com/MegaManSec/blue-switch/releases).
+2. Unzip and move `Blue Switch.app` to `/Applications`.
+3. First launch: macOS will block it because the build isn't signed. Right-click → Open, or System Settings → Privacy & Security → "Open Anyway".
 
-No wired connections or KVM switches needed, enabling a completely wireless environment.
+## Setup
 
-### 🚀 Key Features
+Do this on **both** Macs.
 
-- 🔌 **No Hardware Required**: No KVM switches or cables needed
-- 📱 **Completely Wireless**: Instantly switch devices between Macs
-- ⚡ **Simple Operation**: Just click the menu bar icon
-- 🔄 **Two-way Sync**: Seamless switching between two Macs
+1. **Pair your peripherals to both Macs** at the macOS level (System Settings → Bluetooth). Apple's Magic devices remember multiple hosts but only connect to one at a time — Blue Switch flips which one currently holds the session.
+2. Launch Blue Switch. Grant **Bluetooth** and **Local Network** permission when prompted.
+3. Right-click the menu-bar icon → Settings:
+   - **Peripheral** tab: tick the Magic devices you want Blue Switch to manage.
+   - **Device** tab: pick the other Mac from "Available Devices."
+4. **Pairing** tab — *new in this fork, required*:
+   - On one Mac, click "Generate Code." A nine-character code appears.
+   - On the other, click "Enter Code" and type it in.
+   - Both Macs should show the same eight-character fingerprint after pairing. If they don't, you typed the code wrong.
+5. Hit the sync button on the **Device** tab to share your peripheral list with the other Mac.
 
-## 📦 Installation
+Until step 4 completes, the switch action and peripheral sync refuse to talk to the peer.
 
-1. Download the latest version from the [releases page](https://github.com/HoshimuraYuto/blue-switch/releases)
-2. Unzip the file
-3. Move `Blue Switch.app` to your Applications folder
-4. Launch the app
+## Usage
 
-> ⚠️ If you see a security warning on first launch:
->
-> - Go to System Preferences > Security & Privacy > Security and select `Open Anyway`
+| Action                    | Result                                              |
+| ------------------------- | --------------------------------------------------- |
+| Left-click menu bar icon  | Hand peripherals between the two Macs               |
+| Right-click menu bar icon | Open Settings / show registered peripherals & peers |
 
-## ❓ Basic Usage
+## Troubleshooting
 
-| Action                    | Function      | Description                                                   |
-| ------------------------- | ------------- | ------------------------------------------------------------- |
-| Left-click menu bar icon  | Switch Device | Instantly switch Magic Keyboard and Magic Trackpad connection |
-| Right-click menu bar icon | Settings      | Open device registration and detailed settings                |
+- Both Macs running Blue Switch, both showing "Paired" in the Pairing tab.
+- Devices powered on; Bluetooth enabled.
+- Same network; not blocked by firewall.
+- Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 
-## 🔧 Setup Instructions
+## Developer notes
 
-### 1. App Preparation 🖥️
+Requirements: Xcode 16.1+, Swift 6.
 
-- Install Blue Switch on both Macs you want to switch between
-- Confirm the Blue Switch icon (`*` shape) appears in the menu bar on each Mac
-- Right-click the icon and select "Settings"
-
-### 2. Device Registration 🔌
-
-- Open the "Peripheral" tab in settings
-- Select the Bluetooth devices you want to use from "Available Peripherals"
-- Confirm the devices appear under "Registered Peripherals"
-
-![Device Registration Steps](./assets/video-1.gif)
-
-> ⚠️ **If devices don't appear**
->
-> - Check if the device is powered on
-> - Check if Blue Switch is enabled in Settings app > Privacy & Security > Bluetooth
-
-### 3. PC Connection Setup 🔗
-
-- Open the "Device" tab in settings
-- Select the Mac you want to connect to from "Available Devices"
-- Confirm the selected Mac appears under "Connected Devices"
-
-![PC Connection Setup](./assets/video-2.gif)
-
-> ⚠️ **If PC doesn't appear**
->
-> - Check if Blue Switch is running on the other PC
-> - Check network connection
-
-> 💡 Note: The same setup is required on the other Mac to enable switching from both sides
-
-### 4. Device Information Sync 🔄
-
-- Click the blue sync button
-- Bluetooth device information is automatically shared with the other Mac
-- Check sharing status in the "Peripheral" tab on the other Mac
-
-![Device Information Sync](./assets/video-3.gif)
-![Device Information Sync](./assets/video-4.gif)
-
-### 5. Operation Check ✅
-
-- Click the menu bar icon to confirm device switching works properly
-
-> ⚠️ **If switching doesn't work**
->
-> - Check network connection
-> - Check if Blue Switch is enabled in System Settings > Privacy & Security > Local Network
-> - Check if Blue Switch is allowed in Network > Firewall > Options
-
-## ⚡️ Troubleshooting
-
-If you encounter issues, check the following:
-
-- Blue Switch is running on both PCs
-- Devices are powered on
-- Network connection is working
-- Bluetooth is enabled
-- Not blocked by firewall
-- Bluetooth and Local Network permissions are granted
-
-## 💻 Developer Information
-
-### Requirements
-
-- Xcode 16.1 or later
-- Swift 6.0.2 or later
-
-### Build Instructions
-
+Build:
 ```bash
-git clone https://github.com/HoshimuraYuto/blue-switch.git
+xcodebuild -project "Blue Switch.xcodeproj" -scheme "Blue Switch" -configuration Debug build
 ```
 
-### Development Environment Setup
-
-1. Set up git hooks
-
+Format on commit (optional):
 ```bash
 sh ./setup-hooks.sh
 ```
 
-This setup includes:
+This sets `core.hooksPath` to the in-repo `.hooks/` directory, so be aware you're trusting whatever lives there in your current checkout.
 
-- Automatic code formatting before commits
-- Checking if commit messages follow [Angular Commit Message Conventions](https://github.com/angular/angular/blob/master/CONTRIBUTING.md#-commit-message-format)
+## Security model
 
-## 🤝 Contributing
+The LAN channel uses a shared symmetric key derived from the nine-character pairing code via PBKDF2-HMAC-SHA256 (600k iterations) and stored in the Keychain. Per connection, both sides exchange a 32-byte nonce and derive direction-specific session keys via HKDF; messages are framed as length-prefixed ChaCha20-Poly1305 sealed boxes with monotonic counter nonces. Failed authentications are rate-limited per source IP (5 failures / 60s → 15-minute block).
 
-### 💝 Support the Project
+Known limits:
+- The build isn't code-signed or notarized.
+- Forty-five bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
-- Support the developer on [Ko-fi](https://ko-fi.com/hoshimurayuto)
+## License
 
-<a href="https://ko-fi.com/hoshimurayuto">
-  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Buy Me a Coffee at ko-fi.com" height="32">
-</a>
-
-## 📢 Spread the Project
-
-- Give the project a ⭐️
-- Share the project on Twitter and social media
-- Write about it in blogs and technical articles
-
-### 🤝 Project Contributions
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## 📜 License
-
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](https://github.com/HoshimuraYuto/blue-switch/blob/main/LICENSE) file for details.
+GNU GPL v3.0. See [LICENSE](../LICENSE).

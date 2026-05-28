@@ -1,6 +1,3 @@
-# 1.0.0 (2024-12-01)
+# Changelog
 
-
-### Features
-
-* initial commit ([872a902](https://github.com/HoshimuraYuto/blue-switch/commit/872a902ceedd5aa9bfff93a5fe673d8f7d360206))
+Fork of [HoshimuraYuto/blue-switch](https://github.com/HoshimuraYuto/blue-switch) with a security overhaul of the LAN protocol. See `git log` for the per-commit history.
