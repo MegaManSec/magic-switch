@@ -22,7 +22,7 @@ Four Settings tabs to know — two of them use the word "pair" in different sens
 
 Do this on **both** Macs.
 
-1. **In System Settings → Bluetooth**, pair your Magic Keyboard / Mouse / Trackpad to a Mac the normal macOS way — that's how it first shows up in the **Peripheral** tab. Apple's Magic devices remember multiple hosts but only connect to one at a time; to flip ownership, Magic Switch pairs the device to the Mac that's taking it and releases it from the other (it does this over IOBluetooth — you don't re-pair by hand on every switch). Pairing each peripheral to *both* Macs up front is the most reliable way to start, but you can also pair it on just one, sync the list in step 5, and let Magic Switch pair it on demand from there.
+1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Apple's Magic devices remember multiple hosts but only connect to one at a time; Magic Switch flips which Mac currently holds a peripheral, but it doesn't create those pairings for you — set them up on both Macs in System Settings first. (Once that's done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
 2. Launch Magic Switch. Grant **Bluetooth** and **Local Network** permission when prompted.
 3. Right-click the menu-bar icon → Settings:
    - **Peripheral** tab: tick the Magic devices you want Magic Switch to manage.
