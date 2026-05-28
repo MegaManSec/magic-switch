@@ -84,97 +84,99 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     targetDevice.checkHealth { [weak self] result in
-      guard let self = self else { return }
-
-      switch result {
-      case .success:
-        switch bluetoothStore.checkActualConnectionStatus() {
-        case .allConnected:
-          // 1. Execute disconnection of all devices
-          self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.unregisterFromPC(peripheral)
+      // `checkHealth` fires on its own queue. Hop to main before any UI or
+      // store mutations, and before calling `checkActualConnectionStatusAsync`
+      // (which expects to be invoked from main).
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        switch result {
+        case .success:
+          self.bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
+            self?.handleSwitchAction(status: status)
           }
-
-          // 2. Send connection request after confirming disconnection
-          self.waitForDisconnection { allDisconnected in
-            if allDisconnected {
-              self.networkStore.executeCommand(.connectAll) { success in
-                if !success {
-                  NotificationManager.showNotification(
-                    title: "Error",
-                    body: "Connection process failed on target device"
-                  )
-                }
-              }
-            } else {
-              NotificationManager.showNotification(
-                title: "Error",
-                body: "Failed to disconnect devices"
-              )
-            }
-          }
-        case .allDisconnected:
-          self.networkStore.executeCommand(.unregisterAll) { success in
-            if success {
-              self.bluetoothStore.peripherals.forEach { peripheral in
-                self.bluetoothStore.connectPeripheral(peripheral)
-              }
-            } else {
-              NotificationManager.showNotification(
-                title: "Error",
-                body: "Failed to request device disconnection from peer"
-              )
-            }
-          }
-        case .partial:
+        case .failure(let error):
           NotificationManager.showNotification(
-            title: "Warning",
-            body:
-              "Some devices are connected while others are disconnected. Please ensure all devices are in the same state."
+            title: "Error",
+            body: "Failed to communicate with device: \(error)"
+          )
+        case .timeout:
+          NotificationManager.showNotification(
+            title: "Error",
+            body: "No response from device. Please check if the app is running."
           )
         }
-
-      case .failure(let error):
-        NotificationManager.showNotification(
-          title: "Error",
-          body: "Failed to communicate with device: \(error)"
-        )
-
-      case .timeout:
-        NotificationManager.showNotification(
-          title: "Error",
-          body: "No response from device. Please check if the app is running."
-        )
       }
+    }
+  }
+
+  private func handleSwitchAction(status: BluetoothPeripheralStore.ConnectionStatus) {
+    switch status {
+    case .allConnected:
+      bluetoothStore.peripherals.forEach { peripheral in
+        bluetoothStore.unregisterFromPC(peripheral)
+      }
+      waitForDisconnection { [weak self] allDisconnected in
+        guard let self = self else { return }
+        if allDisconnected {
+          self.networkStore.executeCommand(.connectAll) { success in
+            if !success {
+              NotificationManager.showNotification(
+                title: "Error",
+                body: "Connection process failed on target device"
+              )
+            }
+          }
+        } else {
+          NotificationManager.showNotification(
+            title: "Error",
+            body: "Failed to disconnect devices"
+          )
+        }
+      }
+    case .allDisconnected:
+      networkStore.executeCommand(.unregisterAll) { [weak self] success in
+        guard let self = self else { return }
+        if success {
+          self.bluetoothStore.peripherals.forEach { peripheral in
+            self.bluetoothStore.connectPeripheral(peripheral)
+          }
+        } else {
+          NotificationManager.showNotification(
+            title: "Error",
+            body: "Failed to request device disconnection from peer"
+          )
+        }
+      }
+    case .partial:
+      NotificationManager.showNotification(
+        title: "Warning",
+        body:
+          "Some devices are connected while others are disconnected. Please ensure all devices are in the same state."
+      )
     }
   }
 
   /// Waits for all devices to disconnect with a timeout
   /// - Parameter completion: Called with true if all devices disconnected, false if timeout occurred
   private func waitForDisconnection(completion: @escaping (Bool) -> Void) {
-    // Check disconnection status up to 5 times at 0.5 second intervals
     var attempts = 0
     let maxAttempts = 5
 
     func check() {
       attempts += 1
-
-      let allDisconnected = bluetoothStore.checkActualConnectionStatus() == .allDisconnected
-
-      if allDisconnected {
-        completion(true)
-      } else if attempts < maxAttempts {
-        // If attempts remaining, check again after 0.5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-          check()
+      bluetoothStore.checkActualConnectionStatusAsync { status in
+        if status == .allDisconnected {
+          completion(true)
+        } else if attempts < maxAttempts {
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            check()
+          }
+        } else {
+          completion(false)
         }
-      } else {
-        // Treat as failure if maximum attempts exceeded
-        completion(false)
       }
     }
 
-    // Start first check after 0.5 seconds
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
       check()
     }

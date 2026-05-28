@@ -402,35 +402,43 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 }
 
 extension BluetoothPeripheralStore {
-  /// Checks the actual connection status of all registered peripherals using IOBluetoothDevice
-  /// - Returns: ConnectionStatus indicating the current state
+  /// Aggregate connection state across all registered peripherals.
   enum ConnectionStatus {
     case allConnected
     case allDisconnected
     case partial
   }
 
-  func checkActualConnectionStatus() -> ConnectionStatus {
-    guard !peripherals.isEmpty else { return .allDisconnected }
-
-    var connectedCount = 0
-    var totalCount = 0
-
-    for peripheral in peripherals {
-      if let btDevice = IOBluetoothDevice(addressString: peripheral.id) {
-        totalCount += 1
-        if btDevice.isConnected() {
-          connectedCount += 1
-        }
+  /// Queries the live IOBluetooth state on `bluetoothQueue` and returns on
+  /// main. Snapshots `peripherals` on main before hopping so we never read
+  /// the `@Published` array from a background thread.
+  func checkActualConnectionStatusAsync(completion: @escaping (ConnectionStatus) -> Void) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in
+        self?.checkActualConnectionStatusAsync(completion: completion)
       }
+      return
     }
 
-    if connectedCount == totalCount && totalCount > 0 {
-      return .allConnected
-    } else if connectedCount == 0 {
-      return .allDisconnected
-    } else {
-      return .partial
+    let snapshot = peripherals
+    bluetoothQueue.async {
+      var connectedCount = 0
+      var totalCount = 0
+      for peripheral in snapshot {
+        if let device = IOBluetoothDevice(addressString: peripheral.id) {
+          totalCount += 1
+          if device.isConnected() { connectedCount += 1 }
+        }
+      }
+      let status: ConnectionStatus
+      if totalCount == 0 || connectedCount == 0 {
+        status = .allDisconnected
+      } else if connectedCount == totalCount {
+        status = .allConnected
+      } else {
+        status = .partial
+      }
+      DispatchQueue.main.async { completion(status) }
     }
   }
 }

@@ -1,9 +1,15 @@
 import Foundation
 import Network
+import QuartzCore
 
 /// Per-IP failure tracker. Five failures within a 60s window block the IP for
 /// 15 minutes; blocked endpoints are rejected before any handshake work.
 /// Blocks persist to UserDefaults so a process restart can't reset the counter.
+///
+/// Live tracking uses `CACurrentMediaTime()` (monotonic) so wall-clock
+/// manipulation can't shorten an active block or reset the failure window.
+/// Persistence still uses `Date` (necessary for cross-restart durability);
+/// converted at the boundary.
 final class RateLimiter {
   // MARK: - Constants
 
@@ -15,8 +21,10 @@ final class RateLimiter {
   // MARK: - State
 
   private let queue = DispatchQueue(label: "com.blueswitch.ratelimiter")
-  private var failuresByIP: [String: [Date]] = [:]
-  private var blocksByIP: [String: Date] = [:]
+  /// Monotonic timestamps (seconds since boot) of recent failures.
+  private var failuresByIP: [String: [CFTimeInterval]] = [:]
+  /// Monotonic deadline (seconds since boot) at which the block lifts.
+  private var blocksByIP: [String: CFTimeInterval] = [:]
 
   // MARK: - Init
 
@@ -31,7 +39,7 @@ final class RateLimiter {
     let key = Self.bucket(for: endpoint)
     return queue.sync {
       gc(key: key)
-      if let until = blocksByIP[key], until > Date() {
+      if let until = blocksByIP[key], until > CACurrentMediaTime() {
         return false
       }
       return true
@@ -42,13 +50,13 @@ final class RateLimiter {
   func recordFailure(endpoint: NWEndpoint?) {
     let key = Self.bucket(for: endpoint)
     queue.sync {
-      let now = Date()
+      let now = CACurrentMediaTime()
       var list = failuresByIP[key, default: []]
       list.append(now)
-      list = list.filter { $0 > now.addingTimeInterval(-Self.windowSeconds) }
+      list = list.filter { $0 > now - Self.windowSeconds }
       failuresByIP[key] = list
       if list.count >= Self.failureThreshold {
-        blocksByIP[key] = now.addingTimeInterval(Self.blockDuration)
+        blocksByIP[key] = now + Self.blockDuration
         failuresByIP[key] = []
         Self.saveBlocks(blocksByIP)
       }
@@ -57,31 +65,43 @@ final class RateLimiter {
 
   // MARK: - Persistence
 
-  private static func loadBlocks() -> [String: Date] {
+  private static func loadBlocks() -> [String: CFTimeInterval] {
     guard let data = UserDefaults.standard.data(forKey: blocksKey),
       let dict = try? JSONDecoder().decode([String: Date].self, from: data)
     else { return [:] }
     let now = Date()
-    return dict.filter { $0.value > now }
+    let mediaNow = CACurrentMediaTime()
+    var result: [String: CFTimeInterval] = [:]
+    for (key, until) in dict {
+      let remaining = until.timeIntervalSince(now)
+      if remaining > 0 {
+        result[key] = mediaNow + remaining
+      }
+    }
+    return result
   }
 
-  private static func saveBlocks(_ blocks: [String: Date]) {
-    let now = Date()
-    let pruned = blocks.filter { $0.value > now }
-    guard let data = try? JSONEncoder().encode(pruned) else { return }
+  private static func saveBlocks(_ blocks: [String: CFTimeInterval]) {
+    let mediaNow = CACurrentMediaTime()
+    let wallNow = Date()
+    var dict: [String: Date] = [:]
+    for (key, deadline) in blocks where deadline > mediaNow {
+      dict[key] = wallNow.addingTimeInterval(deadline - mediaNow)
+    }
+    guard let data = try? JSONEncoder().encode(dict) else { return }
     UserDefaults.standard.set(data, forKey: blocksKey)
   }
 
   // MARK: - Helpers
 
   private func gc(key: String) {
-    let now = Date()
+    let now = CACurrentMediaTime()
     if let until = blocksByIP[key], until <= now {
       blocksByIP.removeValue(forKey: key)
       Self.saveBlocks(blocksByIP)
     }
     if var list = failuresByIP[key] {
-      list = list.filter { $0 > now.addingTimeInterval(-Self.windowSeconds) }
+      list = list.filter { $0 > now - Self.windowSeconds }
       if list.isEmpty {
         failuresByIP.removeValue(forKey: key)
       } else {

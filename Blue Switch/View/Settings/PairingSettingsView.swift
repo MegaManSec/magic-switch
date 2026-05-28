@@ -97,7 +97,7 @@ struct PairingSettingsView: View {
 private struct GenerateCodeSheet: View {
   @Binding var isPresented: Bool
   @ObservedObject private var pairing = PairingStore.shared
-  @State private var code: String = PairingStore.generateCode()
+  @State private var code: String = ""
   @State private var errorMessage: String?
 
   var body: some View {
@@ -133,6 +133,13 @@ private struct GenerateCodeSheet: View {
     }
     .padding(24)
     .frame(width: 460)
+    .onAppear {
+      // Fresh code per sheet presentation; the @State default initializer
+      // can be reused across re-evaluations and would otherwise show a
+      // previously-shown-but-discarded code.
+      code = PairingStore.generateCode()
+      errorMessage = nil
+    }
   }
 }
 
