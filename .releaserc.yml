@@ -6,9 +6,10 @@
       "@semantic-release/release-notes-generator",
       "@semantic-release/changelog",
       [
-        "@semantic-release/exec",
+        "@semantic-release/git",
         {
-          "successCmd": "git add \"Blue Switch.xcodeproj/project.pbxproj\" CHANGELOG.md && git commit -m \"chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}\" && git push",
+          "assets": ["Blue Switch.xcodeproj/project.pbxproj", "CHANGELOG.md"],
+          "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
         },
       ],
       [

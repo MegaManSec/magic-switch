@@ -4,25 +4,38 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
 jobs:
   version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     outputs:
       new-release-version: ${{ steps.determine_version.outputs.new-release-version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "lts/*"
 
       - name: Install semantic-release
-        run: npm install -g semantic-release @semantic-release/exec @semantic-release/changelog @semantic-release/git
+        run: |
+          npm install -g \
+            semantic-release@24 \
+            @semantic-release/changelog@6 \
+            @semantic-release/git@10 \
+            @semantic-release/github@11
 
       - name: Determine version
         id: determine_version
@@ -40,13 +53,16 @@ jobs:
   build:
     needs: version
     runs-on: macos-latest
+    permissions:
+      contents: read
     outputs:
       zip-path: ${{ steps.create_zip.outputs.zip-path }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Update version
         run: |
@@ -57,7 +73,7 @@ jobs:
           agvtool next-version -all
 
       - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: "16.1"
 
@@ -83,7 +99,7 @@ jobs:
           cp "Blue Switch.xcodeproj/project.pbxproj" artifacts/project.pbxproj
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: build-artifacts
           path: artifacts/
@@ -100,23 +116,28 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Download Build Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: build-artifacts
           path: artifacts/
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "lts/*"
 
       - name: Install semantic-release
-        run: npm install -g semantic-release @semantic-release/exec @semantic-release/changelog @semantic-release/git
+        run: |
+          npm install -g \
+            semantic-release@24 \
+            @semantic-release/changelog@6 \
+            @semantic-release/git@10 \
+            @semantic-release/github@11
 
       - name: Replace project.pbxproj
         run: |
@@ -125,5 +146,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          semantic-release
+        run: semantic-release

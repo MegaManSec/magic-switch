@@ -1,18 +1,25 @@
 name: Check Format
 
-permissions:
-  contents: write
-  pull-requests: write
-
 on:
   pull_request:
     branches: [main]
 
+permissions: {}
+
+concurrency:
+  group: check-format-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   format:
     runs-on: macos-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Install swift-format
         run: brew install swift-format
@@ -29,7 +36,7 @@ jobs:
 
       - name: Comment PR
         if: steps.format.outputs.format_has_issues == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -40,17 +47,17 @@ jobs:
             const formattedDiffs = files.map(file => {
               const lines = file.split('\n');
               const filePath = lines[0].match(/b\/(.*)/)[1];
-              return `### 📝 ${filePath}\n\n\`\`\`diff\ndiff --git ${file}\`\`\`\n`;
+              return `### ${filePath}\n\n\`\`\`diff\ndiff --git ${file}\`\`\`\n`;
             }).join('\n');
 
             const message = `
-            ## ⚠️ Formatting Issues Found
+            ## Formatting Issues Found
 
             The following files have formatting issues:
 
             ${formattedDiffs}
 
-            ### 💡 How to Fix
+            ### How to Fix
             1. Run \`swift format format -r ./Blue\\ Switch/ -i\` locally
             2. Commit and push the changes
 
