@@ -83,7 +83,7 @@ jobs:
       - name: Update version
         run: |
           echo "The version is ${{ needs.version.outputs.new-release-version }}"
-          PROJECT_FILE="Blue Switch.xcodeproj/project.pbxproj"
+          PROJECT_FILE="Magic Switch.xcodeproj/project.pbxproj"
           sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${{ needs.version.outputs.new-release-version }};/g" "$PROJECT_FILE"
           echo "Updated Marketing version to ${{ needs.version.outputs.new-release-version }}"
           agvtool next-version -all
@@ -96,28 +96,28 @@ jobs:
       - name: Build
         run: |
           xcodebuild clean archive \
-            -project "Blue Switch.xcodeproj" \
-            -scheme "Blue Switch" \
+            -project "Magic Switch.xcodeproj" \
+            -scheme "Magic Switch" \
             -configuration Release \
-            -archivePath "Blue Switch.xcarchive"
+            -archivePath "Magic Switch.xcarchive"
 
       - name: Create ZIP
         id: create_zip
         run: |
-          cd "Blue Switch.xcarchive/Products/Applications"
-          ditto -c -k --sequesterRsrc --keepParent "Blue Switch.app" "../../../Blue Switch.app.zip"
-          echo "zip-path=$(realpath "../../../Blue Switch.app.zip")" >> "$GITHUB_OUTPUT"
+          cd "Magic Switch.xcarchive/Products/Applications"
+          ditto -c -k --sequesterRsrc --keepParent "Magic Switch.app" "../../../Magic Switch.app.zip"
+          echo "zip-path=$(realpath "../../../Magic Switch.app.zip")" >> "$GITHUB_OUTPUT"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject-path: "Blue Switch.app.zip"
+          subject-path: "Magic Switch.app.zip"
 
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
-          cp "Blue Switch.app.zip" artifacts/app.zip
-          cp "Blue Switch.xcodeproj/project.pbxproj" artifacts/project.pbxproj
+          cp "Magic Switch.app.zip" artifacts/app.zip
+          cp "Magic Switch.xcodeproj/project.pbxproj" artifacts/project.pbxproj
 
       - name: Upload Artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

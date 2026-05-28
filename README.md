@@ -1,4 +1,4 @@
-# Blue Switch
+# Magic Switch
 
 A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magic Mouse between two Macs with one click — no KVM, no cables.
 
@@ -6,24 +6,24 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Installation
 
-1. Grab the latest build from the [releases page](https://github.com/MegaManSec/blue-switch/releases).
-2. Unzip and move `Blue Switch.app` to `/Applications`.
+1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
+2. Unzip and move `Magic Switch.app` to `/Applications`.
 3. First launch: macOS will block it because the build isn't signed. Right-click → Open, or System Settings → Privacy & Security → "Open Anyway".
 
 ## Setup
 
 Three Settings tabs to know — two of them use the word "pair" in different senses, which can be confusing:
 
-- **Peripheral** — the Bluetooth devices Blue Switch hands back and forth (Magic Keyboard / Mouse / Trackpad).
+- **Peripheral** — the Bluetooth devices Magic Switch hands back and forth (Magic Keyboard / Mouse / Trackpad).
 - **Device** — the *other Mac on your network* you're swapping with.
-- **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Blue Switch.
+- **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Magic Switch.
 
 Do this on **both** Macs.
 
-1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to that Mac. Each peripheral has to be paired to *both* Macs (Apple's Magic devices remember multiple hosts but only connect to one at a time — Blue Switch flips which Mac currently holds the session). Blue Switch doesn't do this step; you do it the normal macOS way.
-2. Launch Blue Switch. Grant **Bluetooth** and **Local Network** permission when prompted.
+1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to that Mac. Each peripheral has to be paired to *both* Macs (Apple's Magic devices remember multiple hosts but only connect to one at a time — Magic Switch flips which Mac currently holds the session). Magic Switch doesn't do this step; you do it the normal macOS way.
+2. Launch Magic Switch. Grant **Bluetooth** and **Local Network** permission when prompted.
 3. Right-click the menu-bar icon → Settings:
-   - **Peripheral** tab: tick the Magic devices you want Blue Switch to manage.
+   - **Peripheral** tab: tick the Magic devices you want Magic Switch to manage.
    - **Device** tab: pick the other Mac from "Available Devices."
 4. **Pairing** tab — *new in this fork, required*:
    - On one Mac, click "Generate Code." A twelve-character code appears.
@@ -43,7 +43,7 @@ Until step 4 completes, the switch action and peripheral sync refuse to talk to 
 
 ## Troubleshooting
 
-- Both Macs running Blue Switch, both showing "Paired" in the Pairing tab.
+- Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
 - Same network; not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
@@ -54,7 +54,7 @@ Requirements: Xcode 16.1+ (Swift 5 language mode).
 
 Build:
 ```bash
-xcodebuild -project "Blue Switch.xcodeproj" -scheme "Blue Switch" -configuration Debug build
+xcodebuild -project "Magic Switch.xcodeproj" -scheme "Magic Switch" -configuration Debug build
 ```
 
 Format on commit (optional):

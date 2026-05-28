@@ -27,7 +27,7 @@ jobs:
       - name: Format Check
         id: format
         run: |
-          swift format format -r ./Blue\ Switch/ -i
+          swift format format -r ./Magic\ Switch/ -i
           git diff > format.diff
           if [ -s format.diff ]; then
             echo "format_has_issues=true" >> $GITHUB_OUTPUT
@@ -58,7 +58,7 @@ jobs:
             ${formattedDiffs}
 
             ### How to Fix
-            1. Run \`swift format format -r ./Blue\\ Switch/ -i\` locally
+            1. Run \`swift format format -r ./Magic\\ Switch/ -i\` locally
             2. Commit and push the changes
 
             You can set up git hooks to automatically format code on commit:
