@@ -25,11 +25,14 @@ final class PairingStore: ObservableObject {
   private static let pbkdfSalt = "BlueSwitch-PSK-v2"
   private static let pbkdfIterations: UInt32 = 600_000
   private static let pbkdfKeyLength = 32
-  /// Bumped from `psk-v2` when we moved to the data protection keychain.
-  /// The legacy keychain and the data protection keychain are separate
-  /// stores; bumping the service name makes the migration explicit and
-  /// prevents the legacy item from shadowing the new one if a user ever
-  /// downgrades and re-pairs.
+  /// Service name reflects the previous `psk-v3` data-protection-keychain
+  /// attempt that was reverted: `kSecUseDataProtectionKeychain` requires
+  /// either a real Team ID or a sandbox-derived access group, neither of
+  /// which an ad-hoc-signed sandboxed build of this app has. `SecItemAdd`
+  /// fails with `errSecMissingEntitlement` (-34018) and pairing breaks.
+  /// We kept the v3 service name so the boundary in users' keychains is
+  /// still explicit — items at v3 in the legacy keychain are this fork's;
+  /// items at v2 are from before that breaking change.
   private static let keychainService = "com.blueswitch.psk-v3"
   private static let keychainAccount = "shared"
 
@@ -129,7 +132,6 @@ final class PairingStore: ObservableObject {
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrService as String: Self.keychainService,
         kSecAttrAccount as String: Self.keychainAccount,
-        kSecUseDataProtectionKeychain as String: true,
       ]
       let status = SecItemDelete(query as CFDictionary)
       DispatchQueue.main.async {
@@ -206,7 +208,6 @@ final class PairingStore: ObservableObject {
       kSecAttrAccount as String: Self.keychainAccount,
       kSecReturnData as String: true,
       kSecMatchLimit as String: kSecMatchLimitOne,
-      kSecUseDataProtectionKeychain as String: true,
     ]
     var item: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -219,7 +220,6 @@ final class PairingStore: ObservableObject {
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: Self.keychainService,
       kSecAttrAccount as String: Self.keychainAccount,
-      kSecUseDataProtectionKeychain as String: true,
     ]
     SecItemDelete(delete as CFDictionary)
 
@@ -230,7 +230,6 @@ final class PairingStore: ObservableObject {
       kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
       kSecAttrSynchronizable as String: false,
       kSecValueData as String: data,
-      kSecUseDataProtectionKeychain as String: true,
     ]
     let status = SecItemAdd(add as CFDictionary, nil)
     guard status == errSecSuccess else {

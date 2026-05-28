@@ -268,8 +268,8 @@ private struct EnterCodeSheet: View {
           errorMessage = "Invalid code."
         case .derivationFailed:
           errorMessage = "Couldn't derive a key from that code."
-        case .keychainFailed:
-          errorMessage = "Couldn't save the key to the keychain."
+        case .keychainFailed(let status):
+          errorMessage = "Couldn't save the key to the keychain (error \(status))."
         }
       }
     }
