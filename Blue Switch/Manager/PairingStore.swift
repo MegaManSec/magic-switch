@@ -111,15 +111,35 @@ final class PairingStore: ObservableObject {
     }
   }
 
-  /// Removes the stored PSK.
+  /// Removes the stored PSK. Runs the keychain call off-main so the
+  /// authorization prompt (if any) doesn't block the UI, and updates the
+  /// published state directly on success rather than re-reading the
+  /// keychain — the re-read could trigger a second authorization prompt
+  /// on the same item we just had to authorize, which manifested as the
+  /// user needing to click Unpair twice.
   func unpair() {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: Self.keychainService,
-      kSecAttrAccount as String: Self.keychainAccount,
-    ]
-    SecItemDelete(query as CFDictionary)
-    refreshState()
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+      guard let self = self else { return }
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: Self.keychainService,
+        kSecAttrAccount as String: Self.keychainAccount,
+      ]
+      let status = SecItemDelete(query as CFDictionary)
+      DispatchQueue.main.async {
+        if status == errSecSuccess || status == errSecItemNotFound {
+          self.isPaired = false
+          self.fingerprint = nil
+        } else {
+          NotificationManager.showNotification(
+            title: "Couldn't Unpair",
+            body:
+              "macOS returned error \(status) clearing the saved pairing key. Try again from Settings → Pairing.",
+            identifier: "unpair-failed"
+          )
+        }
+      }
+    }
   }
 
   // MARK: - Internal Helpers
