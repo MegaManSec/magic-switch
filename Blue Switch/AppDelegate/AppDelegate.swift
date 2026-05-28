@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func configureStatusBarButton(_ button: NSStatusBarButton) {
     if let customImage = NSImage(named: "StatusBarIcon") {
       customImage.size = NSSize(width: 24, height: 24)
+      customImage.isTemplate = true
       button.image = customImage
     }
     button.target = self
