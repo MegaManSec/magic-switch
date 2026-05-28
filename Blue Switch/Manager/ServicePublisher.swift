@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Network
 
@@ -27,6 +28,7 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
   private var listener: NWListener?
   private var netService: NetService?
   private let queue = DispatchQueue(label: "com.blueswitch.service.publisher")
+  private var fingerprintObserver: AnyCancellable?
 
   // MARK: - NetworkNetworkServicePublishable Implementation
 
@@ -103,14 +105,37 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   /// Publishes the service with the specified port
   private func publishService(port: Int) {
-    netService = NetService(
+    let service = NetService(
       domain: serviceDomain,
       type: serviceType,
       name: Host.current().localizedName ?? "Unknown",
       port: Int32(port))
 
-    netService?.delegate = self
-    netService?.publish()
+    service.delegate = self
+    netService = service
+    refreshTXTRecord()
+    service.publish()
+
+    // Republish the TXT record whenever the local fingerprint changes, so
+    // peers can detect a re-pair (and re-pin on the new fingerprint).
+    fingerprintObserver = pairingStore.$fingerprint
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.refreshTXTRecord()
+      }
+  }
+
+  /// Writes a TXT record carrying the local PSK fingerprint (when paired).
+  /// Receivers use this for TOFU identity pinning, so an attacker that
+  /// publishes a colliding Bonjour name can't redirect commands without
+  /// also knowing the PSK.
+  private func refreshTXTRecord() {
+    var record: [String: Data] = [:]
+    if let fp = pairingStore.fingerprint {
+      record["fp"] = Data(fp.utf8)
+    }
+    let data = NetService.data(fromTXTRecord: record)
+    netService?.setTXTRecord(data)
   }
 }
 

@@ -85,8 +85,19 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   func updateNetworkDevice(_ device: NetworkDevice) {
     if let index = networkDevices.firstIndex(where: { $0.id == device.id }) {
+      let priorFingerprint = networkDevices[index].fingerprint
       networkDevices[index].update(with: device)
       saveNetworkDevices()
+      if let prior = priorFingerprint,
+        let incoming = device.fingerprint,
+        prior != incoming
+      {
+        NotificationManager.showNotification(
+          title: "Identity Mismatch",
+          body:
+            "\(device.name) is advertising a different pairing key. Re-pair if you trust this device, otherwise this could be an impersonation attempt."
+        )
+      }
     }
   }
 
