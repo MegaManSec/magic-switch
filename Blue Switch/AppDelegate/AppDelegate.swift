@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem!
   private var bluetoothStateObserver: AnyCancellable?
   private var pairingObserver: AnyCancellable?
+  private var windowCloseObserver: NSObjectProtocol?
   private var lastBluetoothState: CBManagerState = .unknown
 
   // MARK: - Lifecycle Methods
@@ -22,6 +23,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     setupNotifications()
     setupBluetooth()
     setupStatusBar()
+    setupActivationPolicyTracking()
+  }
+
+  deinit {
+    if let token = windowCloseObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
   }
 
   // MARK: - Setup Methods
@@ -274,13 +282,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// previous code hosted `SettingsView` inside a manually-built `NSWindow`,
   /// which suppresses SwiftUI `.help(...)` tooltips; routing through the
   /// `Settings` scene fixes that.
+  ///
+  /// Bumps the activation policy to `.regular` so a Dock icon shows while
+  /// Settings is visible — the close observer set up in
+  /// `setupActivationPolicyTracking` flips it back to `.accessory`.
   @objc func openSettingsWindow(_ sender: Any?) {
+    NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
     // macOS 13 renamed the standard selector; fall back for older releases.
     let modern = Selector(("showSettingsWindow:"))
     let legacy = Selector(("showPreferencesWindow:"))
     if !NSApp.sendAction(modern, to: nil, from: nil) {
       NSApp.sendAction(legacy, to: nil, from: nil)
+    }
+  }
+
+  /// Drops the app back to `.accessory` (no Dock icon) once the last normal
+  /// window closes. SwiftUI's `Settings` scene typically reuses one window,
+  /// but the loop is defensive against any other normal-level window we
+  /// might open in the future.
+  private func setupActivationPolicyTracking() {
+    windowCloseObserver = NotificationCenter.default.addObserver(
+      forName: NSWindow.willCloseNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      // `willClose` fires while the closing window is still flagged visible;
+      // defer one runloop tick so the count reflects the post-close state.
+      DispatchQueue.main.async {
+        guard self != nil else { return }
+        let openWindows = NSApp.windows.filter { $0.isVisible && $0.level == .normal }
+        if openWindows.isEmpty {
+          NSApp.setActivationPolicy(.accessory)
+        }
+      }
     }
   }
 }
