@@ -101,6 +101,16 @@ final class MenuBarView: MenuBarPresentable {
         // Pass the MAC down to the action handler; clicking dispatches
         // take-from-peer or send-to-peer based on current state.
         item.representedObject = peripheral.id
+        // Hover text mirrors the Peripheral tab's Connect/Disconnect copy and
+        // explains the disabled "(Pairing…)" row.
+        switch state {
+        case .connected:
+          item.toolTip = "On this Mac — click to hand \(peripheral.name) to the other Mac."
+        case .disconnected:
+          item.toolTip = "Click to bring \(peripheral.name) to this Mac."
+        case .connecting:
+          item.toolTip = "Pairing \(peripheral.name)…"
+        }
         menu.addItem(item)
       }
       menu.addItem(.separator())
