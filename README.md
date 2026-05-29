@@ -34,6 +34,11 @@ Four Settings tabs to know — two of them use the word "pair" in different sens
   <em>Device tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
 </p>
 
+<p align="center">
+  <img src="docs/assets/other-tab.png" alt="Other tab with each control labelled" width="600"><br>
+  <em>Other tab — Launch at Login, license info, version, and a manual update check.</em>
+</p>
+
 Do this on **both** Macs.
 
 1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Apple's Magic devices remember multiple hosts but only connect to one at a time; Magic Switch flips which Mac currently holds a peripheral, but it doesn't create those pairings for you — set them up on both Macs in System Settings first. (Once that's done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
@@ -49,6 +54,26 @@ Do this on **both** Macs.
 
 Until step 4 completes, the switch action and peripheral sync refuse to talk to the peer.
 
+### The pairing flow
+
+Pairing all happens in the **Pairing** tab — generate a code on one Mac and enter it on the other (either direction works; both Macs derive the same key from the same code).
+
+<p align="center">
+  <img src="docs/assets/pairing-not-paired.png" alt="Pairing tab before pairing" width="600"><br>
+  <em>Before pairing — Generate a code on one Mac; Enter it on the other.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/pairing-generate-dialog.png" alt="Generated pairing code dialog" width="420">
+  <img src="docs/assets/pairing-enter-dialog.png" alt="Enter pairing code dialog" width="420"><br>
+  <em>Left: the code one Mac generates (Copy it). Right: type that code on the other Mac.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/pairing-paired.png" alt="Pairing tab after pairing, showing the fingerprint" width="600"><br>
+  <em>After pairing — both Macs show the same fingerprint. If they differ, the code was mistyped.</em>
+</p>
+
 ## Usage
 
 | Action                                  | Result                                                                                          |
@@ -59,6 +84,11 @@ Until step 4 completes, the switch action and peripheral sync refuse to talk to 
 | Menu → Settings | Open the Settings window |
 
 The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs.
+
+<p align="center">
+  <img src="docs/assets/menu.png" alt="The menu-bar menu with actions labelled" width="320"><br>
+  <em>The menu — click a Mac to move everything, or a single peripheral to move just that one.</em>
+</p>
 
 ## Updates
 
