@@ -24,6 +24,16 @@ Four Settings tabs to know — two of them use the word "pair" in different sens
 - **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Magic Switch.
 - **Other** — app preferences: turn on **Launch at Login**, see the installed version, and get notified about updates (see [Updates](#updates)).
 
+<p align="center">
+  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab with each control labelled" width="600"><br>
+  <em>Peripheral tab — register the Magic devices you want to hand off.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/device-tab.png" alt="Device tab with each control labelled" width="600"><br>
+  <em>Device tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
+</p>
+
 Do this on **both** Macs.
 
 1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Apple's Magic devices remember multiple hosts but only connect to one at a time; Magic Switch flips which Mac currently holds a peripheral, but it doesn't create those pairings for you — set them up on both Macs in System Settings first. (Once that's done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
