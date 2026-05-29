@@ -1,4 +1,8 @@
-# Magic Switch
+<p align="center">
+  <img src="docs/assets/icon.png" alt="Magic Switch app icon" width="200">
+</p>
+
+<h1 align="center">Magic Switch</h1>
 
 A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magic Mouse between two Macs with one click — no KVM, no cables.
 
