@@ -33,11 +33,25 @@ struct NetworkDeviceManagementView: View {
 
   // MARK: - State
 
-  @State private var deviceToRemove: NetworkDevice?
-  /// Set when the user clicks Trust on an identity-mismatched device.
-  /// Triggers the confirmation alert below; the actual pin promotion only
-  /// happens after the user confirms.
-  @State private var deviceToTrust: NetworkDevice?
+  /// Single source of truth for the confirmation alert. Stacking two
+  /// separate `.alert(item:)` modifiers on one view doesn't work — SwiftUI
+  /// only honours the last one applied, so the Remove alert never fired and
+  /// the trash button looked like a no-op. One enum-keyed alert avoids that.
+  @State private var activeAlert: DeviceAlert?
+
+  /// The two confirmation prompts the Device tab can raise. `id` is unique
+  /// per (kind, device) so re-triggering for a different device re-presents.
+  private enum DeviceAlert: Identifiable {
+    case remove(NetworkDevice)
+    case trust(NetworkDevice)
+
+    var id: String {
+      switch self {
+      case .remove(let device): return "remove-\(device.id)"
+      case .trust(let device): return "trust-\(device.id)"
+      }
+    }
+  }
   /// Last Ping/Sync result per device id, surfaced inline because the
   /// OS-level notification path is unreliable on ad-hoc-signed sandboxed
   /// builds.
@@ -70,7 +84,7 @@ struct NetworkDeviceManagementView: View {
         devices: networkStore.networkDevices,
         operationResults: operationResults,
         onDeviceNotify: handleDeviceNotification,
-        onDeviceRemoveRequest: { deviceToRemove = $0 },
+        onDeviceRemoveRequest: { activeAlert = .remove($0) },
         onSyncPeripherals: handleSyncPeripherals,
         onTrustPending: handleTrustPending
       )
@@ -86,29 +100,31 @@ struct NetworkDeviceManagementView: View {
     // meaningful. Within a single tab visit, repeated actions still
     // overwrite each other (existing behaviour, unchanged).
     .onAppear { operationResults.removeAll() }
-    .alert(item: $deviceToRemove) { device in
-      Alert(
-        title: Text("Remove \(device.name)?"),
-        message: Text(
-          "It will be removed from your registered list. You can add it again from Available Devices."
-        ),
-        primaryButton: .destructive(Text("Remove")) {
-          networkStore.removeNetworkDevice(device: device)
-        },
-        secondaryButton: .cancel()
-      )
-    }
-    .alert(item: $deviceToTrust) { device in
-      Alert(
-        title: Text("Trust new pairing key for \(device.name)?"),
-        message: Text(
-          "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
-        ),
-        primaryButton: .destructive(Text("Trust")) {
-          networkStore.trustPendingFingerprint(for: device.id)
-        },
-        secondaryButton: .cancel()
-      )
+    .alert(item: $activeAlert) { alert in
+      switch alert {
+      case .remove(let device):
+        return Alert(
+          title: Text("Remove \(device.name)?"),
+          message: Text(
+            "It will be removed from your registered list. You can add it again from Available Devices."
+          ),
+          primaryButton: .destructive(Text("Remove")) {
+            networkStore.removeNetworkDevice(device: device)
+          },
+          secondaryButton: .cancel()
+        )
+      case .trust(let device):
+        return Alert(
+          title: Text("Trust new pairing key for \(device.name)?"),
+          message: Text(
+            "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
+          ),
+          primaryButton: .destructive(Text("Trust")) {
+            networkStore.trustPendingFingerprint(for: device.id)
+          },
+          secondaryButton: .cancel()
+        )
+      }
     }
   }
 
@@ -161,7 +177,7 @@ struct NetworkDeviceManagementView: View {
     // Request the confirmation alert; actual promotion happens in its
     // primaryButton. TOFU pin overrides are destructive — we won't do it
     // without explicit acknowledgement.
-    deviceToTrust = device
+    activeAlert = .trust(device)
   }
 
   private func handleSyncPeripherals(_ device: NetworkDevice) {
