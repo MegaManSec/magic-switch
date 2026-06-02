@@ -10,6 +10,8 @@ struct OtherSettingsView: View {
   @State private var launchAtLogin: Bool = false
   @AppStorage(BluetoothPeripheralStore.releaseOnSleepDefaultsKey)
   private var releaseOnSleep: Bool = true
+  @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
+  private var autoReconnect: Bool = true
 
   // MARK: - View Content
 
@@ -27,6 +29,12 @@ struct OtherSettingsView: View {
         Toggle("Release peripherals when this Mac sleeps", isOn: $releaseOnSleep)
           .help(
             "When this Mac sleeps, hand its Magic peripherals back so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
+          )
+      }
+      Section {
+        Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
+          .help(
+            "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
       Section {

@@ -42,6 +42,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// peer that's actively using the peripheral doesn't look unreachable and
     /// get it yanked back.
     static let wakeReclaimDelay: TimeInterval = 5
+    /// How often the auto-reconnect watcher probes a dropped peripheral to
+    /// see whether it's back in range. The probe is just an RSSI read while
+    /// the device is absent, so a short interval is cheap; it also bounds the
+    /// worst-case latency between a peripheral reappearing and us reclaiming
+    /// it.
+    static let reconnectProbeInterval: TimeInterval = 15
+    /// Upper bound on how long the watcher keeps trying to reclaim one
+    /// peripheral before giving up. Generous on purpose — a stuck Magic
+    /// device may not come back until the user notices and power-cycles it,
+    /// which can be a while. Probes cost almost nothing while it's absent,
+    /// and a fresh drop or wake re-arms it, so a long window is safe.
+    static let reconnectMaxWindow: TimeInterval = 3600
   }
 
   // MARK: - Dependencies
@@ -60,12 +72,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// lives here as the single source of truth for the key string.
   static let releaseOnSleepDefaultsKey = "releaseHeldPeripheralsOnSleep"
 
+  /// `@AppStorage` key for the "keep trying to reconnect dropped peripherals"
+  /// preference. Also bound by the Other settings tab, so the key string
+  /// lives here as the single source of truth.
+  static let autoReconnectDefaultsKey = "autoReconnectDroppedPeripherals"
+
   @AppStorage("peripherals") private var peripheralsData: Data = Data()
 
-  /// When set (default), `releaseHeldPeripheralsForSleep` runs on system
-  /// sleep. Off lets a user keep a peripheral bonded to a Mac that sleeps.
+  /// When set (default), `prepareForSleep` releases held peripherals on
+  /// system sleep. Off lets a user keep a peripheral bonded to a Mac that
+  /// sleeps (the watcher still reclaims it on wake if it doesn't reconnect).
   @AppStorage(BluetoothPeripheralStore.releaseOnSleepDefaultsKey)
   private var releaseOnSleep: Bool = true
+
+  /// When set (default), a peripheral that drops while it should be on this
+  /// Mac is retried by the auto-reconnect watcher until it's back in range
+  /// and the peer isn't using it, or the `reconnectMaxWindow` expires. Off
+  /// disables the watcher entirely. Read at use-time (no observation needed):
+  /// `armReconnect` refuses when off and `reconnectTick` tears itself down.
+  @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
+  private var autoReconnect: Bool = true
 
   @Published private(set) var peripherals: [BluetoothPeripheral] = [] {
     didSet {
@@ -92,16 +118,50 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// timer flips the peripheral back to `.disconnected` so the UI unsticks.
   private var pairTimers: [String: DispatchSourceTimer] = [:]
 
-  /// MAC addresses released by `releaseHeldPeripheralsForSleep` on the last
-  /// sleep. On wake we reclaim any the peer didn't take. The process stays
-  /// alive across sleep, so an in-memory set is enough.
+  /// MAC addresses we unpaired in `prepareForSleep` on the last sleep (the
+  /// release-on-sleep subset). On wake, when auto-reconnect is off, we do the
+  /// original one-shot reclaim for just these. The process stays alive across
+  /// sleep, so an in-memory set is enough.
   private var peripheralsReleasedForSleep: Set<String> = []
+
+  /// MAC addresses that were *connected to this Mac* immediately before the
+  /// last sleep — a superset of `peripheralsReleasedForSleep` that also
+  /// includes peripherals we left bonded because there was no peer to hand
+  /// them to. On wake the watcher tries to reclaim any that didn't come back
+  /// on their own, so "whatever I was using before I closed the lid" returns
+  /// even when nothing was handed off. Only consulted when auto-reconnect is
+  /// on.
+  private var connectedBeforeSleep: Set<String> = []
 
   /// Global IOBluetooth connect observer. Fires for *any* device the OS
   /// pairs/connects, including ones the user connects via the system
   /// Bluetooth menu (not via Magic Switch). Used to keep the Peripheral tab
   /// live without polling.
   private var globalConnectObserver: IOBluetoothUserNotification?
+
+  /// Peripherals the auto-reconnect watcher is trying to reclaim, keyed by
+  /// id, with the time each was armed (for the `reconnectMaxWindow` bound).
+  /// Main-only.
+  private var reconnectWatchlist: [String: Date] = [:]
+
+  /// Ids with a probe/reclaim chain in flight, so overlapping ticks don't
+  /// fire a second `HOLDS_ONE` or pair attempt for the same peripheral while
+  /// the first is still resolving. Main-only.
+  private var reconnectInFlight: Set<String> = []
+
+  /// Ids we released on purpose (handoff, "Remove from PC", sleep). The
+  /// disconnect notification that follows must not arm the watcher — the
+  /// peripheral is meant to leave this Mac. Consumed by
+  /// `handlePeripheralDisconnected`. Main-only.
+  private var intentionalReleases: Set<String> = []
+
+  /// Repeating probe timer; runs only while `reconnectWatchlist` is non-empty.
+  private var reconnectTimer: DispatchSourceTimer?
+
+  /// Per-address flag: should a pair-watchdog timeout surface a user
+  /// notification? True for interactive connects, false for watcher retries
+  /// (which would otherwise spam "Pairing Timed Out" while a device is stuck).
+  private var pairTimeoutShouldAnnounce: [String: Bool] = [:]
 
   // MARK: - Computed Properties
 
@@ -125,12 +185,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     setupSleepRelease()
   }
 
-  /// Hand held peripherals back to the peer the moment before this Mac
-  /// sleeps, so they're free for the peer to take rather than stranded on a
-  /// machine that can no longer be reached to release them.
+  /// Wire the sleep/wake hooks: snapshot (and, when configured, release) held
+  /// peripherals just before sleep, and reclaim them on wake.
   private func setupSleepRelease() {
     sleepMonitor.onWillSleep = { [weak self] in
-      self?.releaseHeldPeripheralsForSleep()
+      self?.prepareForSleep()
     }
     sleepMonitor.onDidWake = { [weak self] in
       self?.reclaimPeripheralsAfterWake()
@@ -139,34 +198,46 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Runs (on main) from `SleepMonitor` immediately before sleep, with the
-  /// power transition held until it returns. Releases every peripheral this
-  /// Mac currently holds so the peer can take it cleanly, and records them so
-  /// `reclaimPeripheralsAfterWake` can take back any the peer didn't.
+  /// power transition held until it returns. Two jobs:
   ///
-  /// Gated on the peer looking present (paired + a registered device we're
-  /// currently seeing on Bonjour). If no peer is around there's no one to
-  /// hand off to, so we keep the peripherals bonded rather than orphan them —
-  /// `IORegisterForSystemPower` can't read a peer that isn't there.
+  /// 1. Snapshot the registered peripherals currently connected to this Mac
+  ///    into `connectedBeforeSleep`, so `reclaimPeripheralsAfterWake` can try
+  ///    to get *whatever we were using* back on wake — not just the subset we
+  ///    actively handed off. This is what recovers a device that drops on a
+  ///    lid-close with no peer to hand it to and then won't reconnect (the
+  ///    macOS-side bug the watcher exists for).
   ///
-  /// The IOBluetooth removes run synchronously on `bluetoothQueue` (the only
-  /// place IOBluetooth is touched) so they land before the radio powers down.
-  private func releaseHeldPeripheralsForSleep() {
+  /// 2. When `releaseOnSleep` is set and a peer looks present (paired + a
+  ///    registered device we're seeing on Bonjour), release each held
+  ///    peripheral so the peer can take it cleanly rather than have it
+  ///    stranded on a Mac that can no longer be reached to release it. With
+  ///    no peer around there's no one to hand off to, so we leave them bonded.
+  ///
+  /// The IOBluetooth reads/removes run synchronously on `bluetoothQueue` (the
+  /// only place IOBluetooth is touched) so they land before the radio powers
+  /// down.
+  private func prepareForSleep() {
+    connectedBeforeSleep = []
     peripheralsReleasedForSleep = []
-    guard releaseOnSleep,
-      PairingStore.shared.isPaired,
-      NetworkDeviceStore.shared.networkDevices.contains(where: { $0.isActive })
-    else { return }
 
     // Snapshot `peripherals` on main before hopping to the Bluetooth queue.
-    let held = peripherals
-    guard !held.isEmpty else { return }
+    let registered = peripherals
+    guard !registered.isEmpty else { return }
 
+    let shouldRelease =
+      releaseOnSleep
+      && PairingStore.shared.isPaired
+      && NetworkDeviceStore.shared.networkDevices.contains(where: { $0.isActive })
+
+    var connectedIDs: [String] = []
     var releasedIDs: [String] = []
     bluetoothQueue.sync {
-      for peripheral in held {
+      for peripheral in registered {
         guard let device = IOBluetoothDevice(addressString: peripheral.id),
           device.isConnected()
         else { continue }
+        connectedIDs.append(peripheral.id)
+        guard shouldRelease else { continue }
         if device.responds(to: Selector(("remove"))) {
           device.perform(Selector(("remove")))
         } else {
@@ -176,38 +247,67 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
     }
 
-    // Back on main (we never left it); reflect the releases in the UI so the
-    // Peripheral tab is correct on wake, and remember them for reclaim.
+    // Back on main (we never left it). Record what we were holding so the
+    // wake reclaim can chase it, and reflect any releases in the UI.
+    connectedBeforeSleep = Set(connectedIDs)
     peripheralsReleasedForSleep = Set(releasedIDs)
     for id in releasedIDs {
+      // Keep the sleep-time disconnect notifications from arming the watcher;
+      // `reclaimPeripheralsAfterWake` re-arms these explicitly on wake.
+      noteIntentionalRelease(id)
       setConnectionState(.disconnected, for: id)
     }
-    if !releasedIDs.isEmpty {
-      print("Released \(releasedIDs.count) peripheral(s) before sleep")
+    if !connectedIDs.isEmpty {
+      print("Before sleep: \(connectedIDs.count) connected, released \(releasedIDs.count)")
     }
   }
 
-  /// Runs (on main) from `SleepMonitor` after wake. For each peripheral we
-  /// released for sleep, ask the peer whether it actually took it; reclaim
-  /// only the ones it didn't (or can't be reached for). Waits
-  /// `Constants.wakeReclaimDelay` first so the network can reassociate —
-  /// otherwise a peer actively using the peripheral could look unreachable
-  /// and we'd wrongly grab it back.
+  /// Runs (on main) from `SleepMonitor` after wake. When auto-reconnect is on,
+  /// arms the watcher for *everything this Mac was holding before sleep*
+  /// (`connectedBeforeSleep`) so it chases back whatever didn't return on its
+  /// own — the watcher's probe applies the read-only `HOLDS_ONE` peer check,
+  /// so anything the peer legitimately took is left alone. When off, falls
+  /// back to the original one-shot reclaim of just the peripherals we released
+  /// for sleep. Waits `Constants.wakeReclaimDelay` first so the network can
+  /// reassociate (and bonded devices get a moment to reconnect on their own)
+  /// before any unreachable-looking peer gets a peripheral grabbed back.
   private func reclaimPeripheralsAfterWake() {
-    let ids = peripheralsReleasedForSleep
+    let connected = connectedBeforeSleep
+    let released = peripheralsReleasedForSleep
+    connectedBeforeSleep = []
     peripheralsReleasedForSleep = []
-    guard !ids.isEmpty else { return }
+    guard !connected.isEmpty else { return }
+
+    // Connection states are stale across sleep — a peripheral we left bonded
+    // still reads `.connected`. Refresh from live IOBluetooth so the watcher
+    // (and the Peripheral tab) see reality before we act on it.
+    fetchConnectedPeripherals()
 
     DispatchQueue.main.asyncAfter(deadline: .now() + Constants.wakeReclaimDelay) {
       [weak self] in
       guard let self = self else { return }
-      // The registered peer (not gated on `isActive`: Bonjour may not have
-      // re-resolved yet, but `executeHoldsOne` actually connects, so
-      // reachability is decided there).
-      let device = NetworkDeviceStore.shared.networkDevices.first
-      for id in ids {
+
+      if self.autoReconnect {
+        for id in connected {
+          // Anything we unpaired for sleep is no longer "intentionally
+          // released" now that we're awake and want it back.
+          if released.contains(id) { self.intentionalReleases.remove(id) }
+          guard self.peripherals.contains(where: { $0.id == id }) else { continue }
+          self.armReconnect(id)
+        }
+        return
+      }
+
+      // Feature off: original one-shot reclaim, scoped to the peripherals we
+      // released for sleep. The registered peer is not gated on `isActive`
+      // (Bonjour may not have re-resolved yet, but `executeHoldsOne` actually
+      // connects, so reachability is decided there).
+      for id in released {
+        self.intentionalReleases.remove(id)
         guard let peripheral = self.peripherals.first(where: { $0.id == id }) else { continue }
-        guard let device = device, PairingStore.shared.isPaired else {
+        guard let device = NetworkDeviceStore.shared.networkDevices.first,
+          PairingStore.shared.isPaired
+        else {
           // No peer to ask — these are ours; take them back.
           self.connectPeripheral(peripheral)
           continue
@@ -273,6 +373,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard validateBluetoothState() else { return }
     guard let btDevice = getBluetoothDevice(for: peripheral) else { return }
 
+    // Deliberate release: stop any auto-reconnect attempt for it.
+    disarmReconnect(peripheral.id)
+
     if !btDevice.isConnected() {
       print("Device is already disconnected: \(peripheral.name)")
       setConnectionState(.disconnected, for: peripheral.id)
@@ -280,6 +383,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     if btDevice.responds(to: Selector(("remove"))) {
+      // Suppress the imminent disconnect notification from re-arming the
+      // watcher — we're handing this peripheral away on purpose.
+      noteIntentionalRelease(peripheral.id)
       btDevice.perform(Selector(("remove")))
       print("Device information removed: \(peripheral.name)")
       setConnectionState(.disconnected, for: peripheral.id)
@@ -290,6 +396,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // `-remove` selector lands here. `closeConnection` doesn't fully
     // unpair (the device stays in System Settings → Bluetooth's list), but
     // it breaks the active session so the peer can take ownership.
+    noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
       print("Fell back to closeConnection() for \(peripheral.name)")
@@ -312,6 +419,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     peripherals.removeAll { $0.id == peripheral.id }
+    // No longer ours — stop watching and forget any pending release flag.
+    disarmReconnect(peripheral.id)
+    intentionalReleases.remove(peripheral.id)
     print("\(peripheral.name) has been removed from the list")
   }
 
@@ -336,7 +446,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     setConnectionState(.connecting, for: peripheral.id)
-    schedulePairWatchdog(for: peripheral)
+    schedulePairWatchdog(for: peripheral, announceTimeout: true)
     networkStore.executeUnregisterOne(address: peripheral.id, on: device) {
       [weak self] result in
       guard let self = self else { return }
@@ -437,8 +547,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
+    connectPeripheral(peripheral, announcePairTimeout: true)
+  }
+
+  /// - Parameter announcePairTimeout: whether a pair-watchdog timeout should
+  ///   raise a user notification. Interactive callers pass `true`; the
+  ///   auto-reconnect watcher passes `false` so its retries against a stuck
+  ///   device don't spam "Pairing Timed Out".
+  private func connectPeripheral(_ peripheral: BluetoothPeripheral, announcePairTimeout: Bool) {
     setConnectionState(.connecting, for: peripheral.id)
-    schedulePairWatchdog(for: peripheral)
+    schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout)
 
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
@@ -503,6 +621,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
 
+    // Deliberate disconnect: stop watching it and keep the resulting
+    // disconnect notification from re-arming the watcher.
+    disarmReconnect(peripheral.id)
+    noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
       print("Disconnected from \(peripheral.name)")
@@ -640,9 +762,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     DispatchQueue.main.async {
       self.disconnectObservers.removeValue(forKey: address)
       // Don't clobber a fresh .connecting attempt from a pre-empt path.
-      if self.connectionStates[address] != .connecting {
-        self.connectionStates[address] = .disconnected
+      guard self.connectionStates[address] != .connecting else { return }
+      self.connectionStates[address] = .disconnected
+      if self.intentionalReleases.remove(address) != nil {
+        // We let this one go on purpose (handoff / sleep) — don't reclaim it.
+        return
       }
+      // Genuine drop of a peripheral that should be on this Mac: start trying
+      // to get it back. `armReconnect` no-ops when the feature is off or the
+      // peripheral isn't registered to us.
+      self.armReconnect(address)
     }
   }
 
@@ -677,12 +806,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// if `devicePairingFinished` hasn't fired within `Constants.pairTimeout`.
   /// We don't explicitly cancel from the success / pre-flight-failure paths;
   /// the handler no-ops if the state has already moved on.
-  private func schedulePairWatchdog(for peripheral: BluetoothPeripheral) {
+  private func schedulePairWatchdog(for peripheral: BluetoothPeripheral, announceTimeout: Bool) {
     let address = peripheral.id
     let name = peripheral.name
     DispatchQueue.main.async { [weak self] in
       guard let self = self else { return }
       self.pairTimers[address]?.cancel()
+      self.pairTimeoutShouldAnnounce[address] = announceTimeout
       let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
       timer.schedule(deadline: .now() + Constants.pairTimeout)
       timer.setEventHandler { [weak self] in
@@ -697,18 +827,187 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // Timer fires on the main queue.
     guard connectionStates[address] == .connecting else {
       pairTimers.removeValue(forKey: address)
+      pairTimeoutShouldAnnounce.removeValue(forKey: address)
       return
     }
     pendingPairs[address]?.stop()
     pendingPairs.removeValue(forKey: address)
     pairTimers.removeValue(forKey: address)
+    let announce = pairTimeoutShouldAnnounce.removeValue(forKey: address) ?? true
     connectionStates[address] = .disconnected
+    // A silent watcher retry just tries again on the next probe; only
+    // interactive connects surface the timeout to the user.
+    guard announce else { return }
     NotificationManager.showNotification(
       title: "Pairing Timed Out",
       body:
         "Couldn't pair \(name). It may currently be connected to your other Mac — try the menu-bar switch action instead.",
       identifier: "pair-timeout-\(address)"
     )
+  }
+
+  // MARK: - Auto-Reconnect Watcher
+
+  /// Arm the watcher for `id`: it'll be probed every
+  /// `Constants.reconnectProbeInterval` and reclaimed once it's back in range
+  /// and the peer isn't using it. No-op when the feature is off or the
+  /// peripheral isn't registered to us. Preserves the original arm time on
+  /// re-arm so the `reconnectMaxWindow` bound counts from the first drop.
+  private func armReconnect(_ id: String) {
+    guard autoReconnect, peripherals.contains(where: { $0.id == id }) else { return }
+    if reconnectWatchlist[id] == nil {
+      reconnectWatchlist[id] = Date()
+      print("Auto-reconnect: watching \(id)")
+    }
+    startReconnectTimerIfNeeded()
+  }
+
+  /// Stop watching `id` — it connected, moved to the peer, was removed, or
+  /// timed out. Tears the timer down once nothing is left to watch.
+  private func disarmReconnect(_ id: String) {
+    reconnectInFlight.remove(id)
+    guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
+    if reconnectWatchlist.isEmpty { stopReconnectTimer() }
+  }
+
+  /// Note that `id` is being released on purpose, so the disconnect
+  /// notification that follows doesn't re-arm the watcher. Consumed by
+  /// `handlePeripheralDisconnected`.
+  private func noteIntentionalRelease(_ id: String) {
+    intentionalReleases.insert(id)
+  }
+
+  private func startReconnectTimerIfNeeded() {
+    guard reconnectTimer == nil else { return }
+    let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+    // Fire immediately, then on the probe interval — an immediate first tick
+    // makes wake-time reclaim and manual power-cycle recovery feel prompt.
+    timer.schedule(deadline: .now(), repeating: Constants.reconnectProbeInterval)
+    timer.setEventHandler { [weak self] in self?.reconnectTick() }
+    timer.resume()
+    reconnectTimer = timer
+  }
+
+  private func stopReconnectTimer() {
+    reconnectTimer?.cancel()
+    reconnectTimer = nil
+  }
+
+  /// One probe pass over the watchlist (runs on main). Drops entries that are
+  /// connected, no longer ours, or past the window; otherwise probes whether
+  /// the device is back and, if so, reclaims it. Iterates a snapshot because
+  /// `disarmReconnect` mutates `reconnectWatchlist`.
+  private func reconnectTick() {
+    guard autoReconnect else {
+      // Toggled off mid-flight — stand down.
+      reconnectWatchlist.removeAll()
+      reconnectInFlight.removeAll()
+      stopReconnectTimer()
+      return
+    }
+    let now = Date()
+    for (id, armedAt) in reconnectWatchlist {
+      if reconnectInFlight.contains(id) { continue }
+      guard let peripheral = peripherals.first(where: { $0.id == id }) else {
+        disarmReconnect(id)
+        continue
+      }
+      if now.timeIntervalSince(armedAt) > Constants.reconnectMaxWindow {
+        print("Auto-reconnect: giving up on \(peripheral.name)")
+        disarmReconnect(id)
+        continue
+      }
+      switch connectionState(for: id) {
+      case .connected:
+        disarmReconnect(id)
+      case .connecting:
+        continue  // an attempt is already in flight
+      case .disconnected:
+        probeAndReclaim(peripheral)
+      }
+    }
+  }
+
+  /// Checks live IOBluetooth reachability for `peripheral` off the main queue;
+  /// if it's back in range, hands off to `reclaimIfPeerIsFree`. Marks the id
+  /// in-flight so overlapping ticks skip it until this resolves.
+  private func probeAndReclaim(_ peripheral: BluetoothPeripheral) {
+    let id = peripheral.id
+    reconnectInFlight.insert(id)
+    bluetoothQueue.async { [weak self] in
+      guard let self = self else { return }
+      // RSSI is the "is it back?" signal — `invalidRSSI` (127) means we can't
+      // see it, the same gate `connectPeripheral` uses. Cheap while absent.
+      var alreadyConnected = false
+      var reachable = false
+      if IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF,
+        let device = IOBluetoothDevice(addressString: id)
+      {
+        alreadyConnected = device.isConnected()
+        reachable = device.rssi() != Constants.invalidRSSI
+      }
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
+        // Bail if it left the watchlist or changed state while we probed.
+        guard self.reconnectWatchlist[id] != nil,
+          self.connectionState(for: id) == .disconnected
+        else {
+          self.reconnectInFlight.remove(id)
+          return
+        }
+        if alreadyConnected {
+          // It came back on its own (e.g. macOS reconnected a bonded device
+          // on wake) — record it and stop; no need to re-pair.
+          self.reconnectInFlight.remove(id)
+          self.setConnectionState(.connected, for: id)
+          self.disarmReconnect(id)
+          return
+        }
+        guard reachable else {
+          // Still gone — wait for the next tick.
+          self.reconnectInFlight.remove(id)
+          return
+        }
+        self.reclaimIfPeerIsFree(peripheral)
+      }
+    }
+  }
+
+  /// `peripheral` is back in range. Ask the peer (read-only `HOLDS_ONE`)
+  /// whether it's using it: if so, stop watching (it's legitimately theirs);
+  /// otherwise — peer says no, or is unreachable — reconnect locally. This is
+  /// the same guard the wake-reclaim uses: we never yank a peripheral the
+  /// peer is actively using, and we never tell the peer to disconnect.
+  private func reclaimIfPeerIsFree(_ peripheral: BluetoothPeripheral) {
+    let id = peripheral.id
+    guard PairingStore.shared.isPaired,
+      let device = NetworkDeviceStore.shared.networkDevices.first
+    else {
+      // No peer to consult — it's ours; take it.
+      reconnectInFlight.remove(id)
+      connectPeripheral(peripheral, announcePairTimeout: false)
+      return
+    }
+    NetworkDeviceStore.shared.executeHoldsOne(address: id, on: device) { [weak self] result in
+      // `executeHoldsOne`'s completion fires on the connection queue, not
+      // main — hop back before touching watcher state.
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.reconnectInFlight.remove(id)
+        switch result {
+        case .success:
+          // Peer is actively holding it — leave it there.
+          print("Auto-reconnect: \(peripheral.name) held by \(device.name); leaving it")
+          self.disarmReconnect(id)
+        case .failure:
+          guard self.reconnectWatchlist[id] != nil,
+            self.connectionState(for: id) == .disconnected
+          else { return }
+          print("Auto-reconnect: reclaiming \(peripheral.name)")
+          self.connectPeripheral(peripheral, announcePairTimeout: false)
+        }
+      }
+    }
   }
 
   // MARK: - Private Methods

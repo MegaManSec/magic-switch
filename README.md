@@ -22,7 +22,7 @@ Four Settings tabs to know — two of them use the word "pair" in different sens
 - **Peripheral** — the Bluetooth devices Magic Switch hands back and forth (Magic Keyboard / Mouse / Trackpad).
 - **Device** — the *other Mac on your network* you're swapping with.
 - **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Magic Switch.
-- **Other** — app preferences: turn on **Launch at Login**, see the installed version, and get notified about updates (see [Updates](#updates)).
+- **Other** — app preferences: **Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
 
 <p align="center">
   <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab with each control labelled" width="600"><br>
@@ -102,6 +102,7 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Device tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
 - On the **Device** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
+- **A peripheral didn't come back after sleep or a lid-close.** Apple's Magic devices sometimes get stuck once the Bluetooth radio sleeps and won't reconnect — even a manual reconnect fails until you switch the peripheral **off and on** with its power switch. Magic Switch keeps watching for anything that was on this Mac before it slept: the moment the device reappears (which a power-cycle triggers), it reconnects automatically — as long as your other Mac isn't actively using it. This is on by default; you can turn it off under **Settings → Other → "Reconnect peripherals if they drop."**
 
 ## Developer notes
 
