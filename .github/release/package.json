@@ -1,0 +1,10 @@
+{
+  "name": "magic-switch",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Release tooling for Magic Switch (semantic-release). Not part of the macOS app build.",
+  "devDependencies": {
+    "@semantic-release/github": "11.0.6",
+    "semantic-release": "24.2.9"
+  }
+}

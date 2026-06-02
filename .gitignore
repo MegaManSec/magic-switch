@@ -67,3 +67,6 @@ fastlane/test_output
 # Claude Code session artifacts
 .claude/
 CLAUDE.md
+
+# Node tooling (semantic-release)
+node_modules/
