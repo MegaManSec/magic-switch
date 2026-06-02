@@ -33,20 +33,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: .github/release/package-lock.json
 
-      - name: Install semantic-release
-        run: |
-          npm install -g \
-            semantic-release@24 \
-            @semantic-release/github@11
+      - name: Install release tooling
+        # Reproducible, integrity-checked install from the committed lockfile
+        # (pins the full semantic-release dependency tree, not just the majors).
+        working-directory: .github/release
+        run: npm ci
 
       - name: Determine version
         id: determine_version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OUTPUT="$(semantic-release --dry-run --no-ci)"
+          OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci)"
           # Extract just the version triple to avoid picking up trailing
           # punctuation if the log format ever changes slightly.
           NEW_RELEASE_VERSION=$(echo "$OUTPUT" \
@@ -152,15 +153,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: "lts/*"
+          cache: npm
+          cache-dependency-path: .github/release/package-lock.json
 
-      - name: Install semantic-release
-        run: |
-          npm install -g \
-            semantic-release@24 \
-            @semantic-release/github@11
+      - name: Install release tooling
+        # Reproducible, integrity-checked install from the committed lockfile
+        # (pins the full semantic-release dependency tree, not just the majors).
+        working-directory: .github/release
+        run: npm ci
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: semantic-release
+        run: ./.github/release/node_modules/.bin/semantic-release
