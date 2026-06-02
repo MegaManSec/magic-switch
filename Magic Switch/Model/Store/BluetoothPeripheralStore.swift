@@ -229,6 +229,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       && PairingStore.shared.isPaired
       && NetworkDeviceStore.shared.networkDevices.contains(where: { $0.isActive })
 
+    // If we're neither releasing nor going to chase peripherals on wake, skip
+    // the IOBluetooth scan rather than block the (held) sleep transition to
+    // build a `connectedBeforeSleep` snapshot no one will read.
+    guard shouldRelease || autoReconnect else { return }
+
     var connectedIDs: [String] = []
     var releasedIDs: [String] = []
     bluetoothQueue.sync {
@@ -402,6 +407,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       print("Fell back to closeConnection() for \(peripheral.name)")
       setConnectionState(.disconnected, for: peripheral.id)
     } else {
+      // The release didn't happen, so no disconnect notification will arrive
+      // to consume the flag — clear it so it can't suppress a later genuine
+      // drop's auto-reconnect.
+      clearIntentionalRelease(peripheral.id)
       print("Failed to release \(peripheral.name): closeConnection returned \(result)")
       NotificationManager.showNotification(
         title: "Couldn't Release Peripheral",
@@ -854,6 +863,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// peripheral isn't registered to us. Preserves the original arm time on
   /// re-arm so the `reconnectMaxWindow` bound counts from the first drop.
   private func armReconnect(_ id: String) {
+    // The watcher dictionaries/sets and timer are main-only, but deliberate
+    // releases (`unregisterFromPC` during a handoff) reach the watcher from the
+    // outgoing-connection queue — hop to main so we never mutate this state
+    // concurrently with `reconnectTick` / `handlePeripheralDisconnected`.
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.armReconnect(id) }
+      return
+    }
     guard autoReconnect, peripherals.contains(where: { $0.id == id }) else { return }
     if reconnectWatchlist[id] == nil {
       reconnectWatchlist[id] = Date()
@@ -865,6 +882,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Stop watching `id` — it connected, moved to the peer, was removed, or
   /// timed out. Tears the timer down once nothing is left to watch.
   private func disarmReconnect(_ id: String) {
+    // Main-only state; see `armReconnect`.
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.disarmReconnect(id) }
+      return
+    }
     reconnectInFlight.remove(id)
     guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
     if reconnectWatchlist.isEmpty { stopReconnectTimer() }
@@ -874,7 +896,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// notification that follows doesn't re-arm the watcher. Consumed by
   /// `handlePeripheralDisconnected`.
   private func noteIntentionalRelease(_ id: String) {
+    // Main-only state; see `armReconnect`.
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.noteIntentionalRelease(id) }
+      return
+    }
     intentionalReleases.insert(id)
+  }
+
+  /// Undo a `noteIntentionalRelease` when the release didn't actually happen
+  /// (e.g. `closeConnection` failed), so a stale flag can't suppress the
+  /// reconnect of a later genuine drop.
+  private func clearIntentionalRelease(_ id: String) {
+    // Main-only state; see `armReconnect`.
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.clearIntentionalRelease(id) }
+      return
+    }
+    intentionalReleases.remove(id)
   }
 
   private func startReconnectTimerIfNeeded() {
@@ -957,9 +996,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         }
         if alreadyConnected {
           // It came back on its own (e.g. macOS reconnected a bonded device
-          // on wake) — record it and stop; no need to re-pair.
+          // on wake) — record it and stop; no need to re-pair. The genuine
+          // drop unregistered the old disconnect observer, so re-register one
+          // here, otherwise the *next* drop wouldn't re-arm the watcher.
           self.reconnectInFlight.remove(id)
           self.setConnectionState(.connected, for: id)
+          if self.disconnectObservers[id] == nil,
+            let device = IOBluetoothDevice(addressString: id)
+          {
+            self.registerForDisconnect(device: device, address: id)
+          }
           self.disarmReconnect(id)
           return
         }
