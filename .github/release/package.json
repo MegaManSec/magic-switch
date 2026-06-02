@@ -2,6 +2,7 @@
   "name": "magic-switch",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.6.4",
   "description": "Release tooling for Magic Switch (semantic-release). Not part of the macOS app build.",
   "devDependencies": {
     "@semantic-release/github": "11.0.6",
