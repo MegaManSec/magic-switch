@@ -18,6 +18,16 @@ extension Notification.Name {
   /// status-bar icon to the "sending peripherals" state.
   static let magicSwitchReceivedUnregisterAll = Notification.Name(
     "magicSwitchReceivedUnregisterAll")
+  /// Per-peripheral counterparts of the `…ConnectAll` / `…UnregisterAll`
+  /// signals above: the same status-bar arrows, but for a single-device
+  /// switch. Posted both by this Mac's per-peripheral senders
+  /// (`takePeripheralFromPeer` / `sendPeripheralToPeer`) and by the incoming
+  /// `.connectOne` / `.unregisterOne` handlers, so both Macs show arrows
+  /// pointing the same physical way during a one-peripheral handoff.
+  static let magicSwitchPeripheralIncoming = Notification.Name(
+    "magicSwitchPeripheralIncoming")
+  static let magicSwitchPeripheralOutgoing = Notification.Name(
+    "magicSwitchPeripheralOutgoing")
 }
 
 /// Per-accept handler. Owns the NWConnection, its SecureChannel, idle/total
@@ -264,6 +274,8 @@ final class IncomingConnection {
       let store = bluetoothStore
       let address = message
       DispatchQueue.main.async {
+        // Peripheral is leaving this Mac for the peer — flash the sending arrow.
+        NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
         if let peripheral = store.peripherals.first(where: { $0.id == address }) {
           store.unregisterFromPC(peripheral)
         }
@@ -281,6 +293,8 @@ final class IncomingConnection {
       let store = bluetoothStore
       let address = message
       DispatchQueue.main.async {
+        // Peripheral is arriving at this Mac — flash the receiving arrow.
+        NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
         if let peripheral = store.peripherals.first(where: { $0.id == address }) {
           store.connectPeripheral(peripheral)
         }

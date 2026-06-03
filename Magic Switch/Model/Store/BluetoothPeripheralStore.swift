@@ -454,6 +454,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
 
+    // Peripheral is arriving at this Mac — flash the receiving arrow, the same
+    // signal the full-set take raises on the menu-bar icon.
+    NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
     setConnectionState(.connecting, for: peripheral.id)
     schedulePairWatchdog(for: peripheral, announceTimeout: true)
     networkStore.executeUnregisterOne(address: peripheral.id, on: device) {
@@ -501,6 +504,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       unregisterFromPC(peripheral)
       return
     }
+    // Peripheral is leaving this Mac for the peer — flash the sending arrow.
+    NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
     unregisterFromPC(peripheral)
     waitForLocalDisconnect(of: peripheral) { success in
       guard success else {
