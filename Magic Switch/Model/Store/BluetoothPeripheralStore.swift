@@ -582,6 +582,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
 
+      // Already connected — e.g. macOS reconnected this bonded peripheral on
+      // its own while the auto-reconnect watcher's HOLDS_ONE probe was in
+      // flight, so by the time we got here there's nothing left to pair.
+      // Starting an `IOBluetoothDevicePair` on an already-connected device
+      // never fires `devicePairingFinished`, stranding the UI at `.connecting`
+      // ("(Pairing…)"). Adopt the live connection instead.
+      if btDevice.isConnected() {
+        self.setConnectionState(.connected, for: peripheral.id)
+        self.registerForDisconnect(device: btDevice, address: peripheral.id)
+        return
+      }
+
       if btDevice.rssi() == Constants.invalidRSSI {
         print("\(peripheral.name) is out of range or not responding")
         self.setConnectionState(.disconnected, for: peripheral.id)
