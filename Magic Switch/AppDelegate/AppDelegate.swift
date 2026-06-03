@@ -33,9 +33,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var pingObserver: NSObjectProtocol?
   /// Resets the status-bar icon back to its real state after a Ping flash.
   private var pingFlashTimer: DispatchSourceTimer?
-  /// Observers for inbound peripheral-handoff posts from `IncomingConnection`.
+  /// Observers for inbound full-set peripheral-handoff posts from
+  /// `IncomingConnection`.
   private var transferReceiveObserver: NSObjectProtocol?
   private var transferReleaseObserver: NSObjectProtocol?
+  /// Same, for single-peripheral switches — posted both by the local
+  /// per-peripheral senders and by the incoming `.connectOne` /
+  /// `.unregisterOne` handlers.
+  private var transferIncomingOneObserver: NSObjectProtocol?
+  private var transferOutgoingOneObserver: NSObjectProtocol?
   /// Direction the status-bar icon should currently advertise. `idle` falls
   /// through to the normal/needs-attention logic in `refreshStatusBarIcon`.
   private enum TransferState {
@@ -136,6 +142,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       NotificationCenter.default.removeObserver(token)
     }
     if let token = transferReleaseObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    if let token = transferIncomingOneObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    if let token = transferOutgoingOneObserver {
       NotificationCenter.default.removeObserver(token)
     }
   }
@@ -297,6 +309,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     transferReleaseObserver = NotificationCenter.default.addObserver(
       forName: .magicSwitchReceivedUnregisterAll, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.beginTransferAutoEnd(.sending)
+    }
+    transferIncomingOneObserver = NotificationCenter.default.addObserver(
+      forName: .magicSwitchPeripheralIncoming, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.beginTransferAutoEnd(.receiving)
+    }
+    transferOutgoingOneObserver = NotificationCenter.default.addObserver(
+      forName: .magicSwitchPeripheralOutgoing, object: nil, queue: .main
     ) { [weak self] _ in
       self?.beginTransferAutoEnd(.sending)
     }
