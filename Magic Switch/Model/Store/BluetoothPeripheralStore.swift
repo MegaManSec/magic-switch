@@ -582,15 +582,29 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
 
-      // Already connected — e.g. macOS reconnected this bonded peripheral on
-      // its own while the auto-reconnect watcher's HOLDS_ONE probe was in
-      // flight, so by the time we got here there's nothing left to pair.
-      // Starting an `IOBluetoothDevicePair` on an already-connected device
-      // never fires `devicePairingFinished`, stranding the UI at `.connecting`
-      // ("(Pairing…)"). Adopt the live connection instead.
-      if btDevice.isConnected() {
-        self.setConnectionState(.connected, for: peripheral.id)
-        self.registerForDisconnect(device: btDevice, address: peripheral.id)
+      // Already bonded to this Mac. A peripheral we're holding that merely
+      // dropped — power cycle, briefly out of range, wake — keeps its link
+      // key, so macOS reconnects it on its own. Running
+      // `IOBluetoothDevicePair.start()` on a bonded device re-runs bonding and
+      // forces a disconnect/reconnect cycle that fights that reconnect (and
+      // strands the UI at "(Pairing…)" — the pair callback never fires for an
+      // already-connected device, and `fetchConnectedPeripherals` won't
+      // overwrite the in-flight `.connecting`). So adopt the live connection,
+      // or just open one — never re-pair. A peripheral handed to the peer was
+      // `-remove`d (see `unregisterFromPC`), so it isn't bonded here and falls
+      // through to the pairing path below: that's the take-from-peer case.
+      if btDevice.isConnected() || btDevice.isPaired() {
+        if !btDevice.isConnected() {
+          _ = btDevice.openConnection()
+        }
+        if btDevice.isConnected() {
+          self.setConnectionState(.connected, for: peripheral.id)
+          self.registerForDisconnect(device: btDevice, address: peripheral.id)
+        } else {
+          // Bonded but didn't come up (still booting / out of range). Leave it
+          // disconnected; macOS or the watcher's next probe will bring it back.
+          self.setConnectionState(.disconnected, for: peripheral.id)
+        }
         return
       }
 
@@ -979,8 +993,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Checks live IOBluetooth reachability for `peripheral` off the main queue;
-  /// if it's back in range, hands off to `reclaimIfPeerIsFree`. Marks the id
+  /// Checks live IOBluetooth state for `peripheral` off the main queue. If it's
+  /// already connected, adopts it; if it's back in range and still bonded here,
+  /// reconnects locally (it's ours); otherwise hands off to
+  /// `reclaimIfPeerIsFree` to consult the peer before pairing. Marks the id
   /// in-flight so overlapping ticks skip it until this resolves.
   private func probeAndReclaim(_ peripheral: BluetoothPeripheral) {
     let id = peripheral.id
@@ -990,11 +1006,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // RSSI is the "is it back?" signal — `invalidRSSI` (127) means we can't
       // see it, the same gate `connectPeripheral` uses. Cheap while absent.
       var alreadyConnected = false
+      var bondedHere = false
       var reachable = false
       if IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF,
         let device = IOBluetoothDevice(addressString: id)
       {
         alreadyConnected = device.isConnected()
+        bondedHere = device.isPaired()
         reachable = device.rssi() != Constants.invalidRSSI
       }
       DispatchQueue.main.async { [weak self] in
@@ -1024,6 +1042,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard reachable else {
           // Still gone — wait for the next tick.
           self.reconnectInFlight.remove(id)
+          return
+        }
+        if bondedHere {
+          // Still bonded to this Mac, so it's ours: the peer can't hold a
+          // device whose link key lives here. Skip the HOLDS_ONE query and
+          // reconnect locally — `connectPeripheral` opens the connection
+          // without re-pairing (re-pairing a bonded device forces a
+          // disconnect/reconnect cycle and fights macOS's own reconnect).
+          self.reconnectInFlight.remove(id)
+          self.connectPeripheral(peripheral, announcePairTimeout: false)
           return
         }
         self.reclaimIfPeerIsFree(peripheral)
