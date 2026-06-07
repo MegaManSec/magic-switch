@@ -28,10 +28,20 @@ final class MenuRowControl: NSControl {
 
   override func mouseDown(with event: NSEvent) {
     guard isEnabled, let window = window else { return }
-    onClick()
-    // Swallow the mouse-up so the tracked menu doesn't treat the tap as a
-    // selection and close.
-    _ = window.nextEvent(matching: [.leftMouseUp])
+    // Act on mouse-*up*, not mouse-down: track the press and fire only if the
+    // pointer is still inside the row when the button is released — a press that
+    // drags off cancels, like a standard button. Pulling the events off the
+    // window queue also swallows the mouse-up so the tracked NSMenu never treats
+    // the tap as a selection and stays open.
+    setHighlighted(true)
+    var inside = true
+    while let next = window.nextEvent(matching: [.leftMouseUp, .leftMouseDragged]) {
+      inside = bounds.contains(convert(next.locationInWindow, from: nil))
+      if next.type == .leftMouseUp { break }
+      setHighlighted(inside)
+    }
+    setHighlighted(false)
+    if inside { onClick() }
   }
 
   // MARK: - Hover highlight
@@ -52,11 +62,15 @@ final class MenuRowControl: NSControl {
 
   override func mouseEntered(with event: NSEvent) {
     guard isEnabled else { return }
-    layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
+    setHighlighted(true)
   }
 
   override func mouseExited(with event: NSEvent) {
-    layer?.backgroundColor = nil
+    setHighlighted(false)
+  }
+
+  private func setHighlighted(_ on: Bool) {
+    layer?.backgroundColor = on ? NSColor.labelColor.withAlphaComponent(0.1).cgColor : nil
   }
 }
 
@@ -284,7 +298,8 @@ final class DropdownContentView: NSView {
     top.distribution = .fill
     top.spacing = 8
     top.alignment = .centerY
-    top.addArrangedSubview(symbolView("keyboard", color: textColor))
+    top.addArrangedSubview(
+      symbolView(bluetoothStore.peripheralType(for: peripheral).symbolName, color: textColor))
     top.addArrangedSubview(textLabel(peripheral.name, color: textColor))
     top.addArrangedSubview(spacer())
     switch state {

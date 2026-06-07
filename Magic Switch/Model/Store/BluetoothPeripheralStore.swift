@@ -91,7 +91,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// lives here as the single source of truth.
   static let autoReconnectDefaultsKey = "autoReconnectDroppedPeripherals"
 
+  /// `@AppStorage` key for the per-peripheral icon/type overrides map.
+  static let typeOverridesDefaultsKey = "peripheralTypeOverrides"
+
   @AppStorage("peripherals") private var peripheralsData: Data = Data()
+
+  @AppStorage(BluetoothPeripheralStore.typeOverridesDefaultsKey)
+  private var typeOverridesData: Data = Data()
 
   /// When set (default), `prepareForSleep` releases held peripherals on
   /// system sleep. Off lets a user keep a peripheral bonded to a Mac that
@@ -114,6 +120,17 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   @Published private(set) var discoveredPeripherals: [BluetoothPeripheral] = []
+
+  /// User-chosen type per peripheral address, overriding auto-detection. Local
+  /// to this Mac (not synced — the peer auto-detects its own icons). Persisted.
+  @Published private(set) var typeOverrides: [String: PeripheralType] = [:] {
+    didSet { saveTypeOverrides() }
+  }
+
+  /// Bluetooth Class of Device per address, captured from the live paired
+  /// snapshot. Feeds auto-detection (especially audio gear, whose names rarely
+  /// say "headphones"). Not persisted — refreshed each `fetchConnectedPeripherals`.
+  @Published private(set) var deviceClasses: [String: UInt32] = [:]
 
   /// Runtime connection state per peripheral id. Driven by pair completion and
   /// IOBluetooth disconnect notifications.
@@ -201,11 +218,33 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     connectionStates[peripheralID] ?? .disconnected
   }
 
+  /// Resolved display type for `peripheral`: the user's manual override if set,
+  /// otherwise auto-detected from the name and (when known) its Class of Device.
+  func peripheralType(for peripheral: BluetoothPeripheral) -> PeripheralType {
+    if let override = typeOverrides[peripheral.id] { return override }
+    return PeripheralType.detect(name: peripheral.name, classOfDevice: deviceClasses[peripheral.id])
+  }
+
+  /// Set (or, with `nil`, clear → back to automatic) the icon/type override for
+  /// a peripheral address. Persisted immediately via the `typeOverrides` didSet.
+  func setTypeOverride(_ type: PeripheralType?, for id: String) {
+    let apply: () -> Void = { [weak self] in
+      guard let self = self else { return }
+      if let type {
+        self.typeOverrides[id] = type
+      } else {
+        self.typeOverrides.removeValue(forKey: id)
+      }
+    }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
+  }
+
   // MARK: - Initialization
 
   private override init() {
     super.init()
     loadPeripherals()
+    loadTypeOverrides()
     fetchConnectedPeripherals()
     registerForSystemBluetoothConnects()
     setupSleepRelease()
@@ -803,12 +842,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
         var paired: [BluetoothPeripheral] = []
         var connectedAddresses: Set<String> = []
+        var classes: [String: UInt32] = [:]
 
         for device in pairedDevices {
           guard let address = device.addressString else { continue }
           if device.isConnected() {
             connectedAddresses.insert(address)
           }
+          classes[address] = UInt32(device.classOfDevice)
           paired.append(
             BluetoothPeripheral(id: address, name: device.name ?? "Unknown Device")
           )
@@ -819,12 +860,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // registered ones at read time. Filtering here instead would mean
           // unregistering a peripheral can't immediately surface it under
           // "Available" until the next fetch (e.g. tab switch).
-          self.discoveredPeripherals = paired
+          // Assign only on change. The Peripheral tab polls this on a timer, so
+          // an unconditional reassign would fire `objectWillChange` every tick
+          // (needless re-renders, and it could dismiss an open type picker).
+          if self.discoveredPeripherals != paired { self.discoveredPeripherals = paired }
+          if self.deviceClasses != classes { self.deviceClasses = classes }
+          // Renaming a device in System Settings → Bluetooth should propagate
+          // to our stored list (and thus the dropdown / Settings), so reconcile
+          // registered names against the live ones we just read.
+          self.refreshRegisteredNames(from: paired)
           for id in registeredIDs {
             let isConnected = connectedAddresses.contains(id)
             // Don't overwrite an in-flight .connecting state with a stale read.
             if self.connectionStates[id] == .connecting { continue }
-            self.connectionStates[id] = isConnected ? .connected : .disconnected
+            let newState: PeripheralConnectionState = isConnected ? .connected : .disconnected
+            if self.connectionStates[id] != newState { self.connectionStates[id] = newState }
             if isConnected {
               if self.disconnectObservers[id] == nil,
                 let device = IOBluetoothDevice(addressString: id)
@@ -1262,12 +1312,50 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   // MARK: - Private Methods
 
+  /// Reconcile registered peripheral names against the live paired-device list,
+  /// so a rename in System Settings → Bluetooth shows up in our stored list.
+  /// Only rewrites a name that actually changed to a non-empty live value, and
+  /// leaves alone peripherals not currently paired here (e.g. handed to the
+  /// peer). Runs on main; assigning `peripherals` saves and re-renders.
+  private func refreshRegisteredNames(from liveDevices: [BluetoothPeripheral]) {
+    let liveNames = Dictionary(liveDevices.map { ($0.id, $0.name) }) { first, _ in first }
+    var changed = false
+    let refreshed = peripherals.map { peripheral -> BluetoothPeripheral in
+      guard let live = liveNames[peripheral.id],
+        !live.isEmpty, live != "Unknown Device", live != peripheral.name
+      else { return peripheral }
+      changed = true
+      var updated = peripheral
+      updated.name = live
+      return updated
+    }
+    if changed { peripherals = refreshed }
+  }
+
   private func savePeripherals() {
     do {
       let encoded = try JSONEncoder().encode(peripherals)
       peripheralsData = encoded
     } catch {
       print("Failed to save peripherals: \(error)")
+    }
+  }
+
+  private func saveTypeOverrides() {
+    do {
+      typeOverridesData = try JSONEncoder().encode(typeOverrides)
+    } catch {
+      print("Failed to save type overrides: \(error)")
+    }
+  }
+
+  private func loadTypeOverrides() {
+    guard !typeOverridesData.isEmpty else { return }
+    do {
+      typeOverrides = try JSONDecoder().decode(
+        [String: PeripheralType].self, from: typeOverridesData)
+    } catch {
+      print("Failed to load type overrides: \(error)")
     }
   }
 
