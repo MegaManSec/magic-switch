@@ -398,6 +398,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     var newPeripheral = peripheral
     peripherals.append(newPeripheral)
+    // Resolve the new row's live connection state (and register its disconnect
+    // observer) right away. Without this the row reads `.disconnected` until
+    // the next snapshot — i.e. the user has to leave and re-open the tab to
+    // see an already-connected peripheral show as connected.
+    fetchConnectedPeripherals()
   }
 
   /// Removes peripheral information from the system while maintaining it in the list

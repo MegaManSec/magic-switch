@@ -327,7 +327,11 @@ private struct NetworkDeviceListView: View {
   }
 
   var body: some View {
-    List(devices) { device in
+    // Rows go straight into the enclosing Form Section — a nested List here
+    // gives each row a taller default height than its content, which
+    // top-aligns the row contents instead of centering them in the pill.
+    // Letting the Form own the row layout keeps content vertically centered.
+    ForEach(devices) { device in
       VStack(alignment: .leading, spacing: 6) {
         HStack {
           Text(device.name)
