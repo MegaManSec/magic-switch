@@ -137,17 +137,20 @@ private struct PeripheralListView: View {
   var secondaryAction: ((BluetoothPeripheral) -> Void)?
 
   var body: some View {
-    List {
-      ForEach(peripherals) { peripheral in
-        PeripheralRowView(
-          peripheral: peripheral,
-          showConnectionStatus: showConnectionStatus,
-          primaryAction: { primaryAction(peripheral) },
-          secondaryAction: secondaryAction.map { action in
-            { action(peripheral) }
-          }
-        )
-      }
+    // Rows go straight into the enclosing Form Section — a nested List here
+    // gives each row a taller default height than its content, which
+    // top-aligns short rows (e.g. the icon-only Available row) instead of
+    // centering them. Letting the Form own the row layout keeps content
+    // vertically centered.
+    ForEach(peripherals) { peripheral in
+      PeripheralRowView(
+        peripheral: peripheral,
+        showConnectionStatus: showConnectionStatus,
+        primaryAction: { primaryAction(peripheral) },
+        secondaryAction: secondaryAction.map { action in
+          { action(peripheral) }
+        }
+      )
     }
   }
 }
@@ -166,24 +169,35 @@ private struct PeripheralRowView: View {
   }
 
   var body: some View {
-    HStack {
-      Text(peripheral.name)
-      Spacer()
-      if showConnectionStatus {
-        connectionButton
-        Button(action: { secondaryAction?() }) {
-          Image(systemName: "minus.circle")
-            .foregroundColor(.red)
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Text(peripheral.name)
+        Spacer()
+        if showConnectionStatus {
+          connectionButton
+          Button(action: { secondaryAction?() }) {
+            Image(systemName: "minus.circle")
+              .foregroundColor(.red)
+          }
+          .help("Remove this peripheral from Magic Switch's list.")
+          .accessibilityLabel("Remove \(peripheral.name) from list")
+        } else {
+          Button(action: primaryAction) {
+            Image(systemName: "plus.circle")
+              .foregroundColor(.blue)
+          }
+          .help("Add this peripheral to Magic Switch's list.")
+          .accessibilityLabel("Add \(peripheral.name) to list")
         }
-        .help("Remove this peripheral from Magic Switch's list.")
-        .accessibilityLabel("Remove \(peripheral.name) from list")
-      } else {
-        Button(action: primaryAction) {
-          Image(systemName: "plus.circle")
-            .foregroundColor(.blue)
-        }
-        .help("Add this peripheral to Magic Switch's list.")
-        .accessibilityLabel("Add \(peripheral.name) to list")
+      }
+
+      // Mirrors the dropdown's inline failure line. The store auto-fades the
+      // message after 5s (and clears it on a fresh attempt), so this appears
+      // and disappears on its own — no extra state to manage here.
+      if let error = store.peripheralOperationError[peripheral.id] {
+        Text(error)
+          .font(.caption)
+          .foregroundColor(.red)
       }
     }
   }
@@ -192,7 +206,7 @@ private struct PeripheralRowView: View {
   private var connectionButton: some View {
     switch connectionState {
     case .connected:
-      Button("Disconnect", action: primaryAction)
+      Button("Release", action: primaryAction)
         .help(
           "Release this peripheral from this Mac. If a peer Mac is paired, it'll take ownership automatically."
         )
