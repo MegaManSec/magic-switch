@@ -36,6 +36,15 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   @Published private(set) var discoveredNetworkDevices: [NetworkDevice] = []
   @AppStorage("networkDevices") private var networkDevicesData: Data = Data()
 
+  /// Last active-probe result per device id (runtime only, never persisted).
+  /// Combined signal: Bonjour resolve/withdraw write it on each transition, and
+  /// a repeating `.ping` (plus an on-menu-open `.ping`) keep it honest between
+  /// Bonjour events — so a peer that vanished without a Bonjour goodbye flips
+  /// to false within one poll interval instead of waiting out the mDNS TTL.
+  @Published private(set) var deviceReachability: [String: Bool] = [:]
+  private var reachabilityTimer: DispatchSourceTimer?
+  private static let reachabilityInterval: TimeInterval = 30
+
   // MARK: - Computed Properties
 
   var availableNetworkDevices: [NetworkDevice] {
@@ -52,10 +61,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private init() {
     loadNetworkDevices()
     startServices()
+    startReachabilityPolling()
   }
 
   deinit {
     stopServices()
+    reachabilityTimer?.cancel()
   }
 
   // MARK: - Service Management
@@ -91,6 +102,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       let priorFingerprint = networkDevices[index].fingerprint
       networkDevices[index].update(with: device)
       saveNetworkDevices()
+      // Fold the Bonjour signal into reachability: a fresh resolve is a good
+      // indication the peer is up; a mismatch (isActive == false) keeps it
+      // greyed. The `.ping` poll refines this between Bonjour events.
+      deviceReachability[device.id] = networkDevices[index].isActive
       if let prior = priorFingerprint,
         let incoming = device.fingerprint,
         prior != incoming
@@ -116,6 +131,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     networkDevices[index].pendingFingerprint = nil
     networkDevices[index].isActive = true
     networkDevices[index].lastUpdated = Date()
+    // Trust is a positive presence signal — the peer is on the network, which
+    // is how we saw the new key — so clear the stale `false` reachability the
+    // mismatch left behind rather than make the user wait for the next poll to
+    // un-grey the menu row.
+    deviceReachability[deviceID] = true
     saveNetworkDevices()
   }
 
@@ -148,6 +168,68 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
     if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == id }) {
       discoveredNetworkDevices[index].isActive = isActive
+    }
+    // Mirror Bonjour's verdict into reachability (a withdraw is a valid, if
+    // slow, offline signal); the `.ping` poll provides the fast path.
+    deviceReachability[id] = isActive
+  }
+
+  // MARK: - Reachability
+
+  /// Pessimistic default: until a Bonjour resolve or a `.ping` has actually
+  /// confirmed the peer, treat it as unreachable. The probe is async, so it
+  /// can't gate the first (synchronous) menu build — an optimistic default
+  /// would show an offline peer's row enabled on a cold start until the first
+  /// probe lands. An online peer un-greys within ~1s: a Bonjour resolve writes
+  /// `true`, and the first poll confirms it.
+  func isReachable(_ id: String) -> Bool { deviceReachability[id] ?? false }
+
+  /// A device is switchable when it's reachable *and* not parked behind a
+  /// pending TOFU identity mismatch (which the user must Trust first). Drives
+  /// the menu's Mac-row enablement and tooltip.
+  func isSwitchable(_ device: NetworkDevice) -> Bool {
+    device.pendingFingerprint == nil && isReachable(device.id)
+  }
+
+  /// Repeating background probe — runs every `reachabilityInterval` for the
+  /// life of the app, independent of whether the menu is ever opened.
+  private func startReachabilityPolling() {
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    // First fire soon after launch so an online peer is confirmed quickly
+    // (it starts greyed under the pessimistic default); then settle into the
+    // steady interval.
+    timer.schedule(
+      deadline: .now() + 1, repeating: Self.reachabilityInterval, leeway: .seconds(5))
+    timer.setEventHandler { [weak self] in self?.pollReachability() }
+    timer.resume()
+    reachabilityTimer = timer
+  }
+
+  /// Kick an immediate probe — called when the menu opens so the *next* render
+  /// is fresh (the probe is async and can't update an already-built menu). The
+  /// background timer keeps running on its own cadence regardless.
+  func refreshReachability() { pollReachability() }
+
+  private func pollReachability() {
+    // `.ping` rides the secure channel, so it's meaningless unpaired — skip
+    // (leaving the pessimistic default) rather than spam `.notPaired` failures.
+    // Skip mismatched peers too: a `.ping` with our old key would just auth-fail
+    // and feed the peer's inbound rate limiter. `countsTowardRateLimit: false`
+    // keeps these fixed-cadence probes from tripping our own outbound limiter.
+    guard PairingStore.shared.isPaired else { return }
+    for device in networkDevices where device.pendingFingerprint == nil {
+      executeCommand(.ping, on: device, countsTowardRateLimit: false) { [weak self] result in
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          let reachable: Bool
+          if case .success = result { reachable = true } else { reachable = false }
+          // Publish only on change — a steady-state poll would otherwise fire
+          // objectWillChange every interval and needlessly re-render observers.
+          if self.deviceReachability[device.id] != reachable {
+            self.deviceReachability[device.id] = reachable
+          }
+        }
+      }
     }
   }
 
@@ -250,6 +332,7 @@ extension NetworkDeviceStore {
   func executeCommand(
     _ command: DeviceCommand,
     on device: NetworkDevice,
+    countsTowardRateLimit: Bool = true,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     guard PairingStore.shared.isPaired else {
@@ -257,7 +340,8 @@ extension NetworkDeviceStore {
       return
     }
 
-    let outgoing = OutgoingConnection(host: device.host, port: UInt16(device.port))
+    let outgoing = OutgoingConnection(
+      host: device.host, port: UInt16(device.port), countsTowardRateLimit: countsTowardRateLimit)
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { sendErr in

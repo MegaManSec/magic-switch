@@ -114,6 +114,11 @@ final class OutgoingConnection {
   private let host: String
   private let pairingStore: PairingStore
   private let rateLimiter: OutboundRateLimiter
+  /// When false, this connection neither consults nor feeds the outbound rate
+  /// limiter. Used by the background reachability poll so its fixed-cadence
+  /// probes can't trip the limiter — and thereby block a user-initiated switch —
+  /// when a peer is down.
+  private let countsTowardRateLimit: Bool
   private let queue: DispatchQueue
   private var channel: SecureChannel?
   private var selfRef: OutgoingConnection?
@@ -128,6 +133,7 @@ final class OutgoingConnection {
     port: UInt16,
     pairingStore: PairingStore = .shared,
     rateLimiter: OutboundRateLimiter = .shared,
+    countsTowardRateLimit: Bool = true,
     queue: DispatchQueue = DispatchQueue(label: "com.magicswitch.outgoing", qos: .userInitiated)
   ) {
     self.connection = NWConnection(
@@ -138,6 +144,7 @@ final class OutgoingConnection {
     self.host = host
     self.pairingStore = pairingStore
     self.rateLimiter = rateLimiter
+    self.countsTowardRateLimit = countsTowardRateLimit
     self.queue = queue
   }
 
@@ -153,7 +160,7 @@ final class OutgoingConnection {
   ) {
     selfRef = self
 
-    guard rateLimiter.shouldAttempt(host: host) else {
+    guard !countsTowardRateLimit || rateLimiter.shouldAttempt(host: host) else {
       print("OutgoingConnection: backing off — too many recent failures to \(host)")
       completion(.failure(.tooManyRecentFailures))
       release()
@@ -232,14 +239,16 @@ final class OutgoingConnection {
     // Feed the outbound rate limiter so a series of failures throttles
     // future attempts, and a success clears the counter immediately. Skip
     // `tooManyRecentFailures` — that's the limiter's own refusal and would
-    // double-count.
-    switch result {
-    case .success:
-      rateLimiter.recordSuccess(host: host)
-    case .failure(.tooManyRecentFailures):
-      break
-    case .failure:
-      rateLimiter.recordFailure(host: host)
+    // double-count. Background reachability probes opt out entirely.
+    if countsTowardRateLimit {
+      switch result {
+      case .success:
+        rateLimiter.recordSuccess(host: host)
+      case .failure(.tooManyRecentFailures):
+        break
+      case .failure:
+        rateLimiter.recordFailure(host: host)
+      }
     }
     completion(result)
     release()
