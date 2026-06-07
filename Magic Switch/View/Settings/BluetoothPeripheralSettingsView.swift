@@ -10,6 +10,9 @@ struct BluetoothPeripheralSettingsView: View {
 
   @State private var peripheralToRemove: BluetoothPeripheral?
 
+  /// Polls live Bluetooth state while the tab is visible (see `handleOnAppear`).
+  @State private var refreshTimer: Timer?
+
   // MARK: - View Content
 
   private var content: some View {
@@ -26,6 +29,7 @@ struct BluetoothPeripheralSettingsView: View {
       )
     }
     .onAppear(perform: handleOnAppear)
+    .onDisappear(perform: stopRefreshTimer)
     .alert(item: $peripheralToRemove) { peripheral in
       Alert(
         title: Text("Remove \(peripheral.name)?"),
@@ -72,6 +76,24 @@ struct BluetoothPeripheralSettingsView: View {
 
   private func handleOnAppear() {
     bluetoothStore.fetchConnectedPeripherals()
+    startRefreshTimer()
+  }
+
+  /// Re-snapshot Bluetooth every couple of seconds while this tab is on screen,
+  /// so a device renamed in System Settings → Bluetooth updates here live (and
+  /// connection states stay fresh) without having to switch tabs. The snapshot
+  /// no-ops `@Published` state when nothing changed, and `.default`-mode timers
+  /// don't fire while a menu is tracking, so an open type picker is undisturbed.
+  private func startRefreshTimer() {
+    refreshTimer?.invalidate()
+    refreshTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+      BluetoothPeripheralStore.shared.fetchConnectedPeripherals()
+    }
+  }
+
+  private func stopRefreshTimer() {
+    refreshTimer?.invalidate()
+    refreshTimer = nil
   }
 }
 
@@ -168,9 +190,14 @@ private struct PeripheralRowView: View {
     store.connectionState(for: peripheral.id)
   }
 
+  private var resolvedType: PeripheralType {
+    store.peripheralType(for: peripheral)
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
+        typeMenu
         Text(peripheral.name)
         Spacer()
         if showConnectionStatus {
@@ -200,6 +227,34 @@ private struct PeripheralRowView: View {
           .foregroundColor(.red)
       }
     }
+  }
+
+  /// Leading icon that doubles as a type picker. Shows the resolved glyph;
+  /// tapping it overrides the auto-detected type (or resets to Automatic). The
+  /// override is stored per address, so setting it on an Available peripheral
+  /// carries over once it's added.
+  private var typeMenu: some View {
+    Menu {
+      Button {
+        store.setTypeOverride(nil, for: peripheral.id)
+      } label: {
+        Label("Automatic", systemImage: "wand.and.stars")
+      }
+      Divider()
+      ForEach(PeripheralType.selectable, id: \.self) { type in
+        Button {
+          store.setTypeOverride(type, for: peripheral.id)
+        } label: {
+          Label(type.label, systemImage: type.symbolName)
+        }
+      }
+    } label: {
+      Image(systemName: resolvedType.symbolName)
+        .frame(width: 22)
+    }
+    .menuStyle(.borderlessButton)
+    .fixedSize()
+    .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
   @ViewBuilder

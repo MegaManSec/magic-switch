@@ -239,6 +239,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// opens. Probe results land asynchronously and re-render the open menu.
   func menuWillOpen(_ menu: NSMenu) {
     networkStore.refreshReachability()
+    // Re-read paired devices so a peripheral renamed in System Settings (and
+    // its icon) refreshes in the dropdown without needing to open Settings.
+    BluetoothPeripheralStore.shared.fetchConnectedPeripherals()
     dropdownContentView?.updateFrameToFit()
   }
 
