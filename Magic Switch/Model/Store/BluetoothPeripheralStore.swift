@@ -119,6 +119,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// IOBluetooth disconnect notifications.
   @Published private(set) var connectionStates: [String: PeripheralConnectionState] = [:]
 
+  /// Inline per-peripheral error shown under the row in the menu-bar dropdown
+  /// (so a failed switch is visible without relying on the system notification).
+  /// Set on a switch failure; fades after 5s, or sooner when `setConnectionState`
+  /// sees the next attempt (`.connecting`) or success (`.connected`).
+  @Published private(set) var peripheralOperationError: [String: String] = [:]
+  /// Per-peripheral fade timers for `peripheralOperationError`.
+  private var peripheralErrorTimers: [String: DispatchSourceTimer] = [:]
+
   /// In-flight `IOBluetoothDevicePair` instances, kept alive until
   /// `devicePairingFinished` fires. Without this, ARC frees the pair mid-op and
   /// macOS aborts pairing, dropping the peripheral seconds after it connects.
@@ -430,6 +438,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // drop's auto-reconnect.
       clearIntentionalRelease(peripheral.id)
       print("Failed to release \(peripheral.name): closeConnection returned \(result)")
+      setPeripheralError("Couldn't release.", for: peripheral.id)
       NotificationManager.showNotification(
         title: "Couldn't Release Peripheral",
         body:
@@ -512,6 +521,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // where the peer released but the ack was lost.
         self.setConnectionState(.disconnected, for: peripheral.id)
         self.armReconnect(peripheral.id)
+        self.setPeripheralError("Switch failed.", for: peripheral.id)
         NotificationManager.showNotification(
           title: "Couldn't Switch",
           body:
@@ -528,25 +538,58 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// right-click menu's per-peripheral switch when the peripheral is
   /// currently on this Mac.
   ///
-  /// Falls back to a plain local unregister if there's no paired peer.
+  /// Preflights the peer with a `.ping` *before* releasing anything: `isActive`
+  /// (Bonjour) can lag reality by the mDNS TTL, so a PING that handshakes and
+  /// acks is the authoritative "the peer's app is up and will accept a command"
+  /// check. If it fails we keep the peripheral on this Mac untouched rather than
+  /// release it into a peer that can't pick it up (stranding it on neither).
+  /// Falls back to a plain local unregister only when there's no paired peer to
+  /// hand to. Mirrors the full-set handoff preflight in
+  /// `AppDelegate.handleSwitchAction`.
   ///
-  /// If the peer doesn't take it, the peripheral is rolled back onto this Mac
-  /// rather than left stranded on neither — directly when the peer was
-  /// unreachable, otherwise via the `HOLDS_ONE`-gated watcher.
+  /// If the peer dies *after* the preflight but before it takes the peripheral,
+  /// it's rolled back onto this Mac rather than left stranded — via the
+  /// `HOLDS_ONE`-gated watcher.
   func sendPeripheralToPeer(_ peripheral: BluetoothPeripheral) {
     let networkStore = NetworkDeviceStore.shared
-    guard let device = networkStore.networkDevices.first,
-      PairingStore.shared.isPaired,
-      device.isActive
-    else {
+    guard let device = networkStore.networkDevices.first, PairingStore.shared.isPaired else {
+      // No peer to hand off to — releasing locally is the only thing we can do.
       unregisterFromPC(peripheral)
       return
     }
+    networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        switch preflight {
+        case .failure(let err):
+          // Peer unreachable — nothing released, peripheral stays on this Mac.
+          self.setPeripheralError("Other Mac unreachable.", for: peripheral.id)
+          NotificationManager.showNotification(
+            title: "Switch Cancelled",
+            body:
+              "Couldn't reach \(device.name) (\(err.userMessage)) — keeping \(peripheral.name) on this Mac.",
+            identifier: "send-preflight-failed-\(peripheral.id)"
+          )
+        case .success:
+          self.performSendHandoff(peripheral, to: device)
+        }
+      }
+    }
+  }
+
+  /// Release `peripheral` locally, wait for the IOBluetooth-level disconnect,
+  /// then ask the peer to take it. Split out of `sendPeripheralToPeer` so the
+  /// `.ping` preflight gates entry — by the time we get here the peer has just
+  /// acked, but it can still die before `CONNECT_ONE`, so the failure arms
+  /// re-pair this Mac rather than strand the peripheral.
+  private func performSendHandoff(_ peripheral: BluetoothPeripheral, to device: NetworkDevice) {
+    let networkStore = NetworkDeviceStore.shared
     // Peripheral is leaving this Mac for the peer — flash the sending arrow.
     NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
     unregisterFromPC(peripheral)
-    waitForLocalDisconnect(of: peripheral) { success in
+    waitForLocalDisconnect(of: peripheral) { [weak self] success in
       guard success else {
+        self?.setPeripheralError("Didn't disconnect.", for: peripheral.id)
         NotificationManager.showNotification(
           title: "Couldn't Switch",
           body: "\(peripheral.name) didn't disconnect from this Mac.",
@@ -560,10 +603,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         case .success:
           break  // peer took it — done.
         case .failure(.connectionFailed), .failure(.connectTimeout):
-          // Peer never came up, so it didn't take the peripheral. We already
-          // released it locally, so roll it back onto this Mac rather than
-          // strand it on neither — the same recovery the full-set handoff does
-          // — and arm the watcher in case the reconnect needs a power-cycle.
+          // Peer acked the preflight but dropped before CONNECT_ONE, so it
+          // didn't take the peripheral. We already released it locally, so roll
+          // it back onto this Mac rather than strand it on neither — the same
+          // recovery the full-set handoff does — and arm the watcher in case
+          // the reconnect needs a power-cycle.
           self.clearIntentionalRelease(peripheral.id)
           self.connectPeripheral(peripheral)
           self.armReconnect(peripheral.id)
@@ -579,6 +623,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // reclaims it only if the peer confirms it isn't holding it.
           self.clearIntentionalRelease(peripheral.id)
           self.armReconnect(peripheral.id)
+          self.setPeripheralError("Handoff failed.", for: peripheral.id)
           NotificationManager.showNotification(
             title: "Couldn't Switch",
             body:
@@ -904,13 +949,36 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   private func setConnectionState(_ state: PeripheralConnectionState, for id: String) {
-    if Thread.isMainThread {
-      connectionStates[id] = state
-    } else {
-      DispatchQueue.main.async { [weak self] in
-        self?.connectionStates[id] = state
-      }
+    let apply: () -> Void = { [weak self] in
+      self?.connectionStates[id] = state
+      // A fresh attempt (.connecting) or a success (.connected) clears any prior
+      // inline error; a failure that ends in .disconnected keeps it on screen.
+      if state != .disconnected { self?.clearPeripheralError(id) }
     }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
+  }
+
+  /// Set the inline error for a peripheral, and fade it after 5s so it doesn't
+  /// linger on the row. `setConnectionState` clears it sooner on a new attempt.
+  private func setPeripheralError(_ message: String, for id: String) {
+    let apply: () -> Void = { [weak self] in
+      guard let self = self else { return }
+      self.peripheralOperationError[id] = message
+      self.peripheralErrorTimers[id]?.cancel()
+      let timer = DispatchSource.makeTimerSource(queue: .main)
+      timer.schedule(deadline: .now() + 5)
+      timer.setEventHandler { [weak self] in self?.clearPeripheralError(id) }
+      timer.resume()
+      self.peripheralErrorTimers[id] = timer
+    }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
+  }
+
+  /// Clear a peripheral's inline error and cancel its fade timer (main thread).
+  private func clearPeripheralError(_ id: String) {
+    peripheralErrorTimers[id]?.cancel()
+    peripheralErrorTimers[id] = nil
+    peripheralOperationError[id] = nil
   }
 
   // MARK: - Pair Watchdog

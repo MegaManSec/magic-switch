@@ -4,7 +4,7 @@ import CoreBluetooth
 import SwiftUI
 
 /// Application delegate handling lifecycle and UI setup
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   // MARK: - Dependencies
 
   private let networkStore = NetworkDeviceStore.shared
@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   // MARK: - UI Components
 
   private var statusItem: NSStatusItem!
+  /// The AppKit view hosted by the dropdown menu's single item. Kept so it can
+  /// be re-measured each time the menu opens.
+  private var dropdownContentView: DropdownContentView?
   private var bluetoothStateObserver: AnyCancellable?
   private var pairingObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
@@ -205,16 +208,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     NSApp.setActivationPolicy(.accessory)
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    guard let button = statusItem.button else { return }
-
-    configureStatusBarButton(button)
+    // A tracked status-item NSMenu (not a popover): it keeps the menu bar
+    // revealed over full-screen Spaces and never activates the app. Its single
+    // item hosts an AppKit `DropdownContentView` whose controls consume the
+    // mouse-up, so clicks don't dismiss it — the dropdown stays open while a
+    // peripheral pairs. (SwiftUI controls don't track inside a menu.)
+    statusItem.menu = makeDropdownMenu()
     refreshStatusBarIcon()
   }
 
-  private func configureStatusBarButton(_ button: NSStatusBarButton) {
-    button.target = self
-    button.action = #selector(handleClick(_:))
-    button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+  /// Build the status-item dropdown: an `NSMenu` whose single item hosts the
+  /// AppKit `DropdownContentView`. The view drives switch actions directly;
+  /// Settings / Quit route back through the delegate.
+  private func makeDropdownMenu() -> NSMenu {
+    let menu = NSMenu()
+    menu.delegate = self
+    let item = NSMenuItem()
+    let content = DropdownContentView(
+      onSwitchMac: { [weak self] device in self?.performSwitch(with: device) },
+      onOpenSettings: { [weak self] in self?.openSettingsWindow(nil) },
+      onQuit: { [weak self] in self?.quitFromStatusBar(nil) })
+    content.updateFrameToFit()
+    item.view = content
+    menu.addItem(item)
+    dropdownContentView = content
+    return menu
+  }
+
+  /// Refresh reachability + re-measure the hosted view just before the dropdown
+  /// opens. Probe results land asynchronously and re-render the open menu.
+  func menuWillOpen(_ menu: NSMenu) {
+    networkStore.refreshReachability()
+    dropdownContentView?.updateFrameToFit()
   }
 
   /// Updates the menu-bar icon based on transfer state (highest priority),
@@ -345,23 +370,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   // MARK: - Action Handlers
-
-  @objc private func handleClick(_ sender: NSStatusBarButton) {
-    guard let event = NSApp.currentEvent else { return }
-
-    // Both buttons open the menu; the switch is triggered by clicking a Mac
-    // row inside it (see `handleMacMenuClick`).
-    switch event.type {
-    case .rightMouseUp, .leftMouseUp:
-      showMenu()
-    default:
-      break
-    }
-  }
-
-  private func showMenu() {
-    MenuBarView().showMenu(statusItem: statusItem)
-  }
 
   /// Runs the switch handoff with `device`. Triggered by clicking a Mac row in
   /// the menu. `checkHealth` confirms the peer's TCP port is open before we
@@ -525,36 +533,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   // MARK: - Settings Management
 
-  /// Right-click menu's per-peripheral switch. `representedObject` carries
-  /// the peripheral's MAC; we dispatch based on the current local
-  /// connection state — if it's here, send it to the peer; if it's
-  /// elsewhere, ask the peer to release it.
-  @objc func handlePeripheralMenuClick(_ sender: NSMenuItem) {
-    guard let address = sender.representedObject as? String else { return }
-    let store = bluetoothStore
-    guard let peripheral = store.peripherals.first(where: { $0.id == address }) else { return }
-    switch store.connectionState(for: address) {
-    case .connected:
-      store.sendPeripheralToPeer(peripheral)
-    case .disconnected:
-      store.takePeripheralFromPeer(peripheral)
-    case .connecting:
-      break
-    }
-  }
-
-  /// Menu's Mac entry. Performs the peripheral switch (handoff) with the
-  /// clicked Mac. `validateMenuItem` greys the row out when the peer isn't
-  /// reachable, so this only fires for an active device.
-  @objc func handleMacMenuClick(_ sender: NSMenuItem) {
-    guard let id = sender.representedObject as? String,
-      let device = networkStore.networkDevices.first(where: { $0.id == id })
-    else { return }
-    performSwitch(with: device)
-  }
-
   /// Opens the newest release in the default browser. Wired to the "Update
-  /// Available" item in the right-click menu (see `MenuBarView`).
+  /// Available" row in the dropdown (see `DropdownContentView`).
   @objc func openLatestReleasePage(_ sender: Any?) {
     guard let url = UpdateChecker.shared.releasePageURL else { return }
     NSWorkspace.shared.open(url)
@@ -597,20 +577,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     pingFlashTimer = timer
   }
 
-  /// AppKit's auto-validation routes through here for menu items targeting
-  /// this delegate. Mac entries are enabled only when the peer is currently
-  /// reachable on the network (`device.isActive`); everything else passes
-  /// through.
-  @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-    if menuItem.action == #selector(handleMacMenuClick(_:)) {
-      guard let id = menuItem.representedObject as? String,
-        let device = networkStore.networkDevices.first(where: { $0.id == id })
-      else { return false }
-      return device.isActive
-    }
-    return true
-  }
-
   /// Opens the Settings window. We deliberately don't route through the
   /// SwiftUI `Settings { ... }` scene + `sendAction(showSettingsWindow:)`
   /// here — that path produces a Dock icon and an active app but no
@@ -622,12 +588,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// `makeKeyAndOrderFront(_:)`.
   @objc func openSettingsWindow(_ sender: Any?) {
     NSApp.setActivationPolicy(.regular)
-    NSApp.activate(ignoringOtherApps: true)
     if settingsWindowController == nil {
       settingsWindowController = makeSettingsWindowController()
     }
     settingsWindowController?.showWindow(nil)
     settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+    // Activate AFTER ordering the window front so macOS switches to the Space
+    // the window lives on (activating before a window exists can strand the
+    // user on a full-screen Space). Deliberately the deprecated
+    // `ignoringOtherApps:` form — the cooperative `activate()` won't take over
+    // another app's full-screen Space.
+    NSApp.activate(ignoringOtherApps: true)
   }
 
   private func makeSettingsWindowController() -> NSWindowController {
