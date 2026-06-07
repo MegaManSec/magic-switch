@@ -100,7 +100,7 @@ final class DropdownContentView: NSView {
     stack.orientation = .vertical
     stack.alignment = .leading
     stack.spacing = 2
-    stack.edgeInsets = NSEdgeInsets(top: 6, left: Self.inset, bottom: 6, right: Self.inset)
+    stack.edgeInsets = NSEdgeInsets(top: 3, left: Self.inset, bottom: 2, right: Self.inset)
     stack.translatesAutoresizingMaskIntoConstraints = false
     addSubview(stack)
     NSLayoutConstraint.activate([
@@ -175,12 +175,18 @@ final class DropdownContentView: NSView {
       stack.addArrangedSubview(makeDivider())
     }
 
+    // A hair more space above the Settings row than the default inter-row gap.
+    if let last = stack.arrangedSubviews.last {
+      stack.setCustomSpacing(stack.spacing + 1, after: last)
+    }
+    let settingsRow = makeActionRow(title: "Settings…") { [weak self] in
+      self?.dismissThen { self?.onOpenSettings() }
+    }
+    stack.addArrangedSubview(settingsRow)
+    // Sit Quit flush against Settings, like consecutive peripheral rows.
+    stack.setCustomSpacing(0, after: settingsRow)
     stack.addArrangedSubview(
-      makeActionRow(symbol: "gearshape", title: "Settings…") { [weak self] in
-        self?.dismissThen { self?.onOpenSettings() }
-      })
-    stack.addArrangedSubview(
-      makeActionRow(symbol: "power", title: "Quit") { [weak self] in
+      makeActionRow(title: "Quit") { [weak self] in
         self?.dismissThen { self?.onQuit() }
       })
 
@@ -326,7 +332,7 @@ final class DropdownContentView: NSView {
   }
 
   private func makeActionRow(
-    symbol: String, title: String, onClick: @escaping () -> Void
+    title: String, onClick: @escaping () -> Void
   ) -> NSView {
     let row = MenuRowControl(onClick: onClick)
     let content = NSStackView()
@@ -334,7 +340,6 @@ final class DropdownContentView: NSView {
     content.distribution = .fill
     content.spacing = 8
     content.alignment = .centerY
-    content.addArrangedSubview(symbolView(symbol, color: .labelColor))
     content.addArrangedSubview(textLabel(title, color: .labelColor))
     content.addArrangedSubview(spacer())
     return clickableRow(row, content: content)
