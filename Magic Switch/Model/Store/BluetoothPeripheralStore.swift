@@ -337,9 +337,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.intentionalReleases.removeValue(forKey: id)
         guard let peripheral = self.peripherals.first(where: { $0.id == id }) else { continue }
         guard let device = NetworkDeviceStore.shared.networkDevices.first,
+          device.pendingFingerprint == nil,
           PairingStore.shared.isPaired
         else {
-          // No peer to ask — these are ours; take them back.
+          // No trusted peer to ask — none registered, or one flagged as a
+          // TOFU identity mismatch. Either way, reclaim locally.
           self.connectPeripheral(peripheral)
           continue
         }
@@ -1221,9 +1223,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private func reclaimIfPeerIsFree(_ peripheral: BluetoothPeripheral) {
     let id = peripheral.id
     guard PairingStore.shared.isPaired,
-      let device = NetworkDeviceStore.shared.networkDevices.first
+      let device = NetworkDeviceStore.shared.networkDevices.first,
+      device.pendingFingerprint == nil
     else {
-      // No peer to consult — it's ours; take it.
+      // No trusted peer to consult — none registered, or one flagged as a
+      // TOFU identity mismatch. Either way it's ours; reclaim locally rather
+      // than auto-probing an untrusted peer with our now-stale key.
       reconnectInFlight.remove(id)
       connectPeripheral(peripheral, announcePairTimeout: false)
       return

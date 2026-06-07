@@ -513,7 +513,12 @@ extension NetworkDeviceStore {
     on device: NetworkDevice,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
-    sendTwoFrameCommand(.holdsOne, payload: address, to: device, completion: completion)
+    // `HOLDS_ONE` is only ever a background watcher/reclaim probe, never a user
+    // action — opt out of the outbound limiter so its fixed cadence can't trip
+    // the limiter that gates real switches (mirrors the reachability poll).
+    sendTwoFrameCommand(
+      .holdsOne, payload: address, to: device, countsTowardRateLimit: false,
+      completion: completion)
   }
 
   /// Shared helper for "opcode + single payload frame, await OP_SUCCESS".
@@ -524,13 +529,16 @@ extension NetworkDeviceStore {
     _ command: DeviceCommand,
     payload: String,
     to device: NetworkDevice,
+    countsTowardRateLimit: Bool = true,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     guard PairingStore.shared.isPaired else {
       completion(.failure(.notPaired))
       return
     }
-    let outgoing = OutgoingConnection(host: device.host, port: UInt16(device.port))
+    let outgoing = OutgoingConnection(
+      host: device.host, port: UInt16(device.port),
+      countsTowardRateLimit: countsTowardRateLimit)
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { err in
