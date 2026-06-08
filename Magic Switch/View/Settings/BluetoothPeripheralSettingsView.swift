@@ -185,6 +185,7 @@ private struct PeripheralRowView: View {
   var secondaryAction: (() -> Void)?
 
   @ObservedObject private var store = BluetoothPeripheralStore.shared
+  @ObservedObject private var networkStore = NetworkDeviceStore.shared
 
   private var connectionState: PeripheralConnectionState {
     store.connectionState(for: peripheral.id)
@@ -192,6 +193,14 @@ private struct PeripheralRowView: View {
 
   private var resolvedType: PeripheralType {
     store.peripheralType(for: peripheral)
+  }
+
+  /// Whether a paired peer Mac is currently reachable to take a released
+  /// peripheral. Releasing with no active peer just disconnects the peripheral
+  /// from both Macs, so the Release button is disabled until a peer is present.
+  /// Matches the handoff gate used elsewhere (e.g. `prepareForSleep`).
+  private var hasActivePeer: Bool {
+    networkStore.networkDevices.contains { $0.isActive }
   }
 
   var body: some View {
@@ -262,8 +271,11 @@ private struct PeripheralRowView: View {
     switch connectionState {
     case .connected:
       Button("Release", action: primaryAction)
+        .disabled(!hasActivePeer)
         .help(
-          "Release this peripheral from this Mac. If a peer Mac is paired, it'll take ownership automatically."
+          hasActivePeer
+            ? "Release this peripheral from this Mac. The peer Mac will take ownership automatically."
+            : "No peer Mac is currently available to take this peripheral. Releasing is disabled so it isn't left disconnected from both Macs."
         )
     case .connecting:
       Button("Pairing…", action: {})
