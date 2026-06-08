@@ -633,9 +633,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // Peripheral is leaving this Mac for the peer — flash the sending arrow.
     NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
     unregisterFromPC(peripheral)
+    // Show "Releasing…" for the whole handoff — the mirror of the peer's
+    // "Pairing…". Set *after* `unregisterFromPC` (which lands `.disconnected`)
+    // so it isn't immediately clobbered; the disconnect notification and the
+    // periodic fetch both skip a `.releasing` row, so it persists until a
+    // terminal branch below resolves it.
+    setConnectionState(.releasing, for: peripheral.id)
     waitForLocalDisconnect(of: peripheral) { [weak self] success in
+      guard let self = self else { return }
       guard success else {
-        self?.setPeripheralError("Didn't disconnect.", for: peripheral.id)
+        // It never disconnected, so it's still on this Mac — drop back to
+        // connected rather than leave it stuck "Releasing…".
+        self.setConnectionState(.connected, for: peripheral.id)
+        self.setPeripheralError("Didn't disconnect.", for: peripheral.id)
         NotificationManager.showNotification(
           title: "Couldn't Switch",
           body: "\(peripheral.name) didn't disconnect from this Mac.",
@@ -647,7 +657,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard let self = self else { return }
         switch result {
         case .success:
-          break  // peer took it — done.
+          // Peer took it — it now lives over there, so we're disconnected.
+          self.setConnectionState(.disconnected, for: peripheral.id)
         case .failure(.connectionFailed), .failure(.connectTimeout):
           // Peer acked the preflight but dropped before CONNECT_ONE, so it
           // didn't take the peripheral. We already released it locally, so roll
@@ -668,6 +679,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // peer that did take it); arm the HOLDS_ONE-gated watcher, which
           // reclaims it only if the peer confirms it isn't holding it.
           self.clearIntentionalRelease(peripheral.id)
+          // We did release it locally, so we're disconnected regardless of
+          // where it ended up; clear the "Releasing…" row.
+          self.setConnectionState(.disconnected, for: peripheral.id)
           self.armReconnect(peripheral.id)
           self.setPeripheralError("Handoff failed.", for: peripheral.id)
           NotificationManager.showNotification(
@@ -710,6 +724,29 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // `unregisterFromPC` is synchronous, so the peripheral is often
     // already gone. Polled retry covers the few cases where it isn't.
     check()
+  }
+
+  // MARK: - Full-Set Handoff Display
+
+  /// Mark every registered peripheral "Releasing…" for the menu-bar full-set
+  /// handoff (the per-peripheral send drives its own row in `performSendHandoff`).
+  /// Call after the local releases land; pair with `finishFullSetRelease(success:)`.
+  func beginFullSetRelease() {
+    peripherals.forEach { setConnectionState(.releasing, for: $0.id) }
+  }
+
+  /// End the full-set "Releasing…" display. On success the peripherals now live
+  /// on the peer, so they read `.disconnected`; on a non-success that didn't
+  /// actually move them (e.g. the local disconnect failed), restore the live
+  /// state. The `CONNECT_ALL`-failure rollback re-pairs locally via
+  /// `connectPeripheral` instead, which clears the row itself — don't call this
+  /// there.
+  func finishFullSetRelease(success: Bool) {
+    if success {
+      peripherals.forEach { setConnectionState(.disconnected, for: $0.id) }
+    } else {
+      fetchConnectedPeripherals(overrideTransient: true)
+    }
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
@@ -827,6 +864,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   func fetchConnectedPeripherals() {
+    fetchConnectedPeripherals(overrideTransient: false)
+  }
+
+  /// - Parameter overrideTransient: when `true`, a live read replaces even an
+  ///   in-flight `.connecting`/`.releasing` state. `false` (the usual path)
+  ///   protects those transients from a stale snapshot (the Peripheral tab
+  ///   polls this on a timer); `finishFullSetRelease(success:)` passes `true`
+  ///   to restore the real state after an aborted handoff.
+  private func fetchConnectedPeripherals(overrideTransient: Bool) {
     let runSnapshot: ([String]) -> Void = { [weak self] registeredIDs in
       guard let self = self else { return }
       self.bluetoothQueue.async {
@@ -871,8 +917,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.refreshRegisteredNames(from: paired)
           for id in registeredIDs {
             let isConnected = connectedAddresses.contains(id)
-            // Don't overwrite an in-flight .connecting state with a stale read.
-            if self.connectionStates[id] == .connecting { continue }
+            // Don't overwrite an in-flight .connecting/.releasing state with a
+            // stale read (unless a caller explicitly wants the live value).
+            if !overrideTransient,
+              self.connectionStates[id] == .connecting || self.connectionStates[id] == .releasing
+            {
+              continue
+            }
             let newState: PeripheralConnectionState = isConnected ? .connected : .disconnected
             if self.connectionStates[id] != newState { self.connectionStates[id] = newState }
             if isConnected {
@@ -971,8 +1022,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let address = device.addressString ?? ""
     DispatchQueue.main.async {
       self.disconnectObservers.removeValue(forKey: address)
-      // Don't clobber a fresh .connecting attempt from a pre-empt path.
-      guard self.connectionStates[address] != .connecting else { return }
+      // Don't clobber an in-flight transient: a fresh `.connecting` attempt
+      // from a pre-empt path, or a `.releasing` handoff whose own release
+      // *caused* this disconnect (the send path resolves that row itself).
+      guard self.connectionStates[address] != .connecting,
+        self.connectionStates[address] != .releasing
+      else { return }
       self.connectionStates[address] = .disconnected
       if let releasedAt = self.intentionalReleases.removeValue(forKey: address),
         Date().timeIntervalSince(releasedAt) < Constants.intentionalReleaseGrace
@@ -1207,8 +1262,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       switch connectionState(for: id) {
       case .connected:
         disarmReconnect(id)
-      case .connecting:
-        continue  // an attempt is already in flight
+      case .connecting, .releasing:
+        continue  // an attempt / handoff is already in flight
       case .disconnected:
         probeAndReclaim(peripheral)
       }

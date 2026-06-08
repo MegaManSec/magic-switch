@@ -283,7 +283,7 @@ final class DropdownContentView: NSView {
     // disabled while in flight.
     let enabled: Bool
     switch state {
-    case .connecting: enabled = false
+    case .connecting, .releasing: enabled = false
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
@@ -307,6 +307,8 @@ final class DropdownContentView: NSView {
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
       top.addArrangedSubview(caption("Pairing…", color: .secondaryLabelColor))
+    case .releasing:
+      top.addArrangedSubview(caption("Releasing…", color: .secondaryLabelColor))
     case .disconnected:
       break
     }
@@ -332,6 +334,8 @@ final class DropdownContentView: NSView {
     switch state {
     case .connecting:
       row.toolTip = "Pairing \(peripheral.name)…"
+    case .releasing:
+      row.toolTip = "Releasing \(peripheral.name) to the other Mac…"
     case .connected:
       row.toolTip =
         canSwitch
@@ -392,8 +396,8 @@ final class DropdownContentView: NSView {
         // No peer to ask — pair it to this Mac directly over Bluetooth.
         bluetoothStore.connectPeripheral(peripheral)
       }
-    case .connecting:
-      break
+    case .connecting, .releasing:
+      break  // handoff in flight
     }
   }
 
