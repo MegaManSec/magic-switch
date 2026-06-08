@@ -19,6 +19,15 @@ protocol NetworkDeviceManageable {
   func updateNetworkDevice(_ device: NetworkDevice)
 }
 
+/// A user-initiated Device-tab operation currently in flight to a peer.
+/// Tracked in `NetworkDeviceStore` (not the view) so the row can disable its
+/// buttons and keep rendering progress across Settings tab switches — the
+/// view's local `@State` is reset when the tab is left and re-entered.
+enum DeviceOperation {
+  case ping
+  case sync(count: Int)
+}
+
 /// Manages the state and operations of network devices
 final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   // MARK: - Singleton
@@ -44,6 +53,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   @Published private(set) var deviceReachability: [String: Bool] = [:]
   private var reachabilityTimer: DispatchSourceTimer?
   private static let reachabilityInterval: TimeInterval = 30
+
+  /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
+  /// Device tab and cleared when the op finishes; the view both disables the
+  /// buttons and renders the "Pinging…/Syncing…" line off this, so they survive
+  /// leaving and re-entering the tab (the view's own `@State` wouldn't).
+  @Published private(set) var inFlightOperations: [String: DeviceOperation] = [:]
 
   // MARK: - Computed Properties
 
@@ -242,14 +257,30 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       return
     }
 
+    beginOperation(.ping, for: device.id)
     let senderName = Host.current().localizedName ?? "another Mac"
     // Put the sender's name in the title so the receiver's Notification
     // Center entry is informative at a glance.
     let title = "Notification from \(senderName)"
     let body = "Sent via Magic Switch."
-    sendNotificationOverSecure(to: device, title: title, message: body) { result in
-      completion?(result)
+    sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
+      DispatchQueue.main.async {
+        self?.endOperation(for: device.id)
+        completion?(result)
+      }
     }
+  }
+
+  // MARK: - In-Flight Operation Tracking
+
+  /// Marks a Device-tab operation as running for `deviceID`. Main-thread only.
+  private func beginOperation(_ op: DeviceOperation, for deviceID: String) {
+    inFlightOperations[deviceID] = op
+  }
+
+  /// Clears the in-flight marker for `deviceID`. Main-thread only.
+  private func endOperation(for deviceID: String) {
+    inFlightOperations.removeValue(forKey: deviceID)
   }
 
   // MARK: - Private Methods
@@ -445,6 +476,7 @@ extension NetworkDeviceStore {
       return
     }
 
+    beginOperation(.sync(count: peripherals.count), for: device.id)
     let outgoing = OutgoingConnection(host: device.host, port: UInt16(device.port))
     outgoing.run(
       body: { channel, done in
@@ -476,8 +508,11 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { result in
-        completion?(result)
+      completion: { [weak self] result in
+        DispatchQueue.main.async {
+          self?.endOperation(for: device.id)
+          completion?(result)
+        }
       }
     )
   }

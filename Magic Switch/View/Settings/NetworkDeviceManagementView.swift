@@ -94,11 +94,13 @@ struct NetworkDeviceManagementView: View {
         onDeviceRegister: handleDeviceRegistration
       )
     }
-    // Clear stale Ping/Sync results whenever the user comes back to this
+    // Clear stale Ping/Sync *results* whenever the user comes back to this
     // tab (or first opens it). Keeps "<device> responded." / failure lines
     // from sticking around across Settings sessions when they're no longer
     // meaningful. Within a single tab visit, repeated actions still
-    // overwrite each other (existing behaviour, unchanged).
+    // overwrite each other (existing behaviour, unchanged). An in-progress
+    // Ping/Sync is unaffected — that lives in `networkStore.inFlightOperations`,
+    // not here, which is what lets its progress line survive a tab switch.
     .onAppear { operationResults.removeAll() }
     .alert(item: $activeAlert) { alert in
       switch alert {
@@ -154,7 +156,9 @@ struct NetworkDeviceManagementView: View {
   // MARK: - Private Methods
 
   private func handleDeviceNotification(_ device: NetworkDevice) {
-    operationResults[device.id] = OperationResult(success: true, message: "Pinging \(device.name)…")
+    // The "Pinging…" progress line is driven by `networkStore.inFlightOperations`
+    // (see `NetworkDeviceListView`) so it survives a tab switch; here we only
+    // record the terminal result.
     networkStore.sendNotification(to: device) { result in
       switch result {
       case .success:
@@ -184,10 +188,8 @@ struct NetworkDeviceManagementView: View {
     let peripherals = bluetoothStore.peripherals
     let count = peripherals.count
     let noun = count == 1 ? "peripheral" : "peripherals"
-    operationResults[device.id] = OperationResult(
-      success: true,
-      message: "Syncing \(count) \(noun) to \(device.name)…"
-    )
+    // "Syncing…" progress comes from `networkStore.inFlightOperations`; record
+    // only the terminal result here.
     networkStore.sendPeripheralSync(peripherals: peripherals, to: device) { result in
       switch result {
       case .success:
@@ -299,6 +301,7 @@ private struct NetworkDeviceListView: View {
   let onTrustPending: ((NetworkDevice) -> Void)?
 
   @ObservedObject private var pairing = PairingStore.shared
+  @ObservedObject private var networkStore = NetworkDeviceStore.shared
 
   init(
     devices: [NetworkDevice],
@@ -332,6 +335,9 @@ private struct NetworkDeviceListView: View {
     // top-aligns the row contents instead of centering them in the pill.
     // Letting the Form own the row layout keeps content vertically centered.
     ForEach(devices) { device in
+      // A Ping/Sync in flight disables both buttons (they share one secure
+      // channel and one status line) and drives the progress line below.
+      let inFlight = networkStore.inFlightOperations[device.id]
       VStack(alignment: .leading, spacing: 6) {
         HStack {
           Text(device.name)
@@ -339,7 +345,7 @@ private struct NetworkDeviceListView: View {
           Button(action: { action(device) }) {
             Text(buttonTitle)
           }
-          .disabled(!device.isActive || blockedByPairing)
+          .disabled(!device.isActive || blockedByPairing || inFlight != nil)
           .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
 
           if let onSync = onSyncPeripherals {
@@ -347,7 +353,7 @@ private struct NetworkDeviceListView: View {
               Image(systemName: "square.and.arrow.up")
                 .foregroundColor(.blue)
             }
-            .disabled(!device.isActive || blockedByPairing)
+            .disabled(!device.isActive || blockedByPairing || inFlight != nil)
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
@@ -384,12 +390,26 @@ private struct NetworkDeviceListView: View {
           .padding(.vertical, 2)
         }
 
-        if let result = operationResults[device.id] {
+        if let inFlight = inFlight {
+          Text(progressMessage(for: inFlight, device: device))
+            .font(.caption)
+            .foregroundColor(.secondary)
+        } else if let result = operationResults[device.id] {
           Text(result.message)
             .font(.caption)
             .foregroundColor(result.success ? .secondary : .red)
         }
       }
+    }
+  }
+
+  private func progressMessage(for op: DeviceOperation, device: NetworkDevice) -> String {
+    switch op {
+    case .ping:
+      return "Pinging \(device.name)…"
+    case .sync(let count):
+      let noun = count == 1 ? "peripheral" : "peripherals"
+      return "Syncing \(count) \(noun) to \(device.name)…"
     }
   }
 }
