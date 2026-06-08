@@ -203,6 +203,11 @@ private struct PeripheralRowView: View {
     networkStore.networkDevices.contains { $0.isActive }
   }
 
+  /// The peer this Mac hands peripherals to, for the "Releasing to …" line.
+  private var peerName: String? {
+    networkStore.networkDevices.first?.name
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       HStack {
@@ -225,6 +230,14 @@ private struct PeripheralRowView: View {
           .help("Add this peripheral to Magic Switch's list.")
           .accessibilityLabel("Add \(peripheral.name) to list")
         }
+      }
+
+      // Name the destination Mac while a handoff is in flight — the button
+      // only shows "Releasing…", which doesn't say where it's going.
+      if connectionState == .releasing {
+        Text(peerName.map { "Releasing to \($0)…" } ?? "Releasing…")
+          .font(.caption)
+          .foregroundColor(.secondary)
       }
 
       // Mirrors the dropdown's inline failure line. The store auto-fades the

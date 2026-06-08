@@ -603,12 +603,20 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       unregisterFromPC(peripheral)
       return
     }
+    // Show "Releasing…" right away so the row greys out and stops accepting
+    // clicks while the preflight below runs — it can take up to 5s, and until
+    // it returns the button would otherwise still read "Release". On preflight
+    // failure we revert to `.connected`; on success `performSendHandoff`
+    // re-asserts `.releasing` after its `unregisterFromPC` (which lands
+    // `.disconnected`) in the same run-loop tick, so there's no flicker.
+    setConnectionState(.releasing, for: peripheral.id)
     networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
       DispatchQueue.main.async {
         guard let self = self else { return }
         switch preflight {
         case .failure(let err):
           // Peer unreachable — nothing released, peripheral stays on this Mac.
+          self.setConnectionState(.connected, for: peripheral.id)
           self.setPeripheralError("Other Mac unreachable.", for: peripheral.id)
           NotificationManager.showNotification(
             title: "Switch Cancelled",
