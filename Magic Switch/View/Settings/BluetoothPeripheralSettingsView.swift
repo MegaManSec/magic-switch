@@ -65,8 +65,8 @@ struct BluetoothPeripheralSettingsView: View {
       // Ask the peer to release first if it's holding the peripheral —
       // pairing locally without that step would just hang.
       bluetoothStore.takePeripheralFromPeer(peripheral)
-    case .connecting:
-      break  // Pairing in flight; button is disabled in the UI.
+    case .connecting, .releasing:
+      break  // Handoff in flight; button is disabled in the UI.
     }
   }
 
@@ -281,6 +281,10 @@ private struct PeripheralRowView: View {
       Button("Pairing…", action: {})
         .disabled(true)
         .help("Pairing in progress…")
+    case .releasing:
+      Button("Releasing…", action: {})
+        .disabled(true)
+        .help("Handing this peripheral to the other Mac…")
     case .disconnected:
       Button("Connect", action: primaryAction)
         .help(

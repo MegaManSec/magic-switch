@@ -473,9 +473,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     bluetoothStore.peripherals.forEach { peripheral in
       bluetoothStore.unregisterFromPC(peripheral)
     }
+    // Show each row "Releasing…" for the rest of the handoff — the mirror of
+    // the peer's "Pairing…". Set after the releases so it isn't clobbered.
+    bluetoothStore.beginFullSetRelease()
     waitForDisconnection { [weak self] allDisconnected in
       guard let self = self else { return }
       guard allDisconnected else {
+        self.bluetoothStore.finishFullSetRelease(success: false)
         self.endTransfer()
         NotificationManager.showNotification(
           title: "Switch Failed",
@@ -489,7 +493,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if case .failure(let err) = result {
           // Rollback: peer didn't take the peripherals, so re-pair them
           // locally. Without this the user is left with peripherals paired
-          // nowhere.
+          // nowhere. `connectPeripheral` flips each row to `.connecting`,
+          // which clears the "Releasing…" state on its own.
           self.bluetoothStore.peripherals.forEach { peripheral in
             self.bluetoothStore.connectPeripheral(peripheral)
           }
@@ -500,6 +505,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             identifier: "switch-connect-failed"
           )
         } else {
+          self.bluetoothStore.finishFullSetRelease(success: true)
           self.endTransfer()
         }
       }
