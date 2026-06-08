@@ -8,6 +8,11 @@ A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magi
 
 This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.com/HoshimuraYuto/blue-switch). The original ships an unauthenticated, unencrypted LAN protocol that lets anyone on the same Wi-Fi take over your Bluetooth peripherals or spoof notifications. This fork replaces that channel with a sealed, mutually-authenticated channel keyed by a 12-character pairing code you share between your two Macs — with a massively improved UI/UX over the original: a guided pairing flow, inline status feedback, per-peripheral switching, a needs-attention menu-bar icon, and safe preflight-and-rollback handoffs.
 
+<p align="center">
+  <img src="docs/assets/menu.png" alt="The Magic Switch menu-bar dropdown" width="340"><br>
+  <em>It lives in the menu bar: click a Mac to hand over everything, or a single peripheral to move just that one.</em>
+</p>
+
 ## Installation
 
 1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
@@ -17,46 +22,40 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Setup
 
-Four Settings tabs to know — two of them use the word "pair" in different senses, which can be confusing:
+Magic Switch has four Settings tabs, and two of them use the word "pair" in different senses — which trips people up. **Pairing** is the cryptographic key shared between the two *Macs* (required, and set up inside Magic Switch); the Bluetooth pairing of your *peripherals* is a separate thing, done in System Settings. Do everything below on **both** Macs.
 
-- **Peripheral** — the Bluetooth devices Magic Switch hands back and forth (Magic Keyboard / Mouse / Trackpad).
-- **Device** — the *other Mac on your network* you're swapping with.
-- **Pairing** — a cryptographic shared key between the two Macs. *Required.* This is **not** the Bluetooth pairing in step 1 — that's between your peripherals and each Mac, done in System Settings. This one is between the two Macs themselves, done inside Magic Switch.
-- **Other** — app preferences: **Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
+### 1. Pair your peripherals to each Mac (System Settings)
+
+In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Apple's Magic devices remember multiple hosts but only connect to one at a time; Magic Switch flips which Mac currently holds a peripheral, but it doesn't create those pairings for you. (Once that's done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
+
+Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and right-click the menu-bar icon → **Settings**.
+
+### 2. Peripheral tab — choose what to manage
+
+Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic.
 
 <p align="center">
-  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab with each control labelled" width="600"><br>
-  <em>Peripheral tab — register the Magic devices you want to hand off.</em>
+  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab showing registered and available peripherals" width="600"><br>
+  <em>Peripheral tab — register the Magic devices you want to hand off. Each row's leading icon shows the detected device type.</em>
 </p>
 
 <p align="center">
-  <img src="docs/assets/device-tab.png" alt="Device tab with each control labelled" width="600"><br>
+  <img src="docs/assets/peripheral-type-picker.png" alt="Peripheral tab with a row's type picker open" width="600"><br>
+  <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
+</p>
+
+### 3. Device tab — pick the other Mac
+
+Choose the other Mac under **Available Devices**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
+
+<p align="center">
+  <img src="docs/assets/device-tab.png" alt="Device tab showing the connected Mac and available devices" width="600"><br>
   <em>Device tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
 </p>
 
-<p align="center">
-  <img src="docs/assets/other-tab.png" alt="Other tab with each control labelled" width="600"><br>
-  <em>Other tab — Launch at Login, license info, version, and a manual update check.</em>
-</p>
+### 4. Pairing tab — link the two Macs (required)
 
-Do this on **both** Macs.
-
-1. **In System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Apple's Magic devices remember multiple hosts but only connect to one at a time; Magic Switch flips which Mac currently holds a peripheral, but it doesn't create those pairings for you — set them up on both Macs in System Settings first. (Once that's done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
-2. Launch Magic Switch. Grant **Bluetooth** and **Local Network** permission when prompted.
-3. Right-click the menu-bar icon → Settings:
-   - **Peripheral** tab: tick the Magic devices you want Magic Switch to manage.
-   - **Device** tab: pick the other Mac from "Available Devices."
-4. **Pairing** tab — *required*:
-   - On one Mac, click "Generate Code." A twelve-character code appears.
-   - On the other, click "Enter Code" and type it in.
-   - Both Macs should show the same eight-character fingerprint after pairing. If they don't, you typed the code wrong.
-5. Sync your peripheral list to the other Mac: on the **Device** tab, find it under **Connected Devices** and click its **share button** (the box-with-an-up-arrow icon, beside **Ping**). A "Synced N peripherals to …" line appears under the row on success. The button is greyed out while that Mac is offline.
-
-Until step 4 completes, the switch action and peripheral sync refuse to talk to the peer.
-
-### The pairing flow
-
-Pairing all happens in the **Pairing** tab — generate a code on one Mac and enter it on the other (either direction works; both Macs derive the same key from the same code).
+Generate a twelve-character code on one Mac and enter it on the other; either direction works, since both Macs derive the same key from the same code. They should then show the same eight-character fingerprint — if they differ, the code was mistyped. Until this is done, switching and peripheral sync refuse to talk to the peer.
 
 <p align="center">
   <img src="docs/assets/pairing-not-paired.png" alt="Pairing tab before pairing" width="600"><br>
@@ -74,6 +73,19 @@ Pairing all happens in the **Pairing** tab — generate a code on one Mac and en
   <em>After pairing — both Macs show the same fingerprint. If they differ, the code was mistyped.</em>
 </p>
 
+### 5. Sync your peripherals to the other Mac
+
+On the **Device** tab, find the other Mac under **Connected Devices** and click its **Share** button (the box-with-an-up-arrow, beside **Ping**). A "Synced N peripherals to …" line confirms it. The button is greyed out while that Mac is offline.
+
+### Other tab — preferences
+
+**Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
+
+<p align="center">
+  <img src="docs/assets/other-tab.png" alt="Other tab showing app preferences" width="600"><br>
+  <em>Other tab — Launch at Login, the sleep-release and auto-reconnect toggles, license info, version, and a manual update check.</em>
+</p>
+
 ## Usage
 
 | Action                                  | Result                                                                                          |
@@ -83,12 +95,7 @@ Pairing all happens in the **Pairing** tab — generate a code on one Mac and en
 | Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac |
 | Menu → Settings | Open the Settings window |
 
-The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs.
-
-<p align="center">
-  <img src="docs/assets/menu.png" alt="The menu-bar menu with actions labelled" width="320"><br>
-  <em>The menu — click a Mac to move everything, or a single peripheral to move just that one.</em>
-</p>
+The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs (the dropdown is pictured at the top of this README).
 
 ## Updates
 
