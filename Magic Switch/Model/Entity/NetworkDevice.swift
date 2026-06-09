@@ -63,21 +63,49 @@ struct NetworkDevice: Identifiable, Codable {
   // MARK: - Public Methods
 
   /// Updates the device information with data from another device, applying
-  /// the TOFU fingerprint pin: a mismatch between our stored fingerprint and
-  /// the peer's advertised fingerprint causes us to drop the new routing
-  /// info, mark the device inactive, and stash the incoming fingerprint as
-  /// `pendingFingerprint` so the user can explicitly trust it later.
+  /// the TOFU fingerprint pin. Once a fingerprint is pinned, the routing info
+  /// (`host`/`port`/`isActive`) is only updated by an advertisement carrying
+  /// that same fingerprint. A *different* fingerprint is dropped, the device
+  /// marked inactive, and the incoming value stashed as `pendingFingerprint`
+  /// for an explicit user "Trust". A *missing* fingerprint is ignored entirely
+  /// — it can't prove the pinned identity, so an impersonator advertising the
+  /// peer's Bonjour name with no `fp` can't re-point us at their machine.
   mutating func update(with device: NetworkDevice) {
-    if let stored = fingerprint,
-      let incoming = device.fingerprint,
-      stored != incoming
-    {
-      isActive = false
+    // Once a fingerprint is pinned (TOFU), only an advertisement that proves
+    // that exact identity may move the routing info.
+    if let stored = fingerprint {
+      guard let incoming = device.fingerprint else {
+        // No fingerprint at all can't prove the pinned identity, so refuse to
+        // touch any state from it. A legitimately paired peer always
+        // advertises its `fp`, so a missing one is either a peer that unpaired
+        // (it would reject commands anyway, and the reachability ping to the
+        // still-pinned host will mark it unreachable) or an attacker
+        // advertising the peer's Bonjour name to silently re-point host/port
+        // at a machine they control. Leaving the verified routing and the
+        // active flag untouched denies the attacker any influence.
+        return
+      }
+      if stored != incoming {
+        // Different fingerprint: a possible re-pair. Park the new value for an
+        // explicit user "Trust" and stop treating the device as switchable
+        // until then.
+        isActive = false
+        lastUpdated = Date()
+        pendingFingerprint = incoming
+        return
+      }
+      // Fingerprint matches the pin — a trusted update.
+      pendingFingerprint = nil
+      host = device.host
+      port = device.port
       lastUpdated = Date()
-      pendingFingerprint = incoming
+      isActive = device.isActive
       return
     }
-    if fingerprint == nil, let incoming = device.fingerprint {
+
+    // No pin yet: first contact. Capture any advertised fingerprint as the pin
+    // and accept the routing info (classic trust-on-first-use).
+    if let incoming = device.fingerprint {
       fingerprint = incoming
     }
     pendingFingerprint = nil
