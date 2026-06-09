@@ -378,6 +378,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// the menu. `checkHealth` confirms the peer's TCP port is open before we
   /// touch any local Bluetooth state.
   private func performSwitch(with device: NetworkDevice) {
+    // Don't start a full-set switch while a per-peripheral pair/handoff is in
+    // flight: it would issue a re-entrant connect/unregister on a peripheral
+    // that's already transitioning. The dropdown disables the Mac row for this
+    // too; this guard closes the brief click-race before the row re-renders.
+    guard !bluetoothStore.isAnyPeripheralTransitioning else { return }
     device.checkHealth { [weak self] result in
       // `checkHealth` fires on its own queue. Hop to main before any UI or
       // store mutations, and before calling `checkActualConnectionStatusAsync`

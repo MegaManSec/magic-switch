@@ -63,9 +63,15 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   // MARK: - Computed Properties
 
   var availableNetworkDevices: [NetworkDevice] {
-    discoveredNetworkDevices.filter { discovered in
-      // Exclude own device from the list
-      let isNotSelf = discovered.name != Host.current().localizedName
+    // "Self" is recognised by address, not by name. When two Macs share a
+    // device name, mDNS renames one of the advertised services, so the old
+    // name-based check (`discovered.name != Host.current().localizedName`)
+    // made a Mac hide its real peer (same name) while listing itself
+    // (renamed). The address we resolve for our own advertised service is
+    // always one of this machine's interface addresses; a peer's never is.
+    let localHosts = Self.localAddresses()
+    return discoveredNetworkDevices.filter { discovered in
+      let isNotSelf = !localHosts.contains(Self.normalizeHost(discovered.host))
       let isNotRegistered = !networkDevices.contains(where: { $0.id == discovered.id })
       return isNotSelf && isNotRegistered
     }
@@ -284,6 +290,40 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   // MARK: - Private Methods
+
+  /// This Mac's active IPv4/IPv6 interface addresses, used by
+  /// `availableNetworkDevices` to recognise its own advertised service in
+  /// discovery results (robust to an mDNS rename of a duplicate device name).
+  /// Recomputed each call — `getifaddrs` is cheap and interface addresses
+  /// change (Wi-Fi reconnect, VPN, sleep/wake).
+  private static func localAddresses() -> Set<String> {
+    var result: Set<String> = []
+    var ifaddrPtr: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddrPtr) == 0 else { return result }
+    defer { freeifaddrs(ifaddrPtr) }
+    var cursor = ifaddrPtr
+    while let current = cursor {
+      defer { cursor = current.pointee.ifa_next }
+      guard let sa = current.pointee.ifa_addr else { continue }
+      let family = sa.pointee.sa_family
+      guard family == sa_family_t(AF_INET) || family == sa_family_t(AF_INET6) else { continue }
+      var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+      let status = getnameinfo(
+        sa, socklen_t(sa.pointee.sa_len),
+        &hostBuffer, socklen_t(hostBuffer.count),
+        nil, 0, NI_NUMERICHOST)
+      guard status == 0 else { continue }
+      result.insert(Self.normalizeHost(String(cString: hostBuffer)))
+    }
+    return result
+  }
+
+  /// Drop an IPv6 zone id (`fe80::1%en0` → `fe80::1`) so addresses compare
+  /// equal regardless of how the scope is formatted on each side.
+  private static func normalizeHost(_ host: String) -> String {
+    guard let pct = host.firstIndex(of: "%") else { return host }
+    return String(host[..<pct])
+  }
 
   private func saveNetworkDevices() {
     do {

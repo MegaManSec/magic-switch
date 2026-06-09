@@ -252,7 +252,13 @@ final class DropdownContentView: NSView {
   }
 
   private func makeMacRow(_ device: NetworkDevice) -> NSView {
-    let switchable = networkStore.isSwitchable(device)
+    let reachable = networkStore.isSwitchable(device)
+    // Don't allow a full-set switch while any peripheral is mid pair/handoff —
+    // it would issue a re-entrant connect/release on a peripheral that's already
+    // transitioning. (The per-peripheral rows already disable themselves during
+    // their own transition; this is the matching guard for the all-at-once row.)
+    let busy = bluetoothStore.isAnyPeripheralTransitioning
+    let switchable = reachable && !busy
     let row = MenuRowControl { [weak self] in self?.onSwitchMac(device) }
     row.isEnabled = switchable
 
@@ -267,8 +273,10 @@ final class DropdownContentView: NSView {
     content.addArrangedSubview(spacer())
 
     row.toolTip =
-      switchable
-      ? "Switch peripherals between this Mac and \(device.name)."
+      reachable
+      ? (busy
+        ? "Finish the peripheral that's currently switching before switching them all."
+        : "Switch peripherals between this Mac and \(device.name).")
       : "\(device.name) isn't reachable on the network right now."
     return clickableRow(row, content: content)
   }
