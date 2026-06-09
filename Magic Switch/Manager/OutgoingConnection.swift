@@ -103,7 +103,7 @@ final class OutgoingConnection {
   /// opcode and don't reply OP_FAILED — i.e. anything older than the
   /// commit that added the default-case ack) would otherwise hang here
   /// until the peer's own idle timer (~30s) closes the socket.
-  private static let bodyTimeout: TimeInterval = 5
+  private static let defaultBodyTimeout: TimeInterval = 5
 
   // MARK: - State
 
@@ -119,6 +119,7 @@ final class OutgoingConnection {
   /// probes can't trip the limiter — and thereby block a user-initiated switch —
   /// when a peer is down.
   private let countsTowardRateLimit: Bool
+  private let bodyTimeout: TimeInterval
   private let queue: DispatchQueue
   private var channel: SecureChannel?
   private var selfRef: OutgoingConnection?
@@ -134,6 +135,7 @@ final class OutgoingConnection {
     pairingStore: PairingStore = .shared,
     rateLimiter: OutboundRateLimiter = .shared,
     countsTowardRateLimit: Bool = true,
+    bodyTimeout: TimeInterval = OutgoingConnection.defaultBodyTimeout,
     queue: DispatchQueue = DispatchQueue(label: "com.magicswitch.outgoing", qos: .userInitiated)
   ) {
     self.connection = NWConnection(
@@ -145,6 +147,7 @@ final class OutgoingConnection {
     self.pairingStore = pairingStore
     self.rateLimiter = rateLimiter
     self.countsTowardRateLimit = countsTowardRateLimit
+    self.bodyTimeout = bodyTimeout
     self.queue = queue
   }
 
@@ -258,7 +261,7 @@ final class OutgoingConnection {
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     let timer = DispatchSource.makeTimerSource(queue: queue)
-    timer.schedule(deadline: .now() + Self.bodyTimeout)
+    timer.schedule(deadline: .now() + bodyTimeout)
     timer.setEventHandler { [weak self] in
       guard let self = self else { return }
       self.finish(.failure(.bodyFailed), completion: completion)

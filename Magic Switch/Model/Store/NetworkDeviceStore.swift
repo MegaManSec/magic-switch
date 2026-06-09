@@ -431,8 +431,13 @@ extension NetworkDeviceStore {
       return
     }
 
+    let bodyTimeout: TimeInterval = command == .connectAll ? 75 : 5
     let outgoing = OutgoingConnection(
-      host: device.host, port: UInt16(device.port), countsTowardRateLimit: countsTowardRateLimit)
+      host: device.host,
+      port: UInt16(device.port),
+      countsTowardRateLimit: countsTowardRateLimit,
+      bodyTimeout: bodyTimeout
+    )
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { sendErr in
@@ -631,9 +636,11 @@ extension NetworkDeviceStore {
       completion(.failure(.notPaired))
       return
     }
+    let bodyTimeout: TimeInterval = command == .connectOne ? 75 : 5
     let outgoing = OutgoingConnection(
       host: device.host, port: UInt16(device.port),
-      countsTowardRateLimit: countsTowardRateLimit)
+      countsTowardRateLimit: countsTowardRateLimit,
+      bodyTimeout: bodyTimeout)
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { err in
