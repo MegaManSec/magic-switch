@@ -84,24 +84,30 @@ extension ServiceBrowser: NetServiceDelegate {
       return parsed["fp"].flatMap { String(data: $0, encoding: .utf8) }
     }
 
-    for addressData in addresses {
-      if let host = getHost(from: addressData), sender.port != 0 {
-        let device = NetworkDevice(
-          id: sender.name,
-          name: sender.name,
-          host: host,
-          port: sender.port,
-          isActive: true,
-          fingerprint: fingerprint
-        )
+    guard sender.port != 0 else { return }
 
-        DispatchQueue.main.async {
-          NetworkDeviceStore.shared.addDiscoveredNetworkDevice(device)
-          NetworkDeviceStore.shared.updateNetworkDevice(device)
-          print("Device information updated: \(sender.name)")
-        }
-        break
-      }
+    // Prefer an IPv4 address. `sender.addresses` ordering isn't guaranteed, and
+    // a link-local IPv6 address (fe80::…%enX) frequently won't round-trip
+    // through `NWEndpoint.Host`, so taking "whichever resolved first" can hand
+    // us an unusable host. On the same-LAN setup this app targets IPv4 always
+    // works; fall back to the first resolvable address for IPv6-only networks.
+    let resolvedHosts = addresses.compactMap { getHost(from: $0) }
+    guard let host = resolvedHosts.first(where: { !$0.contains(":") }) ?? resolvedHosts.first
+    else { return }
+
+    let device = NetworkDevice(
+      id: sender.name,
+      name: sender.name,
+      host: host,
+      port: sender.port,
+      isActive: true,
+      fingerprint: fingerprint
+    )
+
+    DispatchQueue.main.async {
+      NetworkDeviceStore.shared.addDiscoveredNetworkDevice(device)
+      NetworkDeviceStore.shared.updateNetworkDevice(device)
+      print("Device information updated: \(sender.name)")
     }
   }
 
