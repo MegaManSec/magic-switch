@@ -218,6 +218,17 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     connectionStates[peripheralID] ?? .disconnected
   }
 
+  /// True while any registered peripheral is mid-transition (`.connecting` or
+  /// `.releasing`). The full-set switch is blocked while this holds so it can't
+  /// issue a re-entrant connect/release on a peripheral that's already pairing
+  /// or being handed off. Reads `connectionStates`; main-thread only.
+  var isAnyPeripheralTransitioning: Bool {
+    peripherals.contains { peripheral in
+      let state = connectionState(for: peripheral.id)
+      return state == .connecting || state == .releasing
+    }
+  }
+
   /// Resolved display type for `peripheral`: the user's manual override if set,
   /// otherwise auto-detected from the name and (when known) its Class of Device.
   func peripheralType(for peripheral: BluetoothPeripheral) -> PeripheralType {
