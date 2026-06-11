@@ -68,6 +68,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// stops a release whose disconnect notification never arrived from
     /// leaving a stale flag that suppresses a real reconnect.
     static let intentionalReleaseGrace: TimeInterval = 15
+    /// Consecutive peer-absent `HOLDS_ONE` probes an *adoption* needs before
+    /// it takes a peripheral. Two probes (one extra tick) give Wi-Fi that's
+    /// still reassociating after wake a chance to come up — so a peer that's
+    /// actually alive gets to answer and stand the adoption down — while
+    /// keeping lid-open → peripheral-back under ~20s.
+    static let adoptionRequiredAbsentStreak = 2
+    /// Failed local pair attempts after which an adoption gives up. A free
+    /// peripheral pairs on the first try; repeated failures usually mean it's
+    /// still held by a peer we can't reach over the network (pairing a held
+    /// Magic device just hangs), so bound the phantom "Pairing…" churn.
+    /// Reclaims — a prior claim — keep the full `reconnectMaxWindow` retry.
+    static let adoptionMaxPairAttempts = 3
   }
 
   // MARK: - Dependencies
@@ -178,15 +190,38 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// live without polling.
   private var globalConnectObserver: IOBluetoothUserNotification?
 
-  /// Peripherals the auto-reconnect watcher is trying to reclaim, keyed by
-  /// id, with the time each was armed (for the `reconnectMaxWindow` bound).
-  /// Main-only.
+  /// Peripherals the auto-reconnect watcher is trying to get onto this Mac,
+  /// keyed by id, with the time each was armed (for the `reconnectMaxWindow`
+  /// bound). An entry comes in one of two flavours: a *reclaim* (default —
+  /// this Mac has a prior claim: a genuine drop, a failed handoff, or a held
+  /// set being chased back after wake) or an *adoption* (no prior claim; see
+  /// `adoptionProgress`). Main-only.
   private var reconnectWatchlist: [String: Date] = [:]
 
   /// Ids with a probe/reclaim chain in flight, so overlapping ticks don't
   /// fire a second `HOLDS_ONE` or pair attempt for the same peripheral while
   /// the first is still resolving. Main-only.
   private var reconnectInFlight: Set<String> = []
+
+  /// Per-id bookkeeping for adoption arms; see `adoptionProgress`.
+  private struct AdoptionProgress {
+    /// Consecutive `HOLDS_ONE` probes that ended peer-absent (unreachable at
+    /// the TCP/connect layer). Reset implicitly: any answered probe stands
+    /// the adoption down instead.
+    var peerAbsentStreak = 0
+    /// Local pair attempts made for this adoption so far.
+    var pairAttempts = 0
+  }
+
+  /// Watchlist entries armed as *adoption*: peripherals this Mac wasn't
+  /// holding (they lived on the peer) whose peer has dropped off the network
+  /// — slept, shut down, or left. Presence in this map is what distinguishes
+  /// an adoption from a reclaim. Adoption is deliberately more polite: it
+  /// takes a peripheral only from a *provably absent* peer (per
+  /// `continueAdoption`), stands down the moment a live peer answers at all
+  /// — "not holding" included, so a prior holder's reclaim or the user
+  /// outranks it — and caps its pair attempts. Main-only.
+  private var adoptionProgress: [String: AdoptionProgress] = [:]
 
   /// Ids we released on purpose (handoff, "Remove from PC", sleep), each with
   /// the time it was flagged. The disconnect notification that follows within
@@ -283,11 +318,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///    lid-close with no peer to hand it to and then won't reconnect (the
   ///    macOS-side bug the watcher exists for).
   ///
-  /// 2. When `releaseOnSleep` is set and a peer looks present (paired + a
-  ///    registered device we're seeing on Bonjour), release each held
-  ///    peripheral so the peer can take it cleanly rather than have it
-  ///    stranded on a Mac that can no longer be reached to release it. With
-  ///    no peer around there's no one to hand off to, so we leave them bonded.
+  /// 2. When `releaseOnSleep` is set and a trusted peer looks present —
+  ///    pinned identity, and either Bonjour-active or answering the `.ping`
+  ///    reachability poll — release each held peripheral so the peer can
+  ///    take it cleanly rather than have it stranded on a Mac that can no
+  ///    longer be reached to release it. Either presence signal suffices:
+  ///    `isActive` is event-driven and can go stale in both directions
+  ///    (sleep proxies keep a sleeping peer's records alive; a missed mDNS
+  ///    goodbye leaves a gone peer active), while the poll is fresh to ~30s.
+  ///    With no peer around there's no one to hand off to, so we leave them
+  ///    bonded.
   ///
   /// The IOBluetooth reads/removes run synchronously on `bluetoothQueue` (the
   /// only place IOBluetooth is touched) so they land before the radio powers
@@ -300,10 +340,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let registered = peripherals
     guard !registered.isEmpty else { return }
 
+    let networkStore = NetworkDeviceStore.shared
     let shouldRelease =
       releaseOnSleep
       && PairingStore.shared.isPaired
-      && NetworkDeviceStore.shared.networkDevices.contains(where: { $0.isActive })
+      && networkStore.networkDevices.contains(where: {
+        $0.pendingFingerprint == nil && ($0.isActive || networkStore.isReachable($0.id))
+      })
 
     // If we're neither releasing nor going to chase peripherals on wake, skip
     // the IOBluetooth scan rather than block the (held) sleep transition to
@@ -347,17 +390,23 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// arms the watcher for *everything this Mac was holding before sleep*
   /// (`connectedBeforeSleep`) so it chases back whatever didn't return on its
   /// own — the watcher's probe applies the read-only `HOLDS_ONE` peer check,
-  /// so anything the peer legitimately took is left alone. When off, falls
-  /// back to the original one-shot reclaim of just the peripherals we released
-  /// for sleep. Waits `Constants.wakeReclaimDelay` first so the network can
-  /// reassociate (and bonded devices get a moment to reconnect on their own)
-  /// before any unreachable-looking peer gets a peripheral grabbed back.
+  /// so anything the peer legitimately took is left alone — and arms the
+  /// polite *adoption* flavour for the rest of the registered set: the peer
+  /// may have gone to sleep after this Mac did and left its peripherals
+  /// behind with no one to hand them over (it can't be asked to release once
+  /// it's unreachable). When off, falls back to the original one-shot reclaim
+  /// of just the peripherals we released for sleep. Waits
+  /// `Constants.wakeReclaimDelay` first so the network can reassociate (and
+  /// bonded devices get a moment to reconnect on their own) before any
+  /// unreachable-looking peer gets a peripheral grabbed back.
   private func reclaimPeripheralsAfterWake() {
     let connected = connectedBeforeSleep
     let released = peripheralsReleasedForSleep
     connectedBeforeSleep = []
     peripheralsReleasedForSleep = []
-    guard !connected.isEmpty else { return }
+    // Even with nothing held before sleep there can be work to do: the
+    // adoption sweep below picks up whatever an absent peer was holding.
+    guard !connected.isEmpty || (autoReconnect && !peripherals.isEmpty) else { return }
 
     // Connection states are stale across sleep — a peripheral we left bonded
     // still reads `.connected`. Refresh from live IOBluetooth so the watcher
@@ -376,6 +425,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           guard self.peripherals.contains(where: { $0.id == id }) else { continue }
           self.armReconnect(id)
         }
+        // The rest of the registered set lived on the peer (or nowhere). If
+        // the peer is gone too, those peripherals are stranded — adopt them.
+        // Already-armed reclaims above are not downgraded by this sweep.
+        self.armAdoptionOfUnheldPeripherals()
         return
       }
 
@@ -1160,28 +1213,57 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   // MARK: - Auto-Reconnect Watcher
 
+  /// Arm the watcher in *adoption* mode for every registered peripheral not
+  /// currently connected to this Mac. Called when the peer stops being part
+  /// of the picture: this Mac just woke (the peer may have slept while we
+  /// did), or the reachability poll watched the peer drop off the network.
+  /// Arming broadly is safe because adoption only ever takes from a provably
+  /// absent peer (see `continueAdoption`): entries against a live peer stand
+  /// down on their first answered probe, and `armReconnect` never downgrades
+  /// an existing reclaim entry to an adoption.
+  func armAdoptionOfUnheldPeripherals() {
+    // Main-only state; called from the reachability poll's completion too.
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.armAdoptionOfUnheldPeripherals() }
+      return
+    }
+    guard autoReconnect else { return }
+    for peripheral in peripherals where connectionState(for: peripheral.id) == .disconnected {
+      armReconnect(peripheral.id, adoption: true)
+    }
+  }
+
   /// Arm the watcher for `id`: it'll be probed on the probe cadence and
   /// reclaimed once it's back in range and the peer isn't using it. No-op when
   /// the feature is off or the peripheral isn't registered to us. Preserves the
   /// original arm time on re-arm so the `reconnectMaxWindow` bound counts from
-  /// the first drop.
-  private func armReconnect(_ id: String) {
+  /// the first drop. `adoption` marks the polite no-prior-claim flavour; it
+  /// only applies to a *fresh* arm — re-arming an existing reclaim as an
+  /// adoption keeps the reclaim, while an explicit (non-adoption) re-arm
+  /// upgrades an adoption to a full reclaim.
+  private func armReconnect(_ id: String, adoption: Bool = false) {
     // The watcher dictionaries/sets and timer are main-only, but deliberate
     // releases (`unregisterFromPC` during a handoff) reach the watcher from the
     // outgoing-connection queue — hop to main so we never mutate this state
     // concurrently with `reconnectTick` / `handlePeripheralDisconnected`.
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { [weak self] in self?.armReconnect(id) }
+      DispatchQueue.main.async { [weak self] in self?.armReconnect(id, adoption: adoption) }
       return
     }
     guard autoReconnect, peripherals.contains(where: { $0.id == id }) else { return }
     if reconnectWatchlist[id] == nil {
       reconnectWatchlist[id] = Date()
-      print("Auto-reconnect: watching \(id)")
+      if adoption { adoptionProgress[id] = AdoptionProgress() }
+      print("Auto-reconnect: watching \(id)\(adoption ? " (adoption)" : "")")
       // If the timer is mid-interval, pull the next probe forward so this
       // newcomer is checked promptly rather than waiting out the rest of the
       // current interval.
       reconnectTimer?.schedule(deadline: .now(), leeway: Constants.reconnectProbeLeeway)
+    } else if !adoption {
+      // An explicit claim (genuine drop, failed handoff, wake reclaim) on an
+      // entry armed as adoption upgrades it: from here on, a live peer
+      // answering "not holding" no longer stands the watcher down.
+      adoptionProgress.removeValue(forKey: id)
     }
     startReconnectTimerIfNeeded()
   }
@@ -1195,6 +1277,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     reconnectInFlight.remove(id)
+    adoptionProgress.removeValue(forKey: id)
     guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
     if reconnectWatchlist.isEmpty { stopReconnectTimer() }
   }
@@ -1355,10 +1438,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let device = NetworkDeviceStore.shared.networkDevices.first,
       device.pendingFingerprint == nil
     else {
+      reconnectInFlight.remove(id)
+      if adoptionProgress[id] != nil {
+        // No trusted peer to consult and no prior claim on the peripheral —
+        // stand down rather than grab one whose holder we can't even ask.
+        disarmReconnect(id)
+        return
+      }
       // No trusted peer to consult — none registered, or one flagged as a
       // TOFU identity mismatch. Either way it's ours; reclaim locally rather
       // than auto-probing an untrusted peer with our now-stale key.
-      reconnectInFlight.remove(id)
       connectPeripheral(peripheral, announcePairTimeout: false)
       return
     }
@@ -1373,15 +1462,58 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // Peer is actively holding it — leave it there.
           print("Auto-reconnect: \(peripheral.name) held by \(device.name); leaving it")
           self.disarmReconnect(id)
-        case .failure:
+        case .failure(let failure):
           guard self.reconnectWatchlist[id] != nil,
             self.connectionState(for: id) == .disconnected
           else { return }
+          if self.adoptionProgress[id] != nil {
+            self.continueAdoption(of: peripheral, after: failure)
+            return
+          }
           print("Auto-reconnect: reclaiming \(peripheral.name)")
           self.connectPeripheral(peripheral, announcePairTimeout: false)
         }
       }
     }
+  }
+
+  /// Adoption-flavoured continuation of `reclaimIfPeerIsFree`'s failure arm
+  /// (runs on main). A reclaim takes the peripheral on *any* `HOLDS_ONE`
+  /// failure; an adoption — no prior claim — takes it only once the peer is
+  /// provably absent: unreachable at the connect layer for
+  /// `adoptionRequiredAbsentStreak` consecutive probes. A peer that answers
+  /// at all — an explicit "not holding" (`.bodyFailed`) included — outranks
+  /// us, so stand down and leave the move to its reclaim or to the user.
+  /// Pair attempts are capped: a free peripheral pairs on the first try, so
+  /// repeated failures mean it's busy with a peer we can't reach.
+  private func continueAdoption(of peripheral: BluetoothPeripheral, after failure: OutgoingFailure)
+  {
+    let id = peripheral.id
+    guard var progress = adoptionProgress[id] else { return }
+    switch failure {
+    case .connectionFailed, .connectTimeout:
+      progress.peerAbsentStreak += 1
+    default:
+      // The peer's machine accepted the TCP connection even though the probe
+      // failed past that point — that's a live peer, not an absent one.
+      print("Adoption: \(peripheral.name) — peer is up; standing down")
+      disarmReconnect(id)
+      return
+    }
+    guard progress.peerAbsentStreak >= Constants.adoptionRequiredAbsentStreak else {
+      adoptionProgress[id] = progress
+      return
+    }
+    guard progress.pairAttempts < Constants.adoptionMaxPairAttempts else {
+      print(
+        "Adoption: giving up on \(peripheral.name) after \(progress.pairAttempts) pair attempts")
+      disarmReconnect(id)
+      return
+    }
+    progress.pairAttempts += 1
+    adoptionProgress[id] = progress
+    print("Adoption: taking \(peripheral.name) (attempt \(progress.pairAttempts))")
+    connectPeripheral(peripheral, announcePairTimeout: false)
   }
 
   // MARK: - Private Methods
