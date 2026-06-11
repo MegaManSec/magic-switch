@@ -318,11 +318,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///    lid-close with no peer to hand it to and then won't reconnect (the
   ///    macOS-side bug the watcher exists for).
   ///
-  /// 2. When `releaseOnSleep` is set and a peer looks present (paired + a
-  ///    registered device we're seeing on Bonjour), release each held
-  ///    peripheral so the peer can take it cleanly rather than have it
-  ///    stranded on a Mac that can no longer be reached to release it. With
-  ///    no peer around there's no one to hand off to, so we leave them bonded.
+  /// 2. When `releaseOnSleep` is set and a trusted peer looks present —
+  ///    pinned identity, and either Bonjour-active or answering the `.ping`
+  ///    reachability poll — release each held peripheral so the peer can
+  ///    take it cleanly rather than have it stranded on a Mac that can no
+  ///    longer be reached to release it. Either presence signal suffices:
+  ///    `isActive` is event-driven and can go stale in both directions
+  ///    (sleep proxies keep a sleeping peer's records alive; a missed mDNS
+  ///    goodbye leaves a gone peer active), while the poll is fresh to ~30s.
+  ///    With no peer around there's no one to hand off to, so we leave them
+  ///    bonded.
   ///
   /// The IOBluetooth reads/removes run synchronously on `bluetoothQueue` (the
   /// only place IOBluetooth is touched) so they land before the radio powers
@@ -335,10 +340,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let registered = peripherals
     guard !registered.isEmpty else { return }
 
+    let networkStore = NetworkDeviceStore.shared
     let shouldRelease =
       releaseOnSleep
       && PairingStore.shared.isPaired
-      && NetworkDeviceStore.shared.networkDevices.contains(where: { $0.isActive })
+      && networkStore.networkDevices.contains(where: {
+        $0.pendingFingerprint == nil && ($0.isActive || networkStore.isReachable($0.id))
+      })
 
     // If we're neither releasing nor going to chase peripherals on wake, skip
     // the IOBluetooth scan rather than block the (held) sleep transition to
