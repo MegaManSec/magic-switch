@@ -54,6 +54,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private var reachabilityTimer: DispatchSourceTimer?
   private static let reachabilityInterval: TimeInterval = 30
 
+  /// Consecutive failed `.ping` polls per device id (runtime only). Drives
+  /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi
+  /// blip, mid-transition), two in a row (~a minute) is a peer that's
+  /// genuinely gone — asleep, shut down, off the network. Main-only.
+  private var consecutivePollFailures: [String: Int] = [:]
+
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
   /// Device tab and cleared when the op finishes; the view both disables the
   /// buttons and renders the "Pinging…/Syncing…" line off this, so they survive
@@ -248,6 +254,20 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           // objectWillChange every interval and needlessly re-render observers.
           if self.deviceReachability[device.id] != reachable {
             self.deviceReachability[device.id] = reachable
+          }
+          if reachable {
+            self.consecutivePollFailures[device.id] = 0
+          } else {
+            let failures = (self.consecutivePollFailures[device.id] ?? 0) + 1
+            self.consecutivePollFailures[device.id] = failures
+            // Second consecutive miss: the peer has genuinely gone away, and
+            // whatever it was holding is stranded — let the adoption watcher
+            // pick it up. Exactly-two (not ≥) fires once per outage, so a
+            // long-dark peer doesn't re-arm the watcher every poll forever;
+            // a recovery resets the streak and re-arms it for the next one.
+            if failures == 2 {
+              BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
+            }
           }
         }
       }

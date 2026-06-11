@@ -34,7 +34,7 @@ struct OtherSettingsView: View {
       Section {
         Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
           .help(
-            "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. Magic Switch won't take a peripheral your other Mac is actively using."
+            "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
       Section {
