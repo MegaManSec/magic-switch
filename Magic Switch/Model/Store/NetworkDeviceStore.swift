@@ -54,6 +54,16 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private var reachabilityTimer: DispatchSourceTimer?
   private static let reachabilityInterval: TimeInterval = 30
 
+  /// Body-read timeout for the two commands whose receiver only acks after it
+  /// has actually finished (re-)pairing — `CONNECT_ALL` and `CONNECT_ONE` —
+  /// rather than acking on receipt. It must exceed the receiver's worst-case
+  /// connect time (its pair watchdog, `pairTimeout`, is 60s) so the sender
+  /// waits for the real result instead of giving up early; and the receiver's
+  /// `IncomingConnection.idleTimeout` must stay >= this so it doesn't idle-kill
+  /// the connection before sending that ack. Every other command acks
+  /// immediately and uses `OutgoingConnection`'s 5s default.
+  private static let handoffBodyTimeout: TimeInterval = 75
+
   /// Consecutive failed `.ping` polls per device id (runtime only). Drives
   /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi
   /// blip, mid-transition), two in a row (~a minute) is a peer that's
@@ -431,8 +441,13 @@ extension NetworkDeviceStore {
       return
     }
 
+    let bodyTimeout: TimeInterval = command == .connectAll ? Self.handoffBodyTimeout : 5
     let outgoing = OutgoingConnection(
-      host: device.host, port: UInt16(device.port), countsTowardRateLimit: countsTowardRateLimit)
+      host: device.host,
+      port: UInt16(device.port),
+      countsTowardRateLimit: countsTowardRateLimit,
+      bodyTimeout: bodyTimeout
+    )
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { sendErr in
@@ -631,9 +646,11 @@ extension NetworkDeviceStore {
       completion(.failure(.notPaired))
       return
     }
+    let bodyTimeout: TimeInterval = command == .connectOne ? Self.handoffBodyTimeout : 5
     let outgoing = OutgoingConnection(
       host: device.host, port: UInt16(device.port),
-      countsTowardRateLimit: countsTowardRateLimit)
+      countsTowardRateLimit: countsTowardRateLimit,
+      bodyTimeout: bodyTimeout)
     outgoing.run(
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { err in

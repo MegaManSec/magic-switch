@@ -448,7 +448,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch result {
         case .success:
           self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.connectPeripheral(peripheral)
+            self.bluetoothStore.connectPeripheralFromPeer(peripheral)
           }
           self.endTransfer()
         case .failure(let err):

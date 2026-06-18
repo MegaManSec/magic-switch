@@ -36,8 +36,13 @@ extension Notification.Name {
 final class IncomingConnection {
   // MARK: - Constants
 
-  /// Cuts off slow-talkers. Reset on every successful frame.
-  private static let idleTimeout: TimeInterval = 30
+  /// Cuts off slow-talkers. Reset on every successful frame. Held above the
+  /// peer's worst-case handoff connect time (its pair watchdog is 60s) because
+  /// a `CONNECT_ALL`/`CONNECT_ONE` receiver only acks after pairing finishes —
+  /// no frames are exchanged meanwhile — so a tighter idle cap would kill the
+  /// connection before it could reply. Must stay >= `NetworkDeviceStore`'s
+  /// `handoffBodyTimeout` (the sender's matching wait).
+  private static let idleTimeout: TimeInterval = 75
   /// Hard cap on a single connection regardless of idle activity. Without it,
   /// a well-behaved-looking attacker could keep `idleTimer` happy with
   /// well-formed sealed frames indefinitely and pin a listener slot forever.
@@ -189,21 +194,34 @@ final class IncomingConnection {
       break
     case .connectAll:
       let store = bluetoothStore
-      DispatchQueue.main.async {
+      lastReceivedCommand = nil
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
         NotificationCenter.default.post(name: .magicSwitchReceivedConnectAll, object: nil)
-        store.peripherals.forEach { peripheral in
-          store.connectPeripheral(peripheral)
+        let peripherals = store.peripherals
+        guard !peripherals.isEmpty else {
+          self.queue.async {
+            self.sendString(DeviceCommand.operationSuccess.rawValue)
+          }
+          return
+        }
+        var remaining = peripherals.count
+        var allSucceeded = true
+        peripherals.forEach { peripheral in
+          store.connectPeripheralFromPeer(peripheral) { success in
+            self.queue.async {
+              allSucceeded = allSucceeded && success
+              remaining -= 1
+              if remaining == 0 {
+                self.sendString(
+                  (allSucceeded ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed)
+                    .rawValue
+                )
+              }
+            }
+          }
         }
       }
-      // Best-effort ack: OP_SUCCESS here means "command received and
-      // dispatched," not "all peripherals successfully connected." Local
-      // pair work is async and may still fail (out of range, peer never
-      // released, etc.). The peer's goal ("you now hold these") is
-      // satisfied as long as we attempt — tracking per-peripheral results
-      // and aggregating would require holding the connection open until
-      // every IOBluetooth callback lands, which isn't worth the complexity.
-      sendString(DeviceCommand.operationSuccess.rawValue)
-      lastReceivedCommand = nil
     case .unregisterAll:
       let store = bluetoothStore
       DispatchQueue.main.async {
@@ -292,14 +310,23 @@ final class IncomingConnection {
       }
       let store = bluetoothStore
       let address = message
-      DispatchQueue.main.async {
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
         // Peripheral is arriving at this Mac — flash the receiving arrow.
         NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
-        if let peripheral = store.peripherals.first(where: { $0.id == address }) {
-          store.connectPeripheral(peripheral)
+        guard let peripheral = store.peripherals.first(where: { $0.id == address }) else {
+          self.queue.async {
+            self.sendString(DeviceCommand.operationFailed.rawValue)
+          }
+          return
+        }
+        store.connectPeripheralFromPeer(peripheral) { success in
+          self.queue.async {
+            self.sendString(
+              (success ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
+          }
         }
       }
-      sendString(DeviceCommand.operationSuccess.rawValue)
     case .holdsOne:
       guard Self.isValidMACAddress(message) else {
         print("holdsOne: invalid MAC address: \(message)")
