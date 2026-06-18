@@ -899,6 +899,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         if btDevice.responds(to: Selector(("remove"))) {
           btDevice.perform(Selector(("remove")))
           print("Removed stale local pairing before taking \(peripheral.name)")
+          // `-remove` tears the bond down asynchronously in the Bluetooth
+          // daemon; re-pairing before it settles can race the unbond and fail.
+          // A short fixed settle is simpler than a poll loop here (there's no
+          // condition to poll — just "give the daemon a moment"). We're on
+          // `bluetoothQueue`, a background serial queue, so this briefly stalls
+          // other queued BT work but never the main thread / UI.
           Thread.sleep(forTimeInterval: 0.5)
           if let refreshed = IOBluetoothDevice(addressString: peripheral.id) {
             btDevice = refreshed
