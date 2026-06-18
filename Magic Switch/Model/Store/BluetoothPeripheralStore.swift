@@ -45,6 +45,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// peer that's actively using the peripheral doesn't look unreachable and
     /// get it yanked back.
     static let wakeReclaimDelay: TimeInterval = 5
+    /// Upper bound on how long `prepareForSleep` blocks the (held) sleep
+    /// transition waiting for the peer to ack the proactive handoff push (see
+    /// `prepareForSleep`). A present peer acks in well under a second; the cap
+    /// keeps a peer that vanished in the same instant from delaying sleep more
+    /// than briefly. Stays well inside the OS's ~30s power-handler watchdog.
+    static let sleepHandoffAckTimeout: TimeInterval = 3
     /// How often the auto-reconnect watcher probes a dropped peripheral to see
     /// whether it's back. The probe is just an RSSI read while the device is
     /// absent, so it's cheap. A short, *constant* cadence is deliberate: the
@@ -326,16 +332,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///    lid-close with no peer to hand it to and then won't reconnect (the
   ///    macOS-side bug the watcher exists for).
   ///
-  /// 2. When `releaseOnSleep` is set and a trusted peer looks present —
-  ///    pinned identity, and either Bonjour-active or answering the `.ping`
-  ///    reachability poll — release each held peripheral so the peer can
-  ///    take it cleanly rather than have it stranded on a Mac that can no
-  ///    longer be reached to release it. Either presence signal suffices:
-  ///    `isActive` is event-driven and can go stale in both directions
-  ///    (sleep proxies keep a sleeping peer's records alive; a missed mDNS
-  ///    goodbye leaves a gone peer active), while the poll is fresh to ~30s.
-  ///    With no peer around there's no one to hand off to, so we leave them
-  ///    bonded.
+  /// 2. When `releaseOnSleep` is set and a trusted (non-mismatched) peer is
+  ///    *registered*, release each held peripheral — so it's freed rather than
+  ///    left latched to a host that's about to be unreachable, and the other
+  ///    Mac can take it on its next wake without a power-cycle. We deliberately
+  ///    do *not* require the peer to be reachable this instant: if it is, we
+  ///    also push it the released set so the handoff is immediate (job 3); if it
+  ///    isn't (asleep, off the network), freeing the peripheral still lets that
+  ///    Mac adopt it whenever it wakes, and our own `reclaimPeripheralsAfterWake`
+  ///    brings back anything it didn't take. A lone Mac with no registered peer
+  ///    keeps its bond — nothing to hand to, and re-pairing on every wake would
+  ///    be pure churn.
+  ///
+  /// 3. If a trusted peer is reachable right now, proactively push it the
+  ///    released set (`executeAdoptReleased`) so it grabs them immediately
+  ///    instead of waiting to notice we're gone. Best-effort; see below.
   ///
   /// The IOBluetooth reads/removes run synchronously on `bluetoothQueue` (the
   /// only place IOBluetooth is touched) so they land before the radio powers
@@ -349,12 +360,25 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard !registered.isEmpty else { return }
 
     let networkStore = NetworkDeviceStore.shared
+    // A trusted (non-mismatched) peer is *registered*, whether or not it's
+    // reachable this instant.
+    let hasTrustedPeer = networkStore.networkDevices.contains { $0.pendingFingerprint == nil }
+    // The subset of that which is reachable *now* — the target for the
+    // proactive push below.
+    let presentPeer = networkStore.networkDevices.first(where: {
+      $0.pendingFingerprint == nil && ($0.isActive || networkStore.isReachable($0.id))
+    })
+    // Release whenever a two-Mac handoff is configured — not only when the peer
+    // is reachable this instant. Freeing the peripheral as we sleep means it's
+    // never left latched to a sleeping host, so the other Mac can take it on its
+    // next wake without a power-cycle; if the peer is unreachable now we simply
+    // can't *push* (below) and it adopts on its own wake instead. A lone Mac
+    // with no registered peer keeps its bond — there's nothing to hand to, and
+    // re-pairing it on every wake would be pure churn. The wake reclaim brings
+    // back whatever the peer didn't take (HOLDS_ONE-gated, so the two Macs never
+    // fight over it).
     let shouldRelease =
-      releaseOnSleep
-      && PairingStore.shared.isPaired
-      && networkStore.networkDevices.contains(where: {
-        $0.pendingFingerprint == nil && ($0.isActive || networkStore.isReachable($0.id))
-      })
+      releaseOnSleep && PairingStore.shared.isPaired && hasTrustedPeer
 
     // If we're neither releasing nor going to chase peripherals on wake, skip
     // the IOBluetooth scan rather than block the (held) sleep transition to
@@ -391,6 +415,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
     if !connectedIDs.isEmpty {
       print("Before sleep: \(connectedIDs.count) connected, released \(releasedIDs.count)")
+    }
+
+    // Proactive handoff: we've just freed these locally, so ask the present
+    // peer to take them right now instead of leaving it to notice we're gone
+    // and adopt them. This is what makes the handoff feel immediate when the
+    // other Mac is awake. Best-effort and layered on top of the release above
+    // (which already happened): if the push is missed, the peer's reactive
+    // adoption still recovers them. We briefly block the (held) sleep
+    // transition for the receipt ack — once this returns the radio powers down
+    // and any un-flushed frame is lost — but sleep anyway if it doesn't arrive
+    // within the budget. The ack fires on a background queue, so blocking main
+    // here can't deadlock the send.
+    if let peer = presentPeer, !releasedIDs.isEmpty {
+      let ackWait = DispatchSemaphore(value: 0)
+      networkStore.executeAdoptReleased(addresses: releasedIDs, on: peer) { _ in
+        ackWait.signal()
+      }
+      _ = ackWait.wait(timeout: .now() + Constants.sleepHandoffAckTimeout)
     }
   }
 
@@ -1390,6 +1432,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       adoptionProgress.removeValue(forKey: id)
     }
     startReconnectTimerIfNeeded()
+  }
+
+  /// Arm the auto-reconnect watcher for `id` as a *reclaim* (prior claim) —
+  /// the same retry/rollback safety net `takePeripheralFromPeer` arms
+  /// internally. Exposed for `AppDelegate`'s full-set takeover, which drives
+  /// the status-bar transfer icon itself and so can't route through
+  /// `takePeripheralFromPeer`. A reclaim is HOLDS_ONE-gated (it never grabs a
+  /// peripheral the peer confirms it's holding) and retries for the full
+  /// `reconnectMaxWindow`, so a device stuck in the bonded-but-not-connected
+  /// state comes back the moment the user power-cycles it.
+  func armReconnectForTakeover(_ id: String) {
+    armReconnect(id)
   }
 
   /// Stop watching `id` — it connected, moved to the peer, was removed, or
