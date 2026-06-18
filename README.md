@@ -10,7 +10,7 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 <p align="center">
   <img src="docs/assets/menu.png" alt="The Magic Switch menu-bar dropdown" width="340"><br>
-  <em>It lives in the menu bar: click a Mac to hand over everything, or a single peripheral to move just that one.</em>
+  <em>It lives in the menu bar: click a Mac to move every peripheral to it, or a single peripheral to move just that one. A checkmark marks whatever's on this Mac right now.</em>
 </p>
 
 ## Installation
