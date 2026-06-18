@@ -53,6 +53,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   @Published private(set) var deviceReachability: [String: Bool] = [:]
   private var reachabilityTimer: DispatchSourceTimer?
   private static let reachabilityInterval: TimeInterval = 30
+  /// Delay before the fast off-cycle recheck that confirms a *first* missed
+  /// poll (see `scheduleFastReachabilityRecheck`). Short enough to collapse the
+  /// ~30s worst-case detection latency that otherwise leaves a vanished peer's
+  /// peripherals unclaimed while this Mac is awake; long enough that a single
+  /// dropped packet clears on the retry rather than arming adoption.
+  private static let fastRecheckDelay: TimeInterval = 3
 
   /// Body-read timeout for the two commands whose receiver only acks after it
   /// has actually finished (re-)pairing — `CONNECT_ALL` and `CONNECT_ONE` —
@@ -66,9 +72,16 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// Consecutive failed `.ping` polls per device id (runtime only). Drives
   /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi
-  /// blip, mid-transition), two in a row (~a minute) is a peer that's
-  /// genuinely gone — asleep, shut down, off the network. Main-only.
+  /// blip, mid-transition), two in a row is a peer that's genuinely gone —
+  /// asleep, shut down, off the network. The second miss is now reached in a
+  /// few seconds (see `scheduleFastReachabilityRecheck`) rather than across two
+  /// 30s polls. Main-only.
   private var consecutivePollFailures: [String: Int] = [:]
+
+  /// Devices with a fast off-cycle reachability recheck already scheduled, so
+  /// overlapping triggers (a missed poll and a Bonjour withdraw landing
+  /// together) don't stack up multiple rechecks. Main-only.
+  private var pendingFastRecheck: Set<String> = []
 
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
   /// Device tab and cleared when the op finishes; the view both disables the
@@ -209,6 +222,21 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // Mirror Bonjour's verdict into reachability (a withdraw is a valid, if
     // slow, offline signal); the `.ping` poll provides the fast path.
     deviceReachability[id] = isActive
+
+    // A Bonjour withdraw is a *hint* the peer left, not proof — it can be an
+    // mDNS flap while the peer is still reachable, and (behind a Bonjour sleep
+    // proxy) a genuinely sleeping peer may not withdraw at all. So don't wait
+    // out a full poll interval: confirm now. If the peer answers, the probe
+    // re-marks it reachable; if it doesn't, this lands as the first miss and
+    // the fast-recheck path arms adoption within seconds — closing the gap
+    // where a peer that vanished while this Mac was awake left its peripherals
+    // unclaimed for ~a minute. Guard `isPaired` so the probe can't book a
+    // spurious `.notPaired` failure into the streak.
+    if !isActive, PairingStore.shared.isPaired,
+      let device = networkDevices.first(where: { $0.id == id && $0.pendingFingerprint == nil })
+    {
+      probeReachability(of: device)
+    }
   }
 
   // MARK: - Reachability
@@ -251,36 +279,77 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // `.ping` rides the secure channel, so it's meaningless unpaired — skip
     // (leaving the pessimistic default) rather than spam `.notPaired` failures.
     // Skip mismatched peers too: a `.ping` with our old key would just auth-fail
-    // and feed the peer's inbound rate limiter. `countsTowardRateLimit: false`
-    // keeps these fixed-cadence probes from tripping our own outbound limiter.
+    // and feed the peer's inbound rate limiter.
     guard PairingStore.shared.isPaired else { return }
     for device in networkDevices where device.pendingFingerprint == nil {
-      executeCommand(.ping, on: device, countsTowardRateLimit: false) { [weak self] result in
-        DispatchQueue.main.async {
-          guard let self = self else { return }
-          let reachable: Bool
-          if case .success = result { reachable = true } else { reachable = false }
-          // Publish only on change — a steady-state poll would otherwise fire
-          // objectWillChange every interval and needlessly re-render observers.
-          if self.deviceReachability[device.id] != reachable {
-            self.deviceReachability[device.id] = reachable
-          }
-          if reachable {
-            self.consecutivePollFailures[device.id] = 0
-          } else {
-            let failures = (self.consecutivePollFailures[device.id] ?? 0) + 1
-            self.consecutivePollFailures[device.id] = failures
+      probeReachability(of: device)
+    }
+  }
+
+  /// One reachability probe against `device`: updates `deviceReachability`
+  /// (which greys the menu/Device-tab rows) and advances the
+  /// `consecutivePollFailures` streak that triggers peer-vanished adoption.
+  /// `countsTowardRateLimit: false` keeps these fixed-cadence probes from
+  /// tripping our own outbound limiter. Factored out of `pollReachability` so a
+  /// single device can be re-probed off-cycle — by the fast confirming recheck
+  /// below, and by a Bonjour withdraw — without waiting out the 30s interval.
+  private func probeReachability(of device: NetworkDevice) {
+    executeCommand(.ping, on: device, countsTowardRateLimit: false) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        let reachable: Bool
+        if case .success = result { reachable = true } else { reachable = false }
+        // Publish only on change — a steady-state poll would otherwise fire
+        // objectWillChange every interval and needlessly re-render observers.
+        if self.deviceReachability[device.id] != reachable {
+          self.deviceReachability[device.id] = reachable
+        }
+        if reachable {
+          self.consecutivePollFailures[device.id] = 0
+        } else {
+          let failures = (self.consecutivePollFailures[device.id] ?? 0) + 1
+          self.consecutivePollFailures[device.id] = failures
+          if failures == 1 {
+            // First miss of a new outage. The peer may have just left (slept,
+            // unplugged, quit); confirm with one quick re-probe rather than
+            // waiting a full ~30s interval for the next scheduled poll. A
+            // one-off dropped packet is cleared when the confirm succeeds and
+            // resets the streak. This is what makes a peer that vanishes *while
+            // this Mac is already awake* get its peripherals adopted within
+            // seconds instead of ~a minute — the wake path already covers the
+            // case where this Mac was itself asleep.
+            self.scheduleFastReachabilityRecheck(of: device)
+          } else if failures == 2 {
             // Second consecutive miss: the peer has genuinely gone away, and
             // whatever it was holding is stranded — let the adoption watcher
             // pick it up. Exactly-two (not ≥) fires once per outage, so a
             // long-dark peer doesn't re-arm the watcher every poll forever;
             // a recovery resets the streak and re-arms it for the next one.
-            if failures == 2 {
-              BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
-            }
+            BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
           }
         }
       }
+    }
+  }
+
+  /// Schedule a single off-cycle reachability re-probe of `device` a few
+  /// seconds out, to *confirm* a first missed poll (or a Bonjour withdraw)
+  /// quickly. Deduplicated per device so overlapping triggers don't stack
+  /// rechecks; the probe's own failure counting decides whether to arm
+  /// adoption. Runs on main.
+  private func scheduleFastReachabilityRecheck(of device: NetworkDevice) {
+    guard !pendingFastRecheck.contains(device.id) else { return }
+    pendingFastRecheck.insert(device.id)
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.fastRecheckDelay) { [weak self] in
+      guard let self = self else { return }
+      self.pendingFastRecheck.remove(device.id)
+      // Re-probe only if it's still a registered, paired, non-mismatched peer.
+      guard PairingStore.shared.isPaired,
+        let current = self.networkDevices.first(where: {
+          $0.id == device.id && $0.pendingFingerprint == nil
+        })
+      else { return }
+      self.probeReachability(of: current)
     }
   }
 
@@ -400,6 +469,14 @@ enum DeviceCommand: String, Codable {
   /// does. Lets the switch action bail out before touching local Bluetooth
   /// state if the peer can't actually take a command right now.
   case ping = "PING"
+  /// Two-frame: opcode then a comma-separated list of MAC addresses the
+  /// *sender* just released as it goes to sleep. The receiver acks on receipt
+  /// (like `UNREGISTER_ALL`, not after pairing — the sleeping sender can't wait
+  /// that long) and then takes those peripherals. A proactive handoff, so a
+  /// peripheral lands on the awake Mac immediately instead of waiting for the
+  /// sleeping peer to be detected gone. Best-effort: the sender has already
+  /// released locally, so a dropped push just falls back to reactive adoption.
+  case adoptReleased = "ADOPT_RELEASED"
 }
 
 // MARK: - Health Check Extension
@@ -629,6 +706,21 @@ extension NetworkDeviceStore {
     sendTwoFrameCommand(
       .holdsOne, payload: address, to: device, countsTowardRateLimit: false,
       completion: completion)
+  }
+
+  /// Tells `device` to take the peripherals the sender just released on its way
+  /// to sleep — the proactive handoff `prepareForSleep` fires. The peer acks on
+  /// receipt, so the sleeping sender only has to wait a moment before sleeping.
+  /// `countsTowardRateLimit: false` — this is a system-triggered push, not a
+  /// user action, and shouldn't feed the limiter that gates real switches.
+  func executeAdoptReleased(
+    addresses: [String],
+    on device: NetworkDevice,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
+    sendTwoFrameCommand(
+      .adoptReleased, payload: addresses.joined(separator: ","), to: device,
+      countsTowardRateLimit: false, completion: completion)
   }
 
   /// Shared helper for "opcode + single payload frame, await OP_SUCCESS".

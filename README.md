@@ -10,7 +10,7 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 <p align="center">
   <img src="docs/assets/menu.png" alt="The Magic Switch menu-bar dropdown" width="340"><br>
-  <em>It lives in the menu bar: click a Mac to hand over everything, or a single peripheral to move just that one.</em>
+  <em>It lives in the menu bar: click a Mac to move every peripheral to it, or a single peripheral to move just that one. A checkmark marks whatever's on this Mac right now.</em>
 </p>
 
 ## Installation
@@ -109,6 +109,7 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Device tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
 - On the **Device** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
+- **Closing or sleeping one Mac hands its peripherals to the other.** When this Mac sleeps (or you close its lid), it hands the peripherals it holds to your other Mac — or, if that Mac isn't reachable yet, frees them so it can pick them up the moment it wakes. That's why you can close one Mac and find the keyboard and mouse already on the other. This is on by default; you can turn it off under **Settings → Other → "Release peripherals when this Mac sleeps."**
 - **A peripheral didn't come back after sleep or a lid-close.** Apple's Magic devices sometimes get stuck once the Bluetooth radio sleeps and won't reconnect — even a manual reconnect fails until you switch the peripheral **off and on** with its power switch. Magic Switch keeps watching for anything that was on this Mac before it slept: the moment the device reappears (which a power-cycle triggers), it reconnects automatically — as long as your other Mac isn't actively using it. This is on by default; you can turn it off under **Settings → Other → "Reconnect peripherals if they drop."**
 
 ## Developer notes

@@ -444,20 +444,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       // nothing has changed locally yet.
       beginTransfer(.receiving)
       networkStore.executeCommand(.unregisterAll, on: device) { [weak self] result in
-        guard let self = self else { return }
-        switch result {
-        case .success:
-          self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.connectPeripheralFromPeer(peripheral)
+        // `executeCommand`'s completion fires on the outgoing-connection queue;
+        // hop to main before touching the status-bar icon or the stores.
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          self.endTransfer()
+          switch result {
+          case .success, .failure(.connectionFailed), .failure(.connectTimeout):
+            // Either the peer released everything (success), or we couldn't
+            // reach it at all — in which case its machine is unreachable
+            // (asleep, off the network, app not running) and it isn't holding
+            // the peripherals anymore, since a Mac that drops off the network
+            // has already released its Bluetooth devices. Both ways the
+            // peripherals are free: grab them locally instead of stranding the
+            // user with an error they can't act on, and arm the auto-reconnect
+            // watcher as the retry safety net for any device stuck in the
+            // bonded-but-not-connected state that needs a power-cycle. Mirrors
+            // `takePeripheralFromPeer`'s success + unreachable arms, at full-set
+            // scope.
+            self.bluetoothStore.peripherals.forEach { peripheral in
+              self.bluetoothStore.connectPeripheralFromPeer(peripheral)
+              self.bluetoothStore.armReconnectForTakeover(peripheral.id)
+            }
+          case .failure(let err):
+            // Reachable peer but the release-all errored, so we can't be sure
+            // it let go. Don't grab outright (that could yank a peripheral from
+            // a peer that didn't release); arm the HOLDS_ONE-gated watcher,
+            // which reclaims each one only once the peer confirms it isn't
+            // holding it — and recovers the case where the peer released but
+            // the ack was lost.
+            self.bluetoothStore.peripherals.forEach { peripheral in
+              self.bluetoothStore.armReconnectForTakeover(peripheral.id)
+            }
+            NotificationManager.showNotification(
+              title: "Switch Failed",
+              body: err.userMessage,
+              identifier: "switch-disconnect-remote-failed"
+            )
           }
-          self.endTransfer()
-        case .failure(let err):
-          self.endTransfer()
-          NotificationManager.showNotification(
-            title: "Switch Failed",
-            body: err.userMessage,
-            identifier: "switch-disconnect-remote-failed"
-          )
         }
       }
     case .partial:

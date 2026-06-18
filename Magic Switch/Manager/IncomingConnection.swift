@@ -189,7 +189,7 @@ final class IncomingConnection {
   private func handleCommand(_ command: DeviceCommand) {
     lastReceivedCommand = command
     switch command {
-    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne:
+    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased:
       // Two-frame commands; data frame handled in `handleCommandData`.
       break
     case .connectAll:
@@ -345,6 +345,35 @@ final class IncomingConnection {
             (held ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
         }
       }
+    case .adoptReleased:
+      // Comma-separated MACs the peer released as it went to sleep. Take the
+      // ones we have registered — a proactive handoff, so they arrive here at
+      // once instead of via reactive adoption. Validate every entry before
+      // touching the store with peer-supplied input, and cap the list. Ack on
+      // receipt (we don't make the sleeping peer wait out pairing) and run the
+      // grab async; `connectPeripheralFromPeer` no-ops on anything we already
+      // hold, and the watcher (`armReconnectForTakeover`) covers a device
+      // that's briefly stuck and needs a power-cycle.
+      let macs = message.split(separator: ",").map(String.init)
+      guard !macs.isEmpty, macs.count <= 64, macs.allSatisfy(Self.isValidMACAddress) else {
+        print("adoptReleased: empty, oversized, or malformed address list")
+        sendString(DeviceCommand.operationFailed.rawValue)
+        break
+      }
+      let store = bluetoothStore
+      DispatchQueue.main.async {
+        let toTake = macs.compactMap { mac in store.peripherals.first(where: { $0.id == mac }) }
+        guard !toTake.isEmpty else { return }
+        // One arrow flash for the batch (receiving direction).
+        NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
+        for peripheral in toTake {
+          store.connectPeripheralFromPeer(peripheral)
+          store.armReconnectForTakeover(peripheral.id)
+        }
+      }
+      // Acked on receipt: the goal ("you now own these") is recorded even if a
+      // given peripheral isn't registered here or needs a retry to connect.
+      sendString(DeviceCommand.operationSuccess.rawValue)
     default:
       break
     }
