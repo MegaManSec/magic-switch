@@ -38,13 +38,16 @@ struct OtherSettingsView: View {
             "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
-      Section(header: Text("Take peripherals when a display connects")) {
+      Section(
+        header: Text("Take peripherals when a display connects")
+          .help(
+            "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
+          )
+      ) {
         if displayRows.isEmpty {
           Text("No external displays connected")
             .foregroundColor(.secondary)
-            .help(
-              "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
-            )
+            .help("Connect a display to this Mac and it will appear here.")
         } else {
           ForEach(displayRows) { row in
             displayToggle(for: row)
