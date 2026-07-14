@@ -7,6 +7,7 @@ struct OtherSettingsView: View {
 
   @Environment(\.openURL) private var openURL
   @ObservedObject private var updateChecker = UpdateChecker.shared
+  @ObservedObject private var displayMonitor = DisplayMonitor.shared
   @State private var launchAtLogin: Bool = false
   @AppStorage(BluetoothPeripheralStore.releaseOnSleepDefaultsKey)
   private var releaseOnSleep: Bool = true
@@ -36,6 +37,19 @@ struct OtherSettingsView: View {
           .help(
             "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
+      }
+      Section(header: Text("Take peripherals when a display connects")) {
+        if displayRows.isEmpty {
+          Text("No external displays connected")
+            .foregroundColor(.secondary)
+            .help(
+              "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
+            )
+        } else {
+          ForEach(displayRows) { row in
+            displayToggle(for: row)
+          }
+        }
       }
       Section {
         SettingsRowView(
@@ -88,9 +102,66 @@ struct OtherSettingsView: View {
       formContent
         .formStyle(.grouped)
     } else {
-      formContent
-        .padding()
+      // Plain (non-grouped) Forms don't scroll on their own, and the tab now
+      // holds more rows than the fixed Settings window shows at once.
+      ScrollView {
+        formContent
+          .padding()
+      }
     }
+  }
+
+  // MARK: - Display Trigger Rows
+
+  /// A row in the display-trigger list: a connected external display, or one
+  /// remembered as a trigger while disconnected.
+  private struct DisplayRow: Identifiable {
+    let id: String
+    let name: String
+    let isConnected: Bool
+  }
+
+  /// Connected external displays first (already name-sorted by the monitor),
+  /// then remembered trigger displays that aren't currently connected —
+  /// still labeled, still toggleable off.
+  private var displayRows: [DisplayRow] {
+    let connected = displayMonitor.connectedDisplays.map {
+      DisplayRow(id: $0.id, name: $0.name, isConnected: true)
+    }
+    let connectedIDs = Set(connected.map { $0.id })
+    let remembered = displayMonitor.triggerDisplays
+      .filter { !connectedIDs.contains($0.key) }
+      .map { DisplayRow(id: $0.key, name: $0.value, isConnected: false) }
+      .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    return connected + remembered
+  }
+
+  @ViewBuilder
+  private func displayToggle(for row: DisplayRow) -> some View {
+    Toggle(isOn: triggerBinding(for: row)) {
+      if row.isConnected {
+        Text(row.name)
+      } else {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(row.name)
+          Text("Not connected")
+            .font(.caption)
+            .foregroundColor(.secondary)
+        }
+      }
+    }
+    .help(
+      row.isConnected
+        ? "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed."
+        : "\(row.name) isn't connected right now. It still triggers the switch when it next connects; turn off to forget it."
+    )
+  }
+
+  private func triggerBinding(for row: DisplayRow) -> Binding<Bool> {
+    Binding(
+      get: { displayMonitor.triggerDisplays[row.id] != nil },
+      set: { displayMonitor.setTriggerEnabled($0, id: row.id, name: row.name) }
+    )
   }
 
   /// Trailing status beside the Check-for-Updates button. The "Update
