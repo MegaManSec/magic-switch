@@ -179,6 +179,16 @@ final class DisplayMonitor: ObservableObject {
     DispatchQueue.main.async { monitor.scheduleReconcile() }
   }
 
+  /// Re-read the online displays right now, bypassing the debounce. Wired to
+  /// the Settings section's refresh button and its onAppear, so the list is
+  /// current the moment the user looks. Runs the same reconcile as the event
+  /// path — a pending genuine dock edge fires now instead of a beat later.
+  /// Main-thread only.
+  func refreshNow() {
+    guard started else { return }
+    reconcile()
+  }
+
   private func scheduleReconcile() {
     reconcileTimer?.cancel()
     let timer = DispatchSource.makeTimerSource(queue: .main)

@@ -20,48 +20,53 @@ struct OtherSettingsView: View {
   private var formContent: some View {
     Form {
       if #available(macOS 13.0, *) {
-        Section {
+        Section(header: Text("General")) {
           Toggle("Launch at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin, perform: setLaunchAtLogin)
             .help("Start Magic Switch automatically when you log in to this Mac.")
         }
       }
-      Section {
+      Section(header: Text("Peripheral handling")) {
         Toggle("Release peripherals when this Mac sleeps", isOn: $releaseOnSleep)
           .help(
             "When this Mac sleeps, hand its Magic peripherals back so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
           )
-      }
-      Section {
         Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
           .help(
             "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
-      Section(
-        header: Text("Take peripherals when a display connects")
-          .help(
-            "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
-          )
-      ) {
+      Section {
         if displayRows.isEmpty {
           Text("No external displays connected")
             .foregroundColor(.secondary)
             .help("Connect a display to this Mac and it will appear here.")
         } else {
           ForEach(displayRows) { row in
-            displayToggle(for: row)
+            displayRow(for: row)
           }
         }
+      } header: {
+        HStack {
+          Text("Take peripherals when a display connects")
+            .help(
+              "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
+            )
+          Spacer()
+          Button(action: { displayMonitor.refreshNow() }) {
+            Image(systemName: "arrow.clockwise")
+          }
+          .buttonStyle(.borderless)
+          .help("Re-scan the displays connected to this Mac.")
+          .accessibilityLabel("Refresh connected displays")
+        }
       }
-      Section {
+      Section(header: Text("About")) {
         SettingsRowView(
           title: "License Information",
           help: "Open the project license in your browser.",
           action: showLicenseInfo
         )
-      }
-      Section {
         if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
           SettingsRowView(
             title: "Update Available — v\(latest)",
@@ -126,7 +131,7 @@ struct OtherSettingsView: View {
 
   /// Connected external displays first (already name-sorted by the monitor),
   /// then remembered trigger displays that aren't currently connected —
-  /// still labeled, still toggleable off.
+  /// still labeled, removable with their trash button.
   private var displayRows: [DisplayRow] {
     let connected = displayMonitor.connectedDisplays.map {
       DisplayRow(id: $0.id, name: $0.name, isConnected: true)
@@ -139,25 +144,37 @@ struct OtherSettingsView: View {
     return connected + remembered
   }
 
+  /// A connected display gets the trigger toggle; a remembered-but-
+  /// disconnected one gets a trash button instead — with nothing to toggle
+  /// *to* (unmarking is forgetting; the trigger map is the only memory),
+  /// a toggle would just be a remove control in disguise.
   @ViewBuilder
-  private func displayToggle(for row: DisplayRow) -> some View {
-    Toggle(isOn: triggerBinding(for: row)) {
-      if row.isConnected {
-        Text(row.name)
-      } else {
+  private func displayRow(for row: DisplayRow) -> some View {
+    if row.isConnected {
+      Toggle(row.name, isOn: triggerBinding(for: row))
+        .help(
+          "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
+        )
+    } else {
+      HStack {
         VStack(alignment: .leading, spacing: 2) {
           Text(row.name)
           Text("Not connected")
             .font(.caption)
             .foregroundColor(.secondary)
         }
+        .help(
+          "\(row.name) isn't connected right now. It still triggers the switch when it next connects. Display ID: \(row.id)."
+        )
+        Spacer()
+        Button(action: { displayMonitor.setTriggerEnabled(false, id: row.id, name: row.name) }) {
+          Image(systemName: "trash")
+            .foregroundColor(.red)
+        }
+        .help("Forget \(row.name) — it will no longer trigger a switch when it connects.")
+        .accessibilityLabel("Forget \(row.name)")
       }
     }
-    .help(
-      row.isConnected
-        ? "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
-        : "\(row.name) isn't connected right now. It still triggers the switch when it next connects; turn off to forget it. Display ID: \(row.id)."
-    )
   }
 
   private func triggerBinding(for row: DisplayRow) -> Binding<Bool> {
@@ -198,10 +215,12 @@ struct OtherSettingsView: View {
     openURL(url)
   }
 
-  /// Refresh launch-at-login state and nudge the update check. `checkIfNeeded`
-  /// respects the 24h cadence, so opening Settings rarely fires a real request.
+  /// Refresh launch-at-login state, the display list, and nudge the update
+  /// check. `checkIfNeeded` respects the 24h cadence, so opening Settings
+  /// rarely fires a real request.
   private func refreshOnAppear() {
     refreshLaunchAtLogin()
+    displayMonitor.refreshNow()
     updateChecker.checkIfNeeded()
   }
 
