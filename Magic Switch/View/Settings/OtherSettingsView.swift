@@ -155,8 +155,8 @@ struct OtherSettingsView: View {
     }
     .help(
       row.isConnected
-        ? "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed."
-        : "\(row.name) isn't connected right now. It still triggers the switch when it next connects; turn off to forget it."
+        ? "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
+        : "\(row.name) isn't connected right now. It still triggers the switch when it next connects; turn off to forget it. Display ID: \(row.id)."
     )
   }
 
