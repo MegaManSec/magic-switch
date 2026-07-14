@@ -16,6 +16,7 @@
 		076AB21E2CE9D690004D45F0 /* ServiceBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FD2CE9D690004D45F0 /* ServiceBrowser.swift */; };
 		076AB21F2CE9D690004D45F0 /* ServicePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */; };
 		0A00003000000000000000B7 /* SleepMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00003000000000000000A7 /* SleepMonitor.swift */; };
+		0A00004000000000000000B8 /* DisplayMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00004000000000000000A8 /* DisplayMonitor.swift */; };
 		0A00001000000000000000B1 /* SecureChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A1 /* SecureChannel.swift */; };
 		0A00001000000000000000B2 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A2 /* PairingStore.swift */; };
 		0A00001000000000000000B3 /* IncomingConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A3 /* IncomingConnection.swift */; };
@@ -46,6 +47,7 @@
 		076AB1FD2CE9D690004D45F0 /* ServiceBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceBrowser.swift; sourceTree = "<group>"; };
 		076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicePublisher.swift; sourceTree = "<group>"; };
 		0A00003000000000000000A7 /* SleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepMonitor.swift; sourceTree = "<group>"; };
+		0A00004000000000000000A8 /* DisplayMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayMonitor.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A1 /* SecureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureChannel.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A2 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A3 /* IncomingConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingConnection.swift; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 				076AB1FD2CE9D690004D45F0 /* ServiceBrowser.swift */,
 				076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */,
 				0A00003000000000000000A7 /* SleepMonitor.swift */,
+				0A00004000000000000000A8 /* DisplayMonitor.swift */,
 				0A00001000000000000000A1 /* SecureChannel.swift */,
 				0A00001000000000000000A2 /* PairingStore.swift */,
 				0A00001000000000000000A3 /* IncomingConnection.swift */,
@@ -296,6 +299,7 @@
 				076AB21E2CE9D690004D45F0 /* ServiceBrowser.swift in Sources */,
 				076AB21F2CE9D690004D45F0 /* ServicePublisher.swift in Sources */,
 				0A00003000000000000000B7 /* SleepMonitor.swift in Sources */,
+				0A00004000000000000000B8 /* DisplayMonitor.swift in Sources */,
 				0A00001000000000000000B1 /* SecureChannel.swift in Sources */,
 				0A00001000000000000000B2 /* PairingStore.swift in Sources */,
 				0A00001000000000000000B3 /* IncomingConnection.swift in Sources */,

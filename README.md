@@ -79,7 +79,7 @@ On the **Device** tab, find the other Mac under **Connected Devices** and click 
 
 ### Other tab — preferences
 
-**Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
+**Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing app preferences" width="600"><br>
@@ -111,6 +111,7 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 - On the **Device** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
 - **Closing or sleeping one Mac hands its peripherals to the other.** When this Mac sleeps (or you close its lid), it hands the peripherals it holds to your other Mac — or, if that Mac isn't reachable yet, frees them so it can pick them up the moment it wakes. That's why you can close one Mac and find the keyboard and mouse already on the other. This is on by default; you can turn it off under **Settings → Other → "Release peripherals when this Mac sleeps."**
 - **A peripheral didn't come back after sleep or a lid-close.** Apple's Magic devices sometimes get stuck once the Bluetooth radio sleeps and won't reconnect — even a manual reconnect fails until you switch the peripheral **off and on** with its power switch. Magic Switch keeps watching for anything that was on this Mac before it slept: the moment the device reappears (which a power-cycle triggers), it reconnects automatically — as long as your other Mac isn't actively using it. This is on by default; you can turn it off under **Settings → Other → "Reconnect peripherals if they drop."**
+- **Docking to a marked display switches peripherals automatically.** Under **Settings → Other → "Take peripherals when a display connects,"** every external display connected to this Mac gets a toggle. Mark your desk's display and, whenever it connects to this Mac — plugging in the cable, or opening the lid of a MacBook that was docked while it slept — Magic Switch switches your peripherals to this Mac, taking them from your other Mac if needed. Displays are recognized individually, so two identical monitors aren't confused; waking while already docked doesn't count as docking; and a display that's already connected when Magic Switch starts doesn't trigger a switch. This is off until you mark a display.
 
 ## Developer notes
 
