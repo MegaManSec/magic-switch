@@ -15,6 +15,17 @@ enum PeripheralConnectionState: Equatable {
   case connected
 }
 
+/// Which way a switch should move a peripheral (or the full set). `toggle` is
+/// the menu-click behavior: move it to whichever Mac doesn't have it. `take`
+/// and `send` exist for scripted triggers (the `magicswitch://` URL scheme),
+/// where idempotence matters — a hotkey bound to "bring the trackpad here"
+/// pressed twice must be a no-op, not bounce the trackpad back.
+enum SwitchDirection: String {
+  case take
+  case send
+  case toggle
+}
+
 /// Represents a Bluetooth peripheral device with its connection state and identity information
 struct BluetoothPeripheral: Identifiable, Codable, Equatable {
   // MARK: - Properties

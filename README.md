@@ -97,6 +97,24 @@ On the **Device** tab, find the other Mac under **Connected Devices** and click 
 
 The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs (the dropdown is pictured at the top of this README).
 
+### Trigger switches from anything (URL scheme)
+
+Magic Switch registers the `magicswitch://` URL scheme, so anything that can open a URL — a hotkey utility (Raycast, BetterTouchTool, skhd), a mouse-button macro, the Shortcuts app, a shell script — can trigger the same switches as the menu:
+
+```bash
+open -g "magicswitch://switch"                                      # everything — same as clicking the other Mac in the menu
+open -g "magicswitch://switch?direction=take"                       # bring everything to this Mac
+open -g "magicswitch://switch?peripheral=trackpad&direction=take"   # just the trackpad(s)
+open -g "magicswitch://switch?peripheral=trackpad&peripheral=mouse" # repeat peripheral= for several
+```
+
+(`-g` keeps your current app focused.) Parameters:
+
+- `peripheral` *(repeatable)* — which peripherals to move; omit it for the whole registered set. Each value is matched as a MAC address (`aa-bb-cc-dd-ee-ff`), else as a type keyword (`keyboard`, `mouse`, `trackpad`, `headphones`, `airpods`, `microphone`), else as a device name (case-insensitive).
+- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: move each to whichever Mac doesn't have it, exactly like a menu click). `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
+
+Run the command on the Mac that should act. `direction=take` works even while the other Mac is asleep or off the network — an unreachable Mac isn't holding the peripherals anymore, so they're grabbed directly. Errors (a mistyped parameter, a peripheral that matches nothing) surface as notifications, and anything mid-handoff is left alone.
+
 ## Updates
 
 Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.

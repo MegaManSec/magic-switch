@@ -284,7 +284,9 @@ final class DropdownContentView: NSView {
   private func makePeripheralRow(_ peripheral: BluetoothPeripheral) -> NSView {
     let state = bluetoothStore.connectionState(for: peripheral.id)
     let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
-    let row = MenuRowControl { [weak self] in self?.togglePeripheral(peripheral) }
+    let row = MenuRowControl { [weak self] in
+      self?.bluetoothStore.switchPeripheral(peripheral, direction: .toggle)
+    }
     // A disconnected peripheral is always clickable — take it (locally over
     // Bluetooth if there's no peer to ask). A connected one can only be *sent*,
     // so it greys out when no Mac is reachable to hand it to. A pairing row is
@@ -388,25 +390,6 @@ final class DropdownContentView: NSView {
     content.addArrangedSubview(spacer())
     row.toolTip = "A newer version of Magic Switch is available. Opens the release page."
     return clickableRow(row, content: content)
-  }
-
-  // MARK: - Actions
-
-  private func togglePeripheral(_ peripheral: BluetoothPeripheral) {
-    let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
-    switch bluetoothStore.connectionState(for: peripheral.id) {
-    case .connected:
-      bluetoothStore.sendPeripheralToPeer(peripheral)
-    case .disconnected:
-      if canSwitch {
-        bluetoothStore.takePeripheralFromPeer(peripheral)
-      } else {
-        // No peer to ask — pair it to this Mac directly over Bluetooth.
-        bluetoothStore.connectPeripheral(peripheral)
-      }
-    case .connecting, .releasing:
-      break  // handoff in flight
-    }
   }
 
   // MARK: - Building blocks
