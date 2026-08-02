@@ -621,6 +621,45 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     print("\(peripheral.name) has been removed from the list")
   }
 
+  /// Moves `peripheral` per `direction`. `toggle` is the dropdown row's click
+  /// behavior: send it if it's on this Mac, take it if it isn't. `take` and
+  /// `send` skip a peripheral that's already on the right Mac, so scripted
+  /// triggers can repeat them safely. Any direction is ignored mid-handoff.
+  /// Falls back to a plain local pair when there's no switchable peer to take
+  /// from.
+  func switchPeripheral(_ peripheral: BluetoothPeripheral, direction: SwitchDirection) {
+    let networkStore = NetworkDeviceStore.shared
+    let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
+    switch connectionState(for: peripheral.id) {
+    case .connected:
+      guard direction != .take else { return }
+      // The dropdown greys out a connected row when no Mac is reachable, and
+      // for the same reason a scripted send must refuse here: with no peer to
+      // hand to, `sendPeripheralToPeer` falls back to a plain local release,
+      // stranding the peripheral on neither Mac. The fixed identifier
+      // collapses a multi-peripheral command into one notification.
+      guard canSwitch else {
+        NotificationManager.showNotification(
+          title: "Can't Switch",
+          body: "The other Mac isn't reachable — keeping peripherals on this Mac.",
+          identifier: "switch-no-peer"
+        )
+        return
+      }
+      sendPeripheralToPeer(peripheral)
+    case .disconnected:
+      guard direction != .send else { return }
+      if canSwitch {
+        takePeripheralFromPeer(peripheral)
+      } else {
+        // No peer to ask — pair it to this Mac directly over Bluetooth.
+        connectPeripheral(peripheral)
+      }
+    case .connecting, .releasing:
+      break  // handoff in flight
+    }
+  }
+
   /// Asks the peer to release just this peripheral, then pairs it
   /// locally. Used by the Peripheral tab's "Connect to PC" button and by
   /// the right-click menu's per-peripheral switch. Apple's Magic devices

@@ -376,12 +376,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
   }
 
+  // MARK: - URL Commands
+
+  /// External-control entry point: `magicswitch://switch` URLs, parsed by
+  /// `SwitchURLCommand`. macOS delivers them here whether the app was already
+  /// running or was just launched by the open.
+  func application(_ application: NSApplication, open urls: [URL]) {
+    for url in urls {
+      handleCommandURL(url)
+    }
+  }
+
+  private func handleCommandURL(_ url: URL) {
+    let command: SwitchURLCommand
+    switch SwitchURLCommand.parse(url) {
+    case .success(let parsed):
+      command = parsed
+    case .failure(let error):
+      // The caller is a script or hotkey with no UI of its own, so a
+      // notification is the only feedback channel — same for resolution
+      // failures below.
+      NotificationManager.showNotification(
+        title: "Invalid Switch Command", body: error.message, identifier: "url-command-invalid")
+      return
+    }
+    guard !command.selectors.isEmpty else {
+      performFullSetCommand(command.direction)
+      return
+    }
+    switch command.resolvePeripherals(in: bluetoothStore) {
+    case .success(let peripherals):
+      peripherals.forEach { bluetoothStore.switchPeripheral($0, direction: command.direction) }
+    case .failure(let error):
+      NotificationManager.showNotification(
+        title: "Invalid Switch Command", body: error.message, identifier: "url-command-invalid")
+    }
+  }
+
+  /// A command with no `peripheral=` filter. `take` uses the same engine as
+  /// the display trigger because it has to work while the peer is asleep (an
+  /// unreachable peer isn't holding the peripherals anymore); `send` and
+  /// `toggle` need the peer awake anyway, so they go through the menu's
+  /// health-checked path.
+  private func performFullSetCommand(_ direction: SwitchDirection) {
+    switch direction {
+    case .take:
+      takeAllPeripheralsIfAway()
+    case .send, .toggle:
+      guard let device = networkStore.networkDevices.first else {
+        NotificationManager.showNotification(
+          title: "Can't Switch",
+          body: "No Mac is registered — pick one in Settings → Device.",
+          identifier: "url-command-no-device")
+        return
+      }
+      performSwitch(with: device, direction: direction)
+    }
+  }
+
   // MARK: - Action Handlers
 
   /// Runs the switch handoff with `device`. Triggered by clicking a Mac row in
-  /// the menu. `checkHealth` confirms the peer's TCP port is open before we
-  /// touch any local Bluetooth state.
-  private func performSwitch(with device: NetworkDevice) {
+  /// the menu (`toggle`) and by the URL scheme's full-set `send` and `toggle`
+  /// (full-set `take` goes through `takeAllPeripheralsIfAway` instead — see
+  /// `performFullSetCommand`). `checkHealth` confirms the peer's TCP port is
+  /// open before we touch any local Bluetooth state.
+  private func performSwitch(with device: NetworkDevice, direction: SwitchDirection = .toggle) {
     // Don't start a full-set switch while a per-peripheral pair/handoff is in
     // flight: it would issue a re-entrant connect/unregister on a peripheral
     // that's already transitioning. The dropdown disables the Mac row for this
@@ -396,7 +456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch result {
         case .success:
           self.bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
-            self?.handleSwitchAction(status: status, device: device)
+            self?.handleSwitchAction(status: status, device: device, direction: direction)
           }
         case .failure(let error):
           NotificationManager.showNotification(
@@ -415,7 +475,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
   private func handleSwitchAction(
     status: BluetoothPeripheralStore.ConnectionStatus,
-    device: NetworkDevice
+    device: NetworkDevice,
+    direction: SwitchDirection
   ) {
     switch status {
     case .allConnected:
@@ -443,6 +504,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
       }
     case .allDisconnected:
+      // An explicit `send` is idempotent: nothing on this Mac means nothing
+      // to do — a repeated hotkey must not turn into a take.
+      guard direction != .send else { return }
       takeAllPeripherals(from: device)
     case .partial:
       NotificationManager.showNotification(
@@ -516,15 +580,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     displayMonitor.start()
   }
 
-  /// A trigger display just connected (runs on main). Take the full set with
-  /// the same guards as the menu switch, plus two of its own: Bluetooth must
-  /// be healthy — an automatic trigger must never ask the peer to release
-  /// peripherals this Mac then can't take — and "everything already here" is
-  /// a silent no-op, so re-docking the Mac that owns the peripherals doesn't
-  /// spam. Unlike the menu there's no clicked row to target: use the trusted
-  /// peer, or fall back to a plain local grab when none is registered — the
-  /// display is a claim on the peripherals either way.
+  /// A trigger display just connected (runs on main). Announce it, then take
+  /// the full set through the shared external-claim engine below.
   private func handleTriggerDisplaysConnected(_ names: [String]) {
+    takeAllPeripheralsIfAway {
+      NotificationManager.showNotification(
+        title: "Display Connected",
+        body:
+          "\(names.joined(separator: ", ")) connected — switching your peripherals to this Mac.",
+        identifier: "display-trigger-switch"
+      )
+    }
+  }
+
+  /// Take the full set onto this Mac in response to an automatic or external
+  /// claim — the display trigger, the URL scheme's full-set `take` — with the
+  /// same guards as the menu switch, plus two of its own: Bluetooth must be
+  /// healthy — such a trigger must never ask the peer to release peripherals
+  /// this Mac then can't take — and "everything already here" is a silent
+  /// no-op, so a repeated trigger doesn't spam. Unlike the menu there's no
+  /// clicked row to target: use the trusted peer, or fall back to a plain
+  /// local grab when none is registered — the trigger is a claim on the
+  /// peripherals either way. `onTake` fires once a take is actually going to
+  /// happen, so the display trigger can announce itself.
+  private func takeAllPeripheralsIfAway(onTake: @escaping () -> Void = {}) {
     guard !bluetoothStore.peripherals.isEmpty,
       !bluetoothStore.isAnyPeripheralTransitioning,
       // The same states the status-bar icon treats as healthy (`.unknown`
@@ -533,12 +612,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     else { return }
     bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
       guard let self = self, status != .allConnected else { return }
-      NotificationManager.showNotification(
-        title: "Display Connected",
-        body:
-          "\(names.joined(separator: ", ")) connected — switching your peripherals to this Mac.",
-        identifier: "display-trigger-switch"
-      )
+      onTake()
       // Same trusted-peer rule as the sleep handoff: registered and not
       // parked behind an identity mismatch. Reachability isn't pre-checked:
       // `takeAllPeripherals` already treats an unreachable peer as "the
