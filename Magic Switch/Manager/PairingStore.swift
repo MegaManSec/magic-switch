@@ -76,12 +76,21 @@ final class PairingStore: ObservableObject {
     return result
   }
 
-  /// Returns a display form (`XXXX-XXXX-XXXX`) for a 12-char code.
+  /// Returns a display form (`XXXX-XXXX-XXXX`) for a code, grouping into
+  /// fours as it grows ("ABCDE" → "ABCD-E") so a partially typed code picks
+  /// up its dashes live. A complete group gets no trailing dash — the entry
+  /// field reformats on every change, so a trailing dash would reappear the
+  /// moment backspace removed it, and the caret could never move left past
+  /// a group boundary.
   static func formatCode(_ code: String) -> String {
     let normalized = normalize(code)
-    guard normalized.count == codeLength else { return normalized }
-    let chars = Array(normalized)
-    return "\(String(chars[0...3]))-\(String(chars[4...7]))-\(String(chars[8...11]))"
+    var chunks: [String] = []
+    var rest = Substring(normalized)
+    while !rest.isEmpty {
+      chunks.append(String(rest.prefix(4)))
+      rest = rest.dropFirst(4)
+    }
+    return chunks.joined(separator: "-")
   }
 
   /// Normalizes free-form user input: uppercase, then apply Crockford's
