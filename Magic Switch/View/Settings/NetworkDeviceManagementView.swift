@@ -345,6 +345,16 @@ private struct NetworkDeviceListView: View {
     requiresPairing && !pairing.isPaired
   }
 
+  private func nameHelp(for device: NetworkDevice) -> String {
+    if device.pendingFingerprint != nil {
+      return
+        "\(device.name) is advertising a new pairing key. Switching is paused until you choose Trust."
+    }
+    return device.isActive
+      ? "\(device.name) is reachable at \(device.host):\(device.port)."
+      : "\(device.name) isn't reachable on the network right now."
+  }
+
   var body: some View {
     // Rows go straight into the enclosing Form Section — a nested List here
     // gives each row a taller default height than its content, which
@@ -356,7 +366,11 @@ private struct NetworkDeviceListView: View {
       let inFlight = networkStore.inFlightOperations[device.id]
       VStack(alignment: .leading, spacing: 6) {
         HStack {
+          // The buttons each explain themselves, but the name — most of the
+          // row — said nothing on hover. Surface the state that drives the
+          // row's enablement, since a greyed button gives no clue why.
           Text(device.name)
+            .help(nameHelp(for: device))
           Spacer()
           Button(action: { action(device) }) {
             Text(buttonTitle)
