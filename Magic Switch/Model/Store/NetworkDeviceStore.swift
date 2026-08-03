@@ -83,6 +83,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// together) don't stack up multiple rechecks. Main-only.
   private var pendingFastRecheck: Set<String> = []
 
+  /// Advertised names with a rename-migration proof ping already in flight, so
+  /// a burst of resolves for the same service doesn't fan out into a burst of
+  /// pings. Main-only. See `migrateRenamedPeerIfNeeded`.
+  private var pendingMigrationProofs: Set<String> = []
+
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
   /// Macs tab and cleared when the op finishes; the view both disables the
   /// buttons and renders the "Pinging…/Syncing…" line off this, so they survive
@@ -148,6 +153,18 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   func updateNetworkDevice(_ device: NetworkDevice) {
+    // Never let an advertisement re-point a registered record at this Mac.
+    // Our own service carries the *same* `fp` as the peer — it's a hash of the
+    // shared PSK — so `update(with:)` would take it as a trusted routing
+    // update. That is reachable without an attacker: when both Macs share a
+    // computer name, mDNS gives one of them a "Name (2)" suffix, and if that
+    // suffix is the name registered for the peer, this Mac starts sending its
+    // own switch commands to itself — releasing every peripheral and
+    // re-pairing it locally (a multi-second loss of keyboard and trackpad)
+    // while the real peer gets nothing. Self is recognised by address, the
+    // same way `availableNetworkDevices` does it.
+    guard !Self.localAddresses().contains(Self.normalizeHost(device.host)) else { return }
+    migrateRenamedPeerIfNeeded(for: device)
     if let index = networkDevices.firstIndex(where: { $0.id == device.id }) {
       let priorFingerprint = networkDevices[index].fingerprint
       networkDevices[index].update(with: device)
@@ -167,6 +184,135 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           identifier: "identity-mismatch-\(device.id)"
         )
       }
+    }
+  }
+
+  /// A Mac's Bonjour service name follows its computer name, and `id` *is*
+  /// that name — so a renamed peer advertises as a brand-new identity while
+  /// its registered record (under the old name) never hears another update and
+  /// sits unreachable forever. When an advertisement *proves* it holds the
+  /// pairing key, and the registered record's own name has gone off the air,
+  /// move that record to the new name in place.
+  ///
+  /// The proof is a `.ping` completed over the secure channel — deliberately
+  /// not the `fp` in the TXT record. That fingerprint is the first four bytes
+  /// of SHA256(PSK) published in cleartext multicast, and *both* Macs
+  /// advertise the identical value, so anyone who can listen on the LAN can
+  /// echo it. Gating on fp alone would let a bystander advertise under any
+  /// unused name while the real peer sleeps and capture its record — and
+  /// stickily, because the record would then be keyed to the impostor's name,
+  /// leaving the real peer unable to win it back (its own name is no longer
+  /// registered) short of a manual Remove and Add. Completing a ping requires
+  /// the PSK itself, which the fingerprint does not reveal.
+  ///
+  /// Remaining guards: the advertised name must not already be registered; the
+  /// record must not be parked behind an unresolved identity mismatch (else a
+  /// migration would silently cancel a Trust the user never gave); exactly one
+  /// record may match, so ambiguity never picks a victim; and never migrate
+  /// toward this Mac's own advertisement.
+  ///
+  /// Note this can't follow a rename that also re-paired: a new pairing key
+  /// matches no pin, which is the Identity Mismatch path and the user's
+  /// explicit Trust. A ping also can't distinguish the same Mac renamed from a
+  /// *different* Mac paired with the same code — both hold the key — which is
+  /// why the notification asks the user to confirm which Mac is listed.
+  private func migrateRenamedPeerIfNeeded(for discovered: NetworkDevice) {
+    guard let incoming = discovered.fingerprint,
+      !networkDevices.contains(where: { $0.id == discovered.id }),
+      !Self.localAddresses().contains(Self.normalizeHost(discovered.host)),
+      !pendingMigrationProofs.contains(discovered.id),
+      let candidateID = renameCandidateID(forFingerprint: incoming)
+    else { return }
+
+    pendingMigrationProofs.insert(discovered.id)
+    // `on: discovered` aims at the newly *advertised* host/port, so a success
+    // proves whoever answers there holds the pairing key. Off the rate limiter
+    // for the same reason the reachability poll is: this is our own probe, not
+    // a user action. It only ever fires at an advertiser already echoing our
+    // exact fingerprint, so it can't spray pings at unrelated Macs.
+    executeCommand(.ping, on: discovered, countsTowardRateLimit: false) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.pendingMigrationProofs.remove(discovered.id)
+        guard case .success = result else {
+          print(
+            "Rename migration refused: \"\(discovered.id)\" advertised a matching fingerprint but couldn't prove the pairing key"
+          )
+          return
+        }
+        // Re-check every guard: the ping was async, so the record may since
+        // have been removed, registered under the new name, parked by a
+        // mismatch, or joined by a second candidate.
+        guard !self.networkDevices.contains(where: { $0.id == discovered.id }),
+          self.renameCandidateID(forFingerprint: incoming) == candidateID,
+          let index = self.networkDevices.firstIndex(where: { $0.id == candidateID })
+        else { return }
+        self.commitRenameMigration(at: index, to: discovered, fingerprint: incoming)
+      }
+    }
+  }
+
+  /// The one registered record a rename could plausibly refer to: pinned to
+  /// `fingerprint`, not parked behind an identity mismatch, and no longer
+  /// advertising under its own name (a record whose name is still on the air
+  /// isn't a rename — that Mac is alive under its original identity). Returns
+  /// nil unless exactly one matches.
+  private func renameCandidateID(forFingerprint fingerprint: String) -> String? {
+    let advertisedNames = Set(discoveredNetworkDevices.filter { $0.isActive }.map { $0.id })
+    let candidates = networkDevices.filter {
+      $0.fingerprint == fingerprint
+        && $0.pendingFingerprint == nil
+        && !advertisedNames.contains($0.id)
+    }
+    guard candidates.count == 1 else { return nil }
+    return candidates.first?.id
+  }
+
+  private func commitRenameMigration(
+    at index: Int, to discovered: NetworkDevice, fingerprint: String
+  ) {
+    let old = networkDevices[index]
+    networkDevices[index] = NetworkDevice(
+      id: discovered.id,
+      name: discovered.name,
+      host: discovered.host,
+      port: discovered.port,
+      isActive: true,
+      fingerprint: fingerprint
+    )
+    // Drop the runtime state keyed to the retired name so a late Bonjour
+    // withdraw for it can't resurrect a stale entry, and so its failure streak
+    // doesn't arm peripheral adoption against a peer that's alive under the
+    // new name. `inFlightOperations` is deliberately left alone: its
+    // completion clears itself by the id it captured, and re-keying it here
+    // would leave the new row's buttons disabled for good.
+    deviceReachability.removeValue(forKey: old.id)
+    consecutivePollFailures.removeValue(forKey: old.id)
+    // Seeding reachable isn't the optimism the pessimistic default guards
+    // against — the ping that authorised this migration *is* a live probe.
+    deviceReachability[discovered.id] = true
+    consecutivePollFailures[discovered.id] = 0
+    saveNetworkDevices()
+    print(
+      "Migrated registered Mac \"\(old.name)\" -> \"\(discovered.name)\" (proved the pairing key)")
+    NotificationManager.showNotification(
+      title: "Registered Mac Renamed",
+      body:
+        "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed.",
+      identifier: "peer-renamed-\(discovered.id)"
+    )
+  }
+
+  /// Re-attempt migration against services already resolved. A resolve happens
+  /// once per Bonjour `didFind` and nothing re-runs it, so when the renamed
+  /// service resolves *before* the old name's goodbye arrives — a coin flip,
+  /// and the likely order when a Mac reboots under a new name — the candidate
+  /// check sees the old name still on the air and declines. Without this the
+  /// migration would then wait for the peer's service to cycle again, or for
+  /// the user to hit Refresh.
+  private func retryRenameMigrationFromDiscovered() {
+    for discovered in discoveredNetworkDevices where discovered.isActive {
+      migrateRenamedPeerIfNeeded(for: discovered)
     }
   }
 
@@ -236,6 +382,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       let device = networkDevices.first(where: { $0.id == id && $0.pendingFingerprint == nil })
     {
       probeReachability(of: device)
+    }
+
+    // This withdraw may be the missing half of a rename: the new name often
+    // resolves before the old one says goodbye, and that earlier resolve is
+    // never repeated. Now that the old name is off the air, re-test the
+    // services already in hand.
+    if !isActive {
+      retryRenameMigrationFromDiscovered()
     }
   }
 
