@@ -338,7 +338,10 @@ final class DropdownContentView: NSView {
     switch state {
     case .connected:
       if let battery {
-        top.addArrangedSubview(caption("\(battery)%", color: .secondaryLabelColor))
+        // Low battery is the one state worth catching at a glance; 20% is
+        // where macOS fires its own first low-battery warning.
+        let batteryColor: NSColor = battery <= 20 ? .systemOrange : .secondaryLabelColor
+        top.addArrangedSubview(caption("\(battery)%", color: batteryColor))
       }
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
