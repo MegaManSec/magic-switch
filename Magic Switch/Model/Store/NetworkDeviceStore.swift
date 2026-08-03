@@ -148,6 +148,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   func updateNetworkDevice(_ device: NetworkDevice) {
+    migrateRenamedPeerIfNeeded(for: device)
     if let index = networkDevices.firstIndex(where: { $0.id == device.id }) {
       let priorFingerprint = networkDevices[index].fingerprint
       networkDevices[index].update(with: device)
@@ -168,6 +169,60 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         )
       }
     }
+  }
+
+  /// A Mac's Bonjour service name follows its computer name, and `id` *is*
+  /// that name — so a renamed peer advertises as a brand-new identity while
+  /// its registered record (under the old name) never hears another update
+  /// and sits unreachable forever. When a discovered advertisement proves
+  /// the pinned identity of exactly one registered record that is itself no
+  /// longer on the air, treat it as that Mac renamed and move the record to
+  /// the new name in place.
+  ///
+  /// This doesn't extend what an fp-bearing advertisement can already do:
+  /// `update(with:)` re-points a pinned record's routing on a fingerprint
+  /// match today, so following the same proof to a new name grants an
+  /// attacker nothing extra — commands still authenticate over the secure
+  /// channel with the PSK. Guards:
+  /// - never migrate to our own advertisement (both paired Macs advertise
+  ///   the same PSK fingerprint), filtered by local address exactly like
+  ///   `availableNetworkDevices`;
+  /// - the advertised name must not already be registered;
+  /// - exactly one registered record may match the fingerprint among those
+  ///   whose own name is off the air (any ambiguity → do nothing).
+  private func migrateRenamedPeerIfNeeded(for discovered: NetworkDevice) {
+    guard let incoming = discovered.fingerprint,
+      !networkDevices.contains(where: { $0.id == discovered.id }),
+      !Self.localAddresses().contains(Self.normalizeHost(discovered.host))
+    else { return }
+    // A record whose old name is still being advertised isn't a rename —
+    // that Mac is alive under its original identity.
+    let advertisedNames = Set(discoveredNetworkDevices.filter { $0.isActive }.map { $0.id })
+    let candidates = networkDevices.indices.filter { index in
+      networkDevices[index].fingerprint == incoming
+        && !advertisedNames.contains(networkDevices[index].id)
+    }
+    guard candidates.count == 1, let index = candidates.first else { return }
+    let oldID = networkDevices[index].id
+    let oldName = networkDevices[index].name
+    networkDevices[index] = NetworkDevice(
+      id: discovered.id,
+      name: discovered.name,
+      host: discovered.host,
+      port: discovered.port,
+      isActive: true,
+      fingerprint: incoming
+    )
+    deviceReachability.removeValue(forKey: oldID)
+    deviceReachability[discovered.id] = true
+    saveNetworkDevices()
+    print("Migrated registered Mac \"\(oldName)\" -> \"\(discovered.name)\" (fingerprint match)")
+    NotificationManager.showNotification(
+      title: "Mac Renamed",
+      body:
+        "\(oldName) is now advertising as \(discovered.name). Its entry in Settings → Macs was updated automatically.",
+      identifier: "peer-renamed-\(discovered.id)"
+    )
   }
 
   /// Promote `pendingFingerprint` to the stored pin and re-mark the device
