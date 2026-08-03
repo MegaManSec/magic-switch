@@ -291,13 +291,15 @@ private struct PeripheralRowView: View {
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
-  /// Shared fixed-width label so the pill is the same size in every state
-  /// ("Connect" vs "Release" vs the transient titles) instead of hugging
-  /// each title. The floor clears the longest title — "Releasing…" measures
-  /// 68.8pt at the 13pt control font — so the pill keeps one width through a
-  /// handoff instead of nudging wider mid-transition; shorter titles centre.
+  /// Shared fixed-width label so the pill is the same size across its
+  /// resting states instead of hugging each title. The floor clears
+  /// "Connect" (51.2pt) and "Pairing…" (51.9pt at the 13pt control font),
+  /// so rows align and a Connect ↔ Release flip doesn't nudge; sizing the
+  /// floor to the rarely-seen "Releasing…" (68.8pt) instead left the two
+  /// resting titles swimming in dead space, and the brief growth during a
+  /// release reads as activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
-    Text(title).frame(minWidth: 72)
+    Text(title).frame(minWidth: 52)
   }
 
   @ViewBuilder
