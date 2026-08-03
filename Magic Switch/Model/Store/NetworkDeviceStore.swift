@@ -84,7 +84,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private var pendingFastRecheck: Set<String> = []
 
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
-  /// Device tab and cleared when the op finishes; the view both disables the
+  /// Macs tab and cleared when the op finishes; the view both disables the
   /// buttons and renders the "Pinging…/Syncing…" line off this, so they survive
   /// leaving and re-entering the tab (the view's own `@State` wouldn't).
   @Published private(set) var inFlightOperations: [String: DeviceOperation] = [:]
@@ -137,7 +137,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // Don't drop from `discoveredNetworkDevices`; `availableNetworkDevices`
     // filters by `!networkDevices.contains` at read time. Dropping here
     // would mean `removeNetworkDevice` can't re-surface the Mac under
-    // "Available Devices" until the next Bonjour resolution.
+    // "Macs Found on the Network" until the next Bonjour resolution.
     networkDevices.append(device)
     saveNetworkDevices()
   }
@@ -163,7 +163,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         NotificationManager.showNotification(
           title: "Identity Mismatch",
           body:
-            "\(device.name) is advertising a new pairing key. Open Settings → Device and choose Trust if you re-paired the other Mac yourself.",
+            "\(device.name) is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself.",
           identifier: "identity-mismatch-\(device.id)"
         )
       }
@@ -607,7 +607,7 @@ extension NetworkDeviceStore {
 extension NetworkDeviceStore {
   /// Push this Mac's registered peripheral list to `device`. Completion
   /// receives the categorised outgoing result so the caller can render
-  /// inline UI feedback (the Device tab does this under each row). The
+  /// inline UI feedback (the Macs tab does this under each row). The
   /// store no longer surfaces its own notifications for sync — callers
   /// decide how to report success/failure.
   func sendPeripheralSync(

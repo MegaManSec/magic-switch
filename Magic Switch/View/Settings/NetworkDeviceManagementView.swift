@@ -11,14 +11,14 @@ struct OperationResult {
 
 private enum Constants {
   enum Strings {
-    static let connectedDevices = "Connected Devices"
-    static let availableDevices = "Available Devices"
+    static let connectedDevices = "Your Other Mac"
+    static let availableDevices = "Macs Found on the Network"
     static let noConnectedDevicesHint =
-      "Add another Mac from \"Available Devices\" below to start switching peripherals between them."
+      "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them."
     static let noAvailableDevicesHint =
       "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh."
     static let connectionLimitMessage =
-      "Only one device can be connected at a time. Remove the existing device first."
+      "Only one Mac can be connected at a time. Remove the existing one first."
     static let notify = "Ping"
     static let add = "Add"
   }
@@ -39,7 +39,7 @@ struct NetworkDeviceManagementView: View {
   /// the trash button looked like a no-op. One enum-keyed alert avoids that.
   @State private var activeAlert: DeviceAlert?
 
-  /// The two confirmation prompts the Device tab can raise. `id` is unique
+  /// The two confirmation prompts the Macs tab can raise. `id` is unique
   /// per (kind, device) so re-triggering for a different device re-presents.
   private enum DeviceAlert: Identifiable {
     case remove(NetworkDevice)
@@ -108,7 +108,7 @@ struct NetworkDeviceManagementView: View {
         return Alert(
           title: Text("Remove \(device.name)?"),
           message: Text(
-            "It will be removed from your registered list. You can add it again from Available Devices."
+            "It will be removed from your registered list. You can add it again from \"Macs Found on the Network\"."
           ),
           primaryButton: .destructive(Text("Remove")) {
             networkStore.removeNetworkDevice(device: device)
@@ -118,9 +118,7 @@ struct NetworkDeviceManagementView: View {
       case .trust(let device):
         return Alert(
           title: Text("Trust new pairing key for \(device.name)?"),
-          message: Text(
-            "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
-          ),
+          message: Text(trustAlertMessage(for: device)),
           primaryButton: .destructive(Text("Trust")) {
             networkStore.trustPendingFingerprint(for: device.id)
           },
@@ -128,6 +126,24 @@ struct NetworkDeviceManagementView: View {
         )
       }
     }
+  }
+
+  /// Show both fingerprints so the "verify this was intentional" step can
+  /// actually be performed: the new one should match what the other Mac's
+  /// Pairing tab shows after the re-pair. Fingerprints are short hex strings
+  /// (see `PairingStore.fingerprint(forKey:)`), fine for an alert body.
+  private func trustAlertMessage(for device: NetworkDevice) -> String {
+    var message =
+      "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
+    if let pending = device.pendingFingerprint {
+      message += "\n\nNew fingerprint: \(pending)"
+      if let pinned = device.fingerprint {
+        message += "\nPrevious fingerprint: \(pinned)"
+      }
+      message +=
+        "\n\nThe new fingerprint should match the one shown in Settings → Pairing on \(device.name)."
+    }
+    return message
   }
 
   // MARK: - Tooltips
@@ -349,8 +365,10 @@ private struct NetworkDeviceListView: View {
           .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
 
           if let onSync = onSyncPeripherals {
+            // Not `square.and.arrow.up` — that's the system Share glyph, which
+            // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
-              Image(systemName: "square.and.arrow.up")
+              Image(systemName: "arrow.triangle.2.circlepath")
                 .foregroundColor(.blue)
             }
             .disabled(!device.isActive || blockedByPairing || inFlight != nil)
