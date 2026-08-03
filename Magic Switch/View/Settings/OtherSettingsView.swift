@@ -298,9 +298,13 @@ private struct ShortcutRecorderRow: View {
   private var isRecording: Bool { hotkey.recordingDirection == direction }
   private var shortcut: HotkeyShortcut? { hotkey.shortcuts[direction] }
 
+  /// Compact pill content: the recorded shortcut, an ellipsis while
+  /// recording (the caption below carries the instructions), or a quiet
+  /// "––" placeholder. The tooltip and accessibility label explain the
+  /// affordance, so the pill doesn't need to say "Record Shortcut".
   private var buttonTitle: String {
-    if isRecording { return "Type Shortcut…" }
-    return shortcut?.displayString ?? "Record Shortcut"
+    if isRecording { return "…" }
+    return shortcut?.displayString ?? "––"
   }
 
   var body: some View {
@@ -321,11 +325,19 @@ private struct ShortcutRecorderRow: View {
         }
         Button(action: toggleRecording) {
           // Fixed-width label so the three recorder buttons form an aligned
-          // column no matter what each one currently displays.
+          // column no matter what each one currently displays. Sized for a
+          // full four-modifier chord ("⌃⌥⇧⌘M"), not for prose — the old
+          // 130pt "Record Shortcut" pill dwarfed everything else in the row.
           Text(buttonTitle)
-            .frame(width: 130)
+            .foregroundColor(shortcut == nil && !isRecording ? .secondary : .primary)
+            .frame(width: 64)
         }
         .help(help)
+        .accessibilityLabel(
+          isRecording
+            ? "Recording shortcut for \(title)"
+            : shortcut.map { "Change shortcut for \(title), currently \($0.displayString)" }
+              ?? "Record shortcut for \(title)")
       }
       if isRecording {
         Text("Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut.")
