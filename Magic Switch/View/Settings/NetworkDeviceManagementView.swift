@@ -379,13 +379,18 @@ private struct NetworkDeviceListView: View {
           .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
 
           if let onSync = onSyncPeripherals {
+            // An explicit foregroundColor overrides the automatic disabled
+            // dimming, so pick the colour from the same condition that
+            // disables the button — otherwise an unreachable Mac's sync
+            // icon stays bright blue while silently ignoring clicks.
+            let syncEnabled = device.isActive && !blockedByPairing && inFlight == nil
             // Not `square.and.arrow.up` — that's the system Share glyph, which
             // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
               Image(systemName: "arrow.triangle.2.circlepath")
-                .foregroundColor(.blue)
+                .foregroundColor(syncEnabled ? .blue : .secondary)
             }
-            .disabled(!device.isActive || blockedByPairing || inFlight != nil)
+            .disabled(!syncEnabled)
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
