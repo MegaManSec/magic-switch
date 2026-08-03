@@ -214,11 +214,12 @@ private struct PeripheralRowView: View {
         typeMenu
         Text(peripheral.name)
         Spacer()
-        // Only a peripheral held by this Mac exposes battery in the local
-        // HID registry. Rows re-render on the tab's 2s snapshot timer, so
-        // the reading stays fresh while the tab is visible.
+        // Published store state, not a direct registry read: the level often
+        // appears in the registry a beat after `.connected`, and only a
+        // `@Published` change re-renders this row when that happens. The
+        // tab's 2s snapshot timer keeps it fresh from there.
         if showConnectionStatus, connectionState == .connected,
-          let battery = PeripheralBattery.percent(forAddress: peripheral.id)
+          let battery = store.batteryLevels[peripheral.id]
         {
           Text("\(battery)%")
             .font(.caption)
