@@ -1199,7 +1199,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           )
         }
 
-        let battery = PeripheralBattery.levels(forAddresses: Array(connectedAddresses))
+        // Registered peripherals only. Every other connected Bluetooth device
+        // (headphones, a game controller) may also publish a level no view
+        // reads, and each one is another value that can change and make the
+        // published dict unequal — i.e. an `objectWillChange` that re-renders
+        // every observer for nothing.
+        let battery = PeripheralBattery.levels(
+          forAddresses: registeredIDs.filter { connectedAddresses.contains($0) })
 
         DispatchQueue.main.async {
           // Snapshot all paired devices; `availablePeripherals` filters out
