@@ -77,11 +77,11 @@ struct PairingSettingsView: View {
         .font(.title2)
         .bold()
       if networkStore.networkDevices.isEmpty {
-        // Mirrors the prerequisite hint on the Device tab — accent-coloured
+        // Mirrors the prerequisite hint on the Macs tab — accent-coloured
         // Label so the "do this next" affordance reads as actionable
         // instead of looking like throwaway helper text.
         Label(
-          "Now pick the other Mac in Settings → Device to start switching.",
+          "Now pick the other Mac in Settings → Macs to start switching.",
           systemImage: "arrow.right.circle.fill"
         )
         .font(.callout.bold())

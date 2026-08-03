@@ -8,7 +8,7 @@ struct SettingsView: View {
   private enum TabItem {
     /// Configuration for each tab
     static let devices = (image: "keyboard", text: "Peripheral")
-    static let mac = (image: "desktopcomputer", text: "Device")
+    static let mac = (image: "desktopcomputer", text: "Macs")
     static let pairing = (image: "lock.shield", text: "Pairing")
     static let other = (image: "ellipsis.circle", text: "Other")
   }

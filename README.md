@@ -44,13 +44,13 @@ Tick the Magic devices you want Magic Switch to hand back and forth. Each row's 
   <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
 </p>
 
-### 3. Device tab — pick the other Mac
+### 3. Macs tab — pick the other Mac
 
-Choose the other Mac under **Available Devices**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
+Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
 <p align="center">
-  <img src="docs/assets/device-tab.png" alt="Device tab showing the connected Mac and available devices" width="600"><br>
-  <em>Device tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
+  <img src="docs/assets/device-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
+  <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
 </p>
 
 ### 4. Pairing tab — link the two Macs (required)
@@ -75,7 +75,7 @@ Generate a twelve-character code on one Mac and enter it on the other; either di
 
 ### 5. Sync your peripherals to the other Mac
 
-On the **Device** tab, find the other Mac under **Connected Devices** and click its **Share** button (the box-with-an-up-arrow, beside **Ping**). A "Synced N peripherals to …" line confirms it. The button is greyed out while that Mac is offline.
+On the **Macs** tab, find the other Mac under **Your Other Mac** and click its **Sync** button (the circular arrows, beside **Ping**). A "Synced N peripherals to …" line confirms it. The button is greyed out while that Mac is offline.
 
 ### Other tab — preferences
 
@@ -125,8 +125,8 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 - Devices powered on; Bluetooth enabled.
 - Same network; not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
-- A **greyed-out device** — in the Device tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
-- On the **Device** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
+- A **greyed-out device** — in the Macs tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
+- On the **Macs** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
 - **Closing or sleeping one Mac hands its peripherals to the other.** When this Mac sleeps (or you close its lid), it hands the peripherals it holds to your other Mac — or, if that Mac isn't reachable yet, frees them so it can pick them up the moment it wakes. That's why you can close one Mac and find the keyboard and mouse already on the other. This is on by default; you can turn it off under **Settings → Other → "Release peripherals when this Mac sleeps."**
 - **A peripheral didn't come back after sleep or a lid-close.** Apple's Magic devices sometimes get stuck once the Bluetooth radio sleeps and won't reconnect — even a manual reconnect fails until you switch the peripheral **off and on** with its power switch. Magic Switch keeps watching for anything that was on this Mac before it slept: the moment the device reappears (which a power-cycle triggers), it reconnects automatically — as long as your other Mac isn't actively using it. This is on by default; you can turn it off under **Settings → Other → "Reconnect peripherals if they drop."**
 - **Both Macs slept, and now a peripheral connects to neither.** When this Mac sleeps, it frees its peripherals for your other Mac to take (see above). If the other Mac never takes them — it was asleep too, or off the network the whole time — they end up attached to no Mac at all, and a Magic device in that state stops listening for connections after a short while; no Mac can reach it until it's woken up. When this Mac wakes it immediately tries to grab everything it freed, so a round trip usually recovers on its own — clicking or pressing a key on the peripheral within the first minute after opening the lid helps it get caught. If a peripheral still won't respond, this is the one situation where you have to help: flick its power switch **off and on**, and Magic Switch reconnects it the moment it comes back up. If that trade-off doesn't suit how you use your Macs, turn off **Settings → Other → "Release peripherals when this Mac sleeps"** — peripherals then stay bonded to this Mac across sleep (and reconnect instantly on wake), at the cost of the other Mac needing the same power-cycle help if you switch desks while this Mac sleeps.
@@ -184,7 +184,7 @@ Two Macs discover each other over Bonjour, then exchange short commands over a s
 
 The LAN channel uses a shared symmetric key derived from the twelve-character pairing code via PBKDF2-HMAC-SHA256 (600k iterations) and stored in the Keychain. Per connection, both sides exchange a 32-byte nonce and derive direction-specific session keys via HKDF; messages are framed as length-prefixed ChaCha20-Poly1305 sealed boxes with monotonic counter nonces. Failed authentications are rate-limited per source IP (5 failures / 60s → 15-minute block), and the client side backs off after 5 failed outgoing attempts in the same window.
 
-Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, that peer is dropped and the Device tab makes you explicitly **Trust** the new identity before switching resumes — so a key change or impersonation attempt is surfaced rather than silently accepted.
+Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, that peer is dropped and the Macs tab makes you explicitly **Trust** the new identity before switching resumes — so a key change or impersonation attempt is surfaced rather than silently accepted.
 
 Known limits:
 - The build isn't code-signed or notarized.
