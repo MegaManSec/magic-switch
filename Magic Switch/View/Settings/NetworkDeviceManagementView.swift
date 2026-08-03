@@ -345,6 +345,45 @@ private struct NetworkDeviceListView: View {
     requiresPairing && !pairing.isPaired
   }
 
+  /// Hover text for the row's name. Only the registered section has a Trust
+  /// affordance and a reachability signal — `pollReachability` probes
+  /// `networkDevices` alone — so discovered rows get the weaker claim their
+  /// data actually supports.
+  private func nameHelp(for device: NetworkDevice) -> String {
+    // The Trust button and the warning row below are gated on this same
+    // closure, so it's the honest test for "can the user act on a mismatch
+    // here": pointing a discovered row at Trust would name a control that
+    // section doesn't have.
+    let canTrust = onTrustPending != nil
+    if device.pendingFingerprint != nil {
+      return canTrust
+        ? "\(device.name) is advertising a new pairing key. Switching is paused until you choose Trust."
+        : "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Use Refresh to re-scan."
+    }
+    guard canTrust else {
+      return device.isActive
+        ? "\(device.name) is advertising itself on the network."
+        : "\(device.name) has stopped advertising on the network."
+    }
+    // Mirror the menu's verdict rather than `isActive`: a fresh-looking
+    // Bonjour record only says the peer advertised, while the ping poll is
+    // what proves it answers. A peer that died without withdrawing — or one
+    // sleeping behind a Bonjour sleep proxy that answers for it — still looks
+    // advertised indefinitely, and claiming "reachable" there would
+    // contradict the greyed row in the menu.
+    return networkStore.isReachable(device.id)
+      ? "\(device.name) is answering at \(endpoint(for: device))."
+      : "\(device.name) isn't reachable on the network right now."
+  }
+
+  /// `host:port`, with IPv6 bracketed so the address's own colons don't run
+  /// into the port number.
+  private func endpoint(for device: NetworkDevice) -> String {
+    device.host.contains(":")
+      ? "[\(device.host)]:\(device.port)"
+      : "\(device.host):\(device.port)"
+  }
+
   var body: some View {
     // Rows go straight into the enclosing Form Section — a nested List here
     // gives each row a taller default height than its content, which
@@ -356,7 +395,11 @@ private struct NetworkDeviceListView: View {
       let inFlight = networkStore.inFlightOperations[device.id]
       VStack(alignment: .leading, spacing: 6) {
         HStack {
+          // The buttons each explain themselves, but the name — most of the
+          // row — said nothing on hover. Surface the state that drives the
+          // row's enablement, since a greyed button gives no clue why.
           Text(device.name)
+            .help(nameHelp(for: device))
           Spacer()
           Button(action: { action(device) }) {
             Text(buttonTitle)
@@ -365,13 +408,18 @@ private struct NetworkDeviceListView: View {
           .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
 
           if let onSync = onSyncPeripherals {
+            // An explicit foregroundColor overrides the automatic disabled
+            // dimming, so pick the colour from the same condition that
+            // disables the button — otherwise an unreachable Mac's sync
+            // icon stays bright blue while silently ignoring clicks.
+            let syncEnabled = device.isActive && !blockedByPairing && inFlight == nil
             // Not `square.and.arrow.up` — that's the system Share glyph, which
             // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
               Image(systemName: "arrow.triangle.2.circlepath")
-                .foregroundColor(.blue)
+                .foregroundColor(syncEnabled ? .blue : .secondary)
             }
-            .disabled(!device.isActive || blockedByPairing || inFlight != nil)
+            .disabled(!syncEnabled)
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
