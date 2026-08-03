@@ -290,11 +290,19 @@ private struct PeripheralRowView: View {
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
+  /// Shared fixed-width label so the pill is the same size in every state
+  /// ("Connect" vs "Release" vs the transient titles) instead of hugging
+  /// each title. Sized to the longest title, "Releasing…", so the pill
+  /// doesn't jump during a handoff; the frame centers the shorter texts.
+  private func actionLabel(_ title: String) -> some View {
+    Text(title).frame(minWidth: 68)
+  }
+
   @ViewBuilder
   private var connectionButton: some View {
     switch connectionState {
     case .connected:
-      Button("Release", action: primaryAction)
+      Button(action: primaryAction) { actionLabel("Release") }
         .disabled(!hasActivePeer)
         .help(
           hasActivePeer
@@ -302,15 +310,15 @@ private struct PeripheralRowView: View {
             : "No peer Mac is currently available to take this peripheral. Releasing is disabled so it isn't left disconnected from both Macs."
         )
     case .connecting:
-      Button("Pairing…", action: {})
+      Button(action: {}) { actionLabel("Pairing…") }
         .disabled(true)
         .help("Pairing in progress…")
     case .releasing:
-      Button("Releasing…", action: {})
+      Button(action: {}) { actionLabel("Releasing…") }
         .disabled(true)
         .help("Handing this peripheral to the other Mac…")
     case .disconnected:
-      Button("Connect", action: primaryAction)
+      Button(action: primaryAction) { actionLabel("Connect") }
         .help(
           "Connect this peripheral to this Mac. If a peer Mac currently holds it, the peer will be asked to release it first."
         )
