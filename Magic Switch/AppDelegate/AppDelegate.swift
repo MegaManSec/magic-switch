@@ -246,6 +246,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Re-read paired devices so a peripheral renamed in System Settings (and
     // its icon) refreshes in the dropdown without needing to open Settings.
     BluetoothPeripheralStore.shared.fetchConnectedPeripherals()
+    // The snapshot above only triggers a rebuild when something changed;
+    // battery levels are read at build time, so ask for one regardless.
+    dropdownContentView?.refreshRows()
     dropdownContentView?.updateFrameToFit()
   }
 

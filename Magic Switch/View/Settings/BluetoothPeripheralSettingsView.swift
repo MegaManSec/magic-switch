@@ -214,6 +214,17 @@ private struct PeripheralRowView: View {
         typeMenu
         Text(peripheral.name)
         Spacer()
+        // Only a peripheral held by this Mac exposes battery in the local
+        // HID registry. Rows re-render on the tab's 2s snapshot timer, so
+        // the reading stays fresh while the tab is visible.
+        if showConnectionStatus, connectionState == .connected,
+          let battery = PeripheralBattery.percent(forAddress: peripheral.id)
+        {
+          Text("\(battery)%")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .help("Battery level of \(peripheral.name).")
+        }
         if showConnectionStatus {
           connectionButton
           Button(action: { secondaryAction?() }) {

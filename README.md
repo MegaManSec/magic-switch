@@ -92,7 +92,7 @@ On the **Device** tab, find the other Mac under **Connected Devices** and click 
 | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Click the menu-bar icon (either button) | Open the menu |
 | Menu → a Mac | Hand all peripherals between this Mac and that one |
-| Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac |
+| Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac, with its battery level |
 | Menu → Settings | Open the Settings window |
 
 The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs (the dropdown is pictured at the top of this README).
