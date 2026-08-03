@@ -42,6 +42,17 @@ final class NotificationManager: NotificationManaging {
     }
   }
 
+  /// Calls back on the main queue with whether the user has explicitly denied
+  /// notifications. Settings → Other uses this to explain that failed
+  /// handoffs and identity warnings would otherwise be silent.
+  static func checkAuthorizationDenied(_ completion: @escaping (Bool) -> Void) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      DispatchQueue.main.async {
+        completion(settings.authorizationStatus == .denied)
+      }
+    }
+  }
+
   static func requestAuthorization() {
     UNUserNotificationCenter.current().requestAuthorization(
       options: Constants.authorizationOptions
