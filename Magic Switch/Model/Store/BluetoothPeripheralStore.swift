@@ -157,6 +157,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// IOBluetooth disconnect notifications.
   @Published private(set) var connectionStates: [String: PeripheralConnectionState] = [:]
 
+  /// Battery percentage per connected peripheral id, refreshed by each
+  /// `fetchConnectedPeripherals` snapshot (the Peripheral tab polls that on
+  /// a 2s timer). Published state rather than a read-at-render registry
+  /// lookup because a just-connected device surfaces `BatteryPercent` a
+  /// beat *after* its `.connected` state change — a view that reads the
+  /// registry directly during that render never hears about the late value.
+  @Published private(set) var batteryLevels: [String: Int] = [:]
+
   /// One-shot waiters for handoff connect results. Incoming network commands
   /// use these so they can acknowledge "connected" instead of merely
   /// "connect attempt started".
@@ -1191,6 +1199,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           )
         }
 
+        // Registered peripherals only. Every other connected Bluetooth device
+        // (headphones, a game controller) may also publish a level no view
+        // reads, and each one is another value that can change and make the
+        // published dict unequal — i.e. an `objectWillChange` that re-renders
+        // every observer for nothing.
+        let battery = PeripheralBattery.levels(
+          forAddresses: registeredIDs.filter { connectedAddresses.contains($0) })
+
         DispatchQueue.main.async {
           // Snapshot all paired devices; `availablePeripherals` filters out
           // registered ones at read time. Filtering here instead would mean
@@ -1201,6 +1217,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // (needless re-renders, and it could dismiss an open type picker).
           if self.discoveredPeripherals != paired { self.discoveredPeripherals = paired }
           if self.deviceClasses != classes { self.deviceClasses = classes }
+          if self.batteryLevels != battery { self.batteryLevels = battery }
           // Renaming a device in System Settings → Bluetooth should propagate
           // to our stored list (and thus the dropdown / Settings), so reconcile
           // registered names against the live ones we just read.

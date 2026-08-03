@@ -11,7 +11,17 @@ enum PeripheralBattery {
   /// address (IOBluetooth's "aa-bb-cc-dd-ee-ff" format), or nil when the
   /// device isn't connected to this Mac or doesn't report battery.
   static func percent(forAddress address: String) -> Int? {
-    let wanted = normalize(address)
+    levels(forAddresses: [address])[address]
+  }
+
+  /// Battery percentages for the given Bluetooth addresses, keyed by the
+  /// address exactly as passed in. One registry walk regardless of count,
+  /// so a caller polling on a timer (the store's connected-peripherals
+  /// snapshot) reads every device in a single pass.
+  static func levels(forAddresses addresses: [String]) -> [String: Int] {
+    guard !addresses.isEmpty else { return [:] }
+    let wanted = Dictionary(
+      addresses.map { (normalize($0), $0) }, uniquingKeysWith: { first, _ in first })
     var iterator = io_iterator_t()
     // Port 0 = default master port; the named constant for it was renamed in
     // macOS 12 (kIOMasterPortDefault → kIOMainPortDefault) and using either
@@ -19,18 +29,19 @@ enum PeripheralBattery {
     guard
       IOServiceGetMatchingServices(
         0, IOServiceMatching("AppleDeviceManagementHIDEventService"), &iterator) == KERN_SUCCESS
-    else { return nil }
+    else { return [:] }
     defer { IOObjectRelease(iterator) }
 
+    var result: [String: Int] = [:]
     while case let entry = IOIteratorNext(iterator), entry != 0 {
       defer { IOObjectRelease(entry) }
       guard let deviceAddress = property(entry, "DeviceAddress") as? String,
-        normalize(deviceAddress) == wanted,
+        let original = wanted[normalize(deviceAddress)],
         let percent = property(entry, "BatteryPercent") as? Int
       else { continue }
-      return percent
+      result[original] = percent
     }
-    return nil
+    return result
   }
 
   private static func property(_ entry: io_registry_entry_t, _ key: String) -> Any? {
