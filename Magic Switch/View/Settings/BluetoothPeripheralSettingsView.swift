@@ -292,10 +292,11 @@ private struct PeripheralRowView: View {
 
   /// Shared fixed-width label so the pill is the same size in every state
   /// ("Connect" vs "Release" vs the transient titles) instead of hugging
-  /// each title. Sized to the longest title, "Releasing…", so the pill
-  /// doesn't jump during a handoff; the frame centers the shorter texts.
+  /// each title. The floor clears the longest title — "Releasing…" measures
+  /// 68.8pt at the 13pt control font — so the pill keeps one width through a
+  /// handoff instead of nudging wider mid-transition; shorter titles centre.
   private func actionLabel(_ title: String) -> some View {
-    Text(title).frame(minWidth: 68)
+    Text(title).frame(minWidth: 72)
   }
 
   @ViewBuilder
