@@ -324,13 +324,16 @@ private struct ShortcutRecorderRow: View {
           .accessibilityLabel("Remove shortcut: \(title)")
         }
         Button(action: toggleRecording) {
-          // Fixed-width label so the three recorder buttons form an aligned
-          // column no matter what each one currently displays. Sized for a
-          // full four-modifier chord ("⌃⌥⇧⌘M"), not for prose — the old
-          // 130pt "Record Shortcut" pill dwarfed everything else in the row.
+          // Width floor, not a cap: the three recorder buttons line up at 64pt
+          // — enough for a four-modifier chord on a single-character key
+          // ("⌃⌥⇧⌘M" is 59.8pt at the 13pt control font) instead of the old
+          // 130pt "Record Shortcut" pill that dwarfed the row. Named keys go
+          // wider ("⌃⌥⇧⌘Space" is 86.2pt), so the pill grows for those rather
+          // than wrapping the chord onto two lines, which a hard width did.
           Text(buttonTitle)
+            .lineLimit(1)
             .foregroundColor(shortcut == nil && !isRecording ? .secondary : .primary)
-            .frame(width: 64)
+            .frame(minWidth: 64)
         }
         .help(help)
         .accessibilityLabel(
