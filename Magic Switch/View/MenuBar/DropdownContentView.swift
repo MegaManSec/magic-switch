@@ -390,7 +390,8 @@ final class DropdownContentView: NSView {
     case .releasing: stateSuffix = ", releasing"
     case .disconnected: stateSuffix = ""
     }
-    let errorSuffix = bluetoothStore.peripheralOperationError[peripheral.id]
+    let errorSuffix =
+      bluetoothStore.peripheralOperationError[peripheral.id]
       .map { ", error: \($0)" } ?? ""
     row.setAccessibilityLabel(peripheral.name + stateSuffix + errorSuffix)
     row.setAccessibilityHelp(row.toolTip)
