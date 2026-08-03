@@ -16,6 +16,16 @@ final class MenuRowControl: NSControl {
     super.init(frame: .zero)
     wantsLayer = true
     layer?.cornerRadius = 5
+    // A custom NSControl isn't an accessibility element by default, so
+    // without this the dropdown's rows simply don't exist to VoiceOver.
+    // The row is one element (its labels/icons stay hidden from AX);
+    // callers set the label describing the row's action and state.
+    setAccessibilityElement(true)
+    setAccessibilityRole(.button)
+  }
+
+  override var isEnabled: Bool {
+    didSet { setAccessibilityEnabled(isEnabled) }
   }
 
   @available(*, unavailable)
@@ -207,6 +217,13 @@ final class DropdownContentView: NSView {
     updateFrameToFit()
   }
 
+  /// Re-render the rows on the next tick. Called when the menu opens, to
+  /// refresh values read at build time (battery levels) that no store
+  /// publisher covers. Coalesces with any store-driven rebuild.
+  func refreshRows() {
+    scheduleSync()
+  }
+
   /// Resize to fit the current content at the fixed width, so the menu measures
   /// the right item size (it changes as peripherals pair / errors appear). Width
   /// is pinned, not taken from `fittingSize`, because AppKit reports widths lazily.
@@ -278,6 +295,8 @@ final class DropdownContentView: NSView {
         ? "Finish the peripheral that's currently switching before switching them all."
         : "Switch peripherals between this Mac and \(device.name).")
       : "\(device.name) isn't reachable on the network right now."
+    row.setAccessibilityLabel(device.name)
+    row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }
 
@@ -312,8 +331,15 @@ final class DropdownContentView: NSView {
       symbolView(bluetoothStore.peripheralType(for: peripheral).symbolName, color: textColor))
     top.addArrangedSubview(textLabel(peripheral.name, color: textColor))
     top.addArrangedSubview(spacer())
+    // Battery is only knowable for a peripheral currently held by this Mac
+    // (it lives in this Mac's HID registry). Read at build time; the menu
+    // rebuilds on every open (see `refreshRows`), so it stays current.
+    let battery = state == .connected ? PeripheralBattery.percent(forAddress: peripheral.id) : nil
     switch state {
     case .connected:
+      if let battery {
+        top.addArrangedSubview(caption("\(battery)%", color: .secondaryLabelColor))
+      }
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
       top.addArrangedSubview(caption("Pairing…", color: .secondaryLabelColor))
@@ -357,6 +383,17 @@ final class DropdownContentView: NSView {
         ? "Click to bring \(peripheral.name) to this Mac."
         : "Click to connect \(peripheral.name) to this Mac over Bluetooth."
     }
+    let stateSuffix: String
+    switch state {
+    case .connected: stateSuffix = ", on this Mac" + (battery.map { ", battery \($0)%" } ?? "")
+    case .connecting: stateSuffix = ", pairing"
+    case .releasing: stateSuffix = ", releasing"
+    case .disconnected: stateSuffix = ""
+    }
+    let errorSuffix = bluetoothStore.peripheralOperationError[peripheral.id]
+      .map { ", error: \($0)" } ?? ""
+    row.setAccessibilityLabel(peripheral.name + stateSuffix + errorSuffix)
+    row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: column)
   }
 
@@ -364,6 +401,7 @@ final class DropdownContentView: NSView {
     title: String, onClick: @escaping () -> Void
   ) -> NSView {
     let row = MenuRowControl(onClick: onClick)
+    row.setAccessibilityLabel(title)
     let content = NSStackView()
     content.orientation = .horizontal
     content.distribution = .fill
@@ -389,6 +427,8 @@ final class DropdownContentView: NSView {
     content.addArrangedSubview(textLabel("Update Available: v\(latest)", color: .labelColor))
     content.addArrangedSubview(spacer())
     row.toolTip = "A newer version of Magic Switch is available. Opens the release page."
+    row.setAccessibilityLabel("Update available: version \(latest)")
+    row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }
 
