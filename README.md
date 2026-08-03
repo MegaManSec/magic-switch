@@ -79,7 +79,7 @@ On the **Device** tab, find the other Mac under **Connected Devices** and click 
 
 ### Other tab — preferences
 
-**Launch at Login**, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
+**Launch at Login**, recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)).
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing app preferences" width="600"><br>
@@ -99,7 +99,7 @@ The menu-bar icon also signals state: a **warning triangle** means Magic Switch 
 
 ### Trigger switches from anything (URL scheme)
 
-Magic Switch registers the `magicswitch://` URL scheme, so anything that can open a URL — a hotkey utility (Raycast, BetterTouchTool, skhd), a mouse-button macro, the Shortcuts app, a shell script — can trigger the same switches as the menu:
+For the common cases — a hotkey that sends, takes, or toggles the whole set — you don't need any of this: record them under **Settings → Other → Keyboard shortcuts**. For anything fancier (per-peripheral switches, scripting), Magic Switch registers the `magicswitch://` URL scheme, so anything that can open a URL — a hotkey utility (Raycast, BetterTouchTool, skhd), a mouse-button macro, the Shortcuts app, a shell script — can trigger the same switches as the menu:
 
 ```bash
 open -g "magicswitch://switch"                                      # everything — same as clicking the other Mac in the menu

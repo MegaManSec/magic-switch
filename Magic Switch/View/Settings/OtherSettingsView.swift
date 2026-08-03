@@ -8,6 +8,7 @@ struct OtherSettingsView: View {
   @Environment(\.openURL) private var openURL
   @ObservedObject private var updateChecker = UpdateChecker.shared
   @ObservedObject private var displayMonitor = DisplayMonitor.shared
+  @ObservedObject private var hotkey = HotkeyManager.shared
   @State private var launchAtLogin: Bool = false
   @State private var notificationsDenied: Bool = false
   @AppStorage(BluetoothPeripheralStore.releaseOnSleepDefaultsKey)
@@ -49,6 +50,26 @@ struct OtherSettingsView: View {
           .help(
             "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
+      }
+      Section(header: Text("Keyboard shortcuts")) {
+        ShortcutRecorderRow(
+          direction: .send,
+          title: "Send peripherals to the other Mac",
+          help:
+            "Press anywhere in macOS to hand every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
+        )
+        ShortcutRecorderRow(
+          direction: .take,
+          title: "Take peripherals to this Mac",
+          help:
+            "Press anywhere in macOS to bring every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
+        )
+        ShortcutRecorderRow(
+          direction: .toggle,
+          title: "Toggle peripherals between Macs",
+          help:
+            "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back."
+        )
       }
       Section {
         if displayRows.isEmpty {
@@ -117,6 +138,7 @@ struct OtherSettingsView: View {
       }
     }
     .onAppear(perform: refreshOnAppear)
+    .onDisappear { hotkey.cancelRecording() }
   }
 
   var body: some View {
@@ -261,6 +283,66 @@ struct OtherSettingsView: View {
 }
 
 // MARK: - Supporting Views
+
+/// One row of the Keyboard shortcuts section: the action's name, a recorder
+/// button showing the current chord (or the record/recording prompt), and a
+/// clear button while a chord is set. Recording state lives in
+/// `HotkeyManager` so only one row can record at a time.
+private struct ShortcutRecorderRow: View {
+  let direction: SwitchDirection
+  let title: String
+  let help: String
+
+  @ObservedObject private var hotkey = HotkeyManager.shared
+
+  private var isRecording: Bool { hotkey.recordingDirection == direction }
+  private var shortcut: HotkeyShortcut? { hotkey.shortcuts[direction] }
+
+  private var buttonTitle: String {
+    if isRecording { return "Type Shortcut…" }
+    return shortcut?.displayString ?? "Record Shortcut"
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack {
+        Text(title)
+        Spacer()
+        // Clear button sits left of the recorder so the recorder buttons
+        // stay pinned to the trailing edge whether or not it's visible.
+        if shortcut != nil, !isRecording {
+          Button(action: { hotkey.setShortcut(nil, for: direction) }) {
+            Image(systemName: "xmark.circle.fill")
+              .foregroundColor(.secondary)
+          }
+          .buttonStyle(.borderless)
+          .help("Remove this shortcut.")
+          .accessibilityLabel("Remove shortcut: \(title)")
+        }
+        Button(action: toggleRecording) {
+          // Fixed-width label so the three recorder buttons form an aligned
+          // column no matter what each one currently displays.
+          Text(buttonTitle)
+            .frame(width: 130)
+        }
+        .help(help)
+      }
+      if isRecording {
+        Text("Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut.")
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+    }
+  }
+
+  private func toggleRecording() {
+    if isRecording {
+      hotkey.cancelRecording()
+    } else {
+      hotkey.startRecording(for: direction)
+    }
+  }
+}
 
 /// A reusable row component for settings items
 private struct SettingsRowView: View {

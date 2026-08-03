@@ -71,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     setupPingFlashObserver()
     setupTransferObservers()
     setupDisplayTrigger()
+    setupHotkey()
     // Best-effort, silent, throttled to once per 24h. Drives the "Update
     // Available" affordances in the right-click menu and Settings → Other.
     UpdateChecker.shared.checkIfNeeded()
@@ -581,6 +582,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       self?.handleTriggerDisplaysConnected(names)
     }
     displayMonitor.start()
+  }
+
+  /// Wire the global hotkeys (Settings → Other) to the full-set switch paths
+  /// — one optional shortcut per direction, with the URL scheme's semantics:
+  /// `send` and `take` are idempotent, `toggle` mirrors a menu click.
+  private func setupHotkey() {
+    HotkeyManager.shared.onHotkey = { [weak self] direction in
+      self?.performFullSetCommand(direction)
+    }
+    HotkeyManager.shared.start()
   }
 
   /// A trigger display just connected (runs on main). Announce it, then take
