@@ -345,14 +345,43 @@ private struct NetworkDeviceListView: View {
     requiresPairing && !pairing.isPaired
   }
 
+  /// Hover text for the row's name. Only the registered section has a Trust
+  /// affordance and a reachability signal — `pollReachability` probes
+  /// `networkDevices` alone — so discovered rows get the weaker claim their
+  /// data actually supports.
   private func nameHelp(for device: NetworkDevice) -> String {
+    // The Trust button and the warning row below are gated on this same
+    // closure, so it's the honest test for "can the user act on a mismatch
+    // here": pointing a discovered row at Trust would name a control that
+    // section doesn't have.
+    let canTrust = onTrustPending != nil
     if device.pendingFingerprint != nil {
-      return
-        "\(device.name) is advertising a new pairing key. Switching is paused until you choose Trust."
+      return canTrust
+        ? "\(device.name) is advertising a new pairing key. Switching is paused until you choose Trust."
+        : "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Use Refresh to re-scan."
     }
-    return device.isActive
-      ? "\(device.name) is reachable at \(device.host):\(device.port)."
+    guard canTrust else {
+      return device.isActive
+        ? "\(device.name) is advertising itself on the network."
+        : "\(device.name) has stopped advertising on the network."
+    }
+    // Mirror the menu's verdict rather than `isActive`: a fresh-looking
+    // Bonjour record only says the peer advertised, while the ping poll is
+    // what proves it answers. A peer that died without withdrawing — or one
+    // sleeping behind a Bonjour sleep proxy that answers for it — still looks
+    // advertised indefinitely, and claiming "reachable" there would
+    // contradict the greyed row in the menu.
+    return networkStore.isReachable(device.id)
+      ? "\(device.name) is answering at \(endpoint(for: device))."
       : "\(device.name) isn't reachable on the network right now."
+  }
+
+  /// `host:port`, with IPv6 bracketed so the address's own colons don't run
+  /// into the port number.
+  private func endpoint(for device: NetworkDevice) -> String {
+    device.host.contains(":")
+      ? "[\(device.host)]:\(device.port)"
+      : "\(device.host):\(device.port)"
   }
 
   var body: some View {
