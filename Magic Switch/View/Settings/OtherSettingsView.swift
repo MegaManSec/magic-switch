@@ -9,6 +9,7 @@ struct OtherSettingsView: View {
   @ObservedObject private var updateChecker = UpdateChecker.shared
   @ObservedObject private var displayMonitor = DisplayMonitor.shared
   @State private var launchAtLogin: Bool = false
+  @State private var notificationsDenied: Bool = false
   @AppStorage(BluetoothPeripheralStore.releaseOnSleepDefaultsKey)
   private var releaseOnSleep: Bool = true
   @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
@@ -19,6 +20,19 @@ struct OtherSettingsView: View {
   /// Form content containing setting options
   private var formContent: some View {
     Form {
+      if notificationsDenied {
+        Section {
+          // Failure feedback (cancelled switches, identity mismatches) only
+          // arrives via notifications, so a denied permission means silent
+          // failures — worth flagging where the user can act on it.
+          Label(
+            "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications.",
+            systemImage: "bell.slash"
+          )
+          .font(.callout)
+          .foregroundColor(.secondary)
+        }
+      }
       if #available(macOS 13.0, *) {
         Section(header: Text("General")) {
           Toggle("Launch at Login", isOn: $launchAtLogin)
@@ -222,6 +236,7 @@ struct OtherSettingsView: View {
     refreshLaunchAtLogin()
     displayMonitor.refreshNow()
     updateChecker.checkIfNeeded()
+    NotificationManager.checkAuthorizationDenied { notificationsDenied = $0 }
   }
 
   private func refreshLaunchAtLogin() {
