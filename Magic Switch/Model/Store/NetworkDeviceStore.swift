@@ -335,6 +335,40 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     saveNetworkDevices()
   }
 
+  /// A peer just completed the secure-channel handshake, proving it holds
+  /// this Mac's *current* pairing key. If a registered device is parked
+  /// behind an Identity Mismatch whose pending fingerprint is exactly the
+  /// current key's fingerprint, the proof supersedes the warning: the
+  /// handshake demonstrates the very thing Trust would have taken on faith
+  /// from a cleartext TXT record. That is the "both Macs were re-paired"
+  /// state — the pin predates the re-pair while both sides already share
+  /// the new key — and without this the warning sticks (and outgoing
+  /// switching stays paused) until the user manually Trusts on each Mac,
+  /// even though incoming commands from the peer were honored the whole
+  /// time, making the warning read like an enforcement it never was.
+  ///
+  /// Deliberately narrow: a pending fingerprint that matches anything
+  /// *other* than the current key stays parked for the user to judge — the
+  /// handshake says nothing about a key this Mac doesn't hold.
+  func resolvePendingFingerprintProvedByHandshake() {
+    guard let currentFingerprint = PairingStore.shared.fingerprint else { return }
+    var changed = false
+    for index in networkDevices.indices
+    where networkDevices[index].pendingFingerprint == currentFingerprint {
+      networkDevices[index].fingerprint = currentFingerprint
+      networkDevices[index].pendingFingerprint = nil
+      networkDevices[index].isActive = true
+      networkDevices[index].lastUpdated = Date()
+      // Same positive presence signal as a manual Trust: the proof arrived
+      // over a live connection from the peer.
+      deviceReachability[networkDevices[index].id] = true
+      changed = true
+    }
+    if changed {
+      saveNetworkDevices()
+    }
+  }
+
   /// Tear down and re-start Bonjour browsing. Used by the "Refresh" button
   /// when the discovered list goes stale (network change, sleep/wake).
   func refreshDiscovery() {

@@ -357,7 +357,7 @@ private struct NetworkDeviceListView: View {
     let canTrust = onTrustPending != nil
     if device.pendingFingerprint != nil {
       return canTrust
-        ? "\(device.name) is advertising a new pairing key. Switching is paused until you choose Trust."
+        ? "\(device.name) is advertising a new pairing key. Switching from this Mac is paused until you choose Trust, or until \(device.name) proves over the secure channel that it holds this Mac's current key."
         : "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Use Refresh to re-scan."
     }
     guard canTrust else {
