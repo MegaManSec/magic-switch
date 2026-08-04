@@ -23,6 +23,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private var pairingObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
   private var lastBluetoothState: CBManagerState = .unknown
+  private var sleepObserver: NSObjectProtocol?
+  private var wakeObserver: NSObjectProtocol?
+  /// True between `willSleepNotification` and `didWakeNotification`. Dark
+  /// wakes never post `didWake`, so this stays set across overnight
+  /// maintenance wakes.
+  private var isSystemSleeping = false
+  private var wakeBluetoothRecheck: DispatchWorkItem?
+  /// How long after a real wake to wait before deciding Bluetooth is
+  /// genuinely off — the radio takes a moment to power back up.
+  private static let bluetoothWakeGrace: TimeInterval = 3
   /// Cached Settings window controller. We host `SettingsView` in a manual
   /// `NSWindow` rather than going through SwiftUI's `Settings` scene because
   /// the scene's `showSettingsWindow:` action silently fails to produce a
@@ -83,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     setupNotifications()
     setupBluetooth()
+    setupSleepWakeTracking()
     setupStatusBar()
     setupActivationPolicyTracking()
     setupPingFlashObserver()
@@ -175,6 +186,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     if let token = transferOutgoingOneObserver {
       NotificationCenter.default.removeObserver(token)
     }
+    if let token = sleepObserver {
+      NSWorkspace.shared.notificationCenter.removeObserver(token)
+    }
+    if let token = wakeObserver {
+      NSWorkspace.shared.notificationCenter.removeObserver(token)
+    }
   }
 
   // MARK: - Setup Methods
@@ -205,10 +222,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     guard state != lastBluetoothState else { return }
     switch state {
     case .poweredOff:
-      NotificationManager.showNotification(
-        title: "Bluetooth Off",
-        body: "Magic Switch can't switch peripherals while Bluetooth is off."
-      )
+      // Every maintenance dark wake cycles the radio through a genuine new
+      // transition into `.poweredOff`, so the dedupe above can't help here.
+      if !isSystemSleeping {
+        Self.showBluetoothOffNotification()
+      }
     case .unauthorized:
       NotificationManager.showNotification(
         title: "Bluetooth Permission Needed",
@@ -224,6 +242,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @unknown default:
       break
     }
+  }
+
+  /// Track system sleep so `.poweredOff` transitions during sleep stay silent.
+  private func setupSleepWakeTracking() {
+    let center = NSWorkspace.shared.notificationCenter
+    sleepObserver = center.addObserver(
+      forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.isSystemSleeping = true
+      self?.wakeBluetoothRecheck?.cancel()
+      self?.wakeBluetoothRecheck = nil
+    }
+    wakeObserver = center.addObserver(
+      forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.isSystemSleeping = false
+      self?.scheduleWakeBluetoothRecheck()
+    }
+  }
+
+  /// If Bluetooth fails to come back after a real wake, the state was already
+  /// `.poweredOff` during sleep, so no new transition fires and
+  /// `handleBluetoothStateChange` stays quiet. Re-check once instead.
+  private func scheduleWakeBluetoothRecheck() {
+    let work = DispatchWorkItem { [weak self] in
+      guard let self, !self.isSystemSleeping else { return }
+      self.wakeBluetoothRecheck = nil
+      if BluetoothManager.shared.state == .poweredOff {
+        Self.showBluetoothOffNotification()
+      }
+    }
+    wakeBluetoothRecheck = work
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + Self.bluetoothWakeGrace, execute: work)
+  }
+
+  private static func showBluetoothOffNotification() {
+    NotificationManager.showNotification(
+      title: "Bluetooth Off",
+      body: "Magic Switch can't switch peripherals while Bluetooth is off.",
+      identifier: "bluetooth-off"
+    )
   }
 
   private func setupStatusBar() {
