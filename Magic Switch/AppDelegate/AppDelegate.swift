@@ -544,18 +544,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       // fail to hand peripherals over, leaving them paired nowhere.
       beginTransfer(.sending)
       networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
-        guard let self = self else { return }
-        switch preflight {
-        case .failure(let err):
-          self.endTransfer()
-          NotificationManager.showNotification(
-            title: "Switch Cancelled",
-            body:
-              "Couldn't reach the other Mac (\(err.userMessage)) — peripherals stay on this Mac.",
-            identifier: "switch-preflight-failed"
-          )
-        case .success:
-          self.performHandoffToPeer(device: device)
+        // Fires on the outgoing-connection queue; hop to main before
+        // `endTransfer` touches the status-bar button / transfer state, and
+        // before `performHandoffToPeer` reads the published peripherals.
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          switch preflight {
+          case .failure(let err):
+            self.endTransfer()
+            NotificationManager.showNotification(
+              title: "Switch Cancelled",
+              body:
+                "Couldn't reach the other Mac (\(err.userMessage)) — peripherals stay on this Mac.",
+              identifier: "switch-preflight-failed"
+            )
+          case .success:
+            self.performHandoffToPeer(device: device)
+          }
         }
       }
     case .allDisconnected:
@@ -728,24 +733,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return
       }
       self.networkStore.executeCommand(.connectAll, on: device) { [weak self] result in
-        guard let self = self else { return }
-        if case .failure(let err) = result {
-          // Rollback: peer didn't take the peripherals, so re-pair them
-          // locally. Without this the user is left with peripherals paired
-          // nowhere. `connectPeripheral` flips each row to `.connecting`,
-          // which clears the "Releasing…" state on its own.
-          self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.connectPeripheral(peripheral)
+        // The completion fires on the outgoing-connection queue (see
+        // `takeAllPeripherals`); hop to main before `endTransfer` touches
+        // the status-bar button and the transfer/latch state the settle
+        // observer reads on main.
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          if case .failure(let err) = result {
+            // Rollback: peer didn't take the peripherals, so re-pair them
+            // locally. Without this the user is left with peripherals paired
+            // nowhere. `connectPeripheral` flips each row to `.connecting`,
+            // which clears the "Releasing…" state on its own.
+            self.bluetoothStore.peripherals.forEach { peripheral in
+              self.bluetoothStore.connectPeripheral(peripheral)
+            }
+            self.endTransfer()
+            NotificationManager.showNotification(
+              title: "Switch Failed",
+              body: "\(err.userMessage) Peripherals reconnected to this Mac.",
+              identifier: "switch-connect-failed"
+            )
+          } else {
+            self.bluetoothStore.finishFullSetRelease(success: true)
+            self.endTransfer()
           }
-          self.endTransfer()
-          NotificationManager.showNotification(
-            title: "Switch Failed",
-            body: "\(err.userMessage) Peripherals reconnected to this Mac.",
-            identifier: "switch-connect-failed"
-          )
-        } else {
-          self.bluetoothStore.finishFullSetRelease(success: true)
-          self.endTransfer()
         }
       }
     }
