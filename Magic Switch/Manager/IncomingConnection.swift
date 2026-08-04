@@ -126,14 +126,18 @@ final class IncomingConnection {
       switch result {
       case .success:
         self.authenticated = true
-        // The peer has proved possession of this Mac's current pairing key —
-        // strictly stronger evidence than the fingerprint it advertises over
-        // cleartext mDNS. If a registered device is stuck behind an Identity
-        // Mismatch that pends exactly the current key (both Macs re-paired),
-        // resolve it now instead of honoring commands while the Macs tab
-        // claims switching is paused.
+        // The peer has proved possession of the pairing key this handshake
+        // ran with — strictly stronger evidence than the fingerprint it
+        // advertises over cleartext mDNS. If a registered device is stuck
+        // behind an Identity Mismatch that pends exactly the current key
+        // (both Macs re-paired), resolve it now instead of honoring commands
+        // while the Macs tab claims switching is paused. Fingerprint the
+        // accept-time PSK snapshot, not the live key, so a re-pair racing
+        // this hop can't count a stale proof against the new key.
+        let provedFingerprint = PairingStore.fingerprint(forKey: psk)
         DispatchQueue.main.async {
-          NetworkDeviceStore.shared.resolvePendingFingerprintProvedByHandshake()
+          NetworkDeviceStore.shared.resolvePendingFingerprint(
+            provedByHandshake: provedFingerprint)
         }
         self.resetIdleTimer()
         self.readNext()

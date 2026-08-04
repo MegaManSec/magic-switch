@@ -335,23 +335,35 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     saveNetworkDevices()
   }
 
-  /// A peer just completed the secure-channel handshake, proving it holds
-  /// this Mac's *current* pairing key. If a registered device is parked
-  /// behind an Identity Mismatch whose pending fingerprint is exactly the
-  /// current key's fingerprint, the proof supersedes the warning: the
-  /// handshake demonstrates the very thing Trust would have taken on faith
-  /// from a cleartext TXT record. That is the "both Macs were re-paired"
-  /// state — the pin predates the re-pair while both sides already share
-  /// the new key — and without this the warning sticks (and outgoing
-  /// switching stays paused) until the user manually Trusts on each Mac,
-  /// even though incoming commands from the peer were honored the whole
-  /// time, making the warning read like an enforcement it never was.
+  /// A peer just completed a secure-channel handshake, proving it holds the
+  /// key whose fingerprint is `provedFingerprint` — the exact PSK snapshot
+  /// that channel ran with, not whatever is current by the time this hop
+  /// lands, so a handshake that raced a re-pair can't clear a warning about
+  /// a key the peer never proved. If a registered device is parked behind
+  /// an Identity Mismatch whose pending fingerprint is exactly the current
+  /// key's fingerprint (and the proof is for that same key), the proof
+  /// supersedes the warning: the handshake demonstrates the very thing
+  /// Trust would have taken on faith from a cleartext TXT record. That is
+  /// the "both Macs were re-paired" state — the pin predates the re-pair
+  /// while both sides already share the new key — and without this the
+  /// warning sticks (and outgoing switching stays paused) until the user
+  /// manually Trusts on each Mac, even though incoming commands from the
+  /// peer were honored the whole time, making the warning read like an
+  /// enforcement it never was.
   ///
   /// Deliberately narrow: a pending fingerprint that matches anything
   /// *other* than the current key stays parked for the user to judge — the
   /// handshake says nothing about a key this Mac doesn't hold.
-  func resolvePendingFingerprintProvedByHandshake() {
-    guard let currentFingerprint = PairingStore.shared.fingerprint else { return }
+  ///
+  /// Called from both connection directions — the responder side on an
+  /// incoming handshake, the initiator side on an outgoing one (the
+  /// handshake is mutual, each side verifies the other's transcript MAC
+  /// before reporting success) — so whichever Mac's reachability poll fires
+  /// first heals both ends of a symmetric mutual-re-pair park.
+  func resolvePendingFingerprint(provedByHandshake provedFingerprint: String) {
+    guard let currentFingerprint = PairingStore.shared.fingerprint,
+      provedFingerprint == currentFingerprint
+    else { return }
     var changed = false
     for index in networkDevices.indices
     where networkDevices[index].pendingFingerprint == currentFingerprint {
@@ -363,6 +375,19 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // over a live connection from the peer.
       deviceReachability[networkDevices[index].id] = true
       changed = true
+      // Mirror the rename self-heal's announcement so the warning doesn't
+      // just silently vanish on a user who saw it appear. Reusing the
+      // mismatch identifier replaces the stale "choose Trust" alert in
+      // Notification Center instead of stacking next to it.
+      print(
+        "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
+      )
+      NotificationManager.showNotification(
+        title: "Identity Mismatch Resolved",
+        body:
+          "\(networkDevices[index].name) proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code.",
+        identifier: "identity-mismatch-\(networkDevices[index].id)"
+      )
     }
     if changed {
       saveNetworkDevices()
@@ -413,7 +438,13 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // unclaimed for ~a minute. Guard `isPaired` so the probe can't book a
     // spurious `.notPaired` failure into the streak.
     if !isActive, PairingStore.shared.isPaired,
-      let device = networkDevices.first(where: { $0.id == id && $0.pendingFingerprint == nil })
+      let device = networkDevices.first(where: {
+        // Same probe-eligibility rule as `pollReachability`, including the
+        // parked-but-current self-heal exception.
+        $0.id == id
+          && ($0.pendingFingerprint == nil
+            || $0.pendingFingerprint == PairingStore.shared.fingerprint)
+      })
     {
       probeReachability(of: device)
     }
@@ -466,10 +497,19 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private func pollReachability() {
     // `.ping` rides the secure channel, so it's meaningless unpaired — skip
     // (leaving the pessimistic default) rather than spam `.notPaired` failures.
-    // Skip mismatched peers too: a `.ping` with our old key would just auth-fail
-    // and feed the peer's inbound rate limiter.
+    // Skip mismatched peers too — a `.ping` against a peer whose key genuinely
+    // differs would just auth-fail and feed its inbound rate limiter — EXCEPT
+    // when the pending fingerprint is exactly our current key's: then the ping
+    // authenticates (we hold the very key being advertised), and its handshake
+    // is what lets both sides self-heal the stale mismatch a mutual re-pair
+    // leaves behind (see `resolvePendingFingerprint(provedByHandshake:)`).
+    // Without the exception, two Macs parked symmetrically would never
+    // initiate a connection in either direction and the "proves it over the
+    // secure channel" resolution could never actually fire.
     guard PairingStore.shared.isPaired else { return }
-    for device in networkDevices where device.pendingFingerprint == nil {
+    let currentFingerprint = PairingStore.shared.fingerprint
+    for device in networkDevices
+    where device.pendingFingerprint == nil || device.pendingFingerprint == currentFingerprint {
       probeReachability(of: device)
     }
   }
@@ -531,10 +571,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     DispatchQueue.main.asyncAfter(deadline: .now() + Self.fastRecheckDelay) { [weak self] in
       guard let self = self else { return }
       self.pendingFastRecheck.remove(device.id)
-      // Re-probe only if it's still a registered, paired, non-mismatched peer.
+      // Re-probe only if it's still a registered, paired peer that the poll
+      // itself would probe (not mismatched — or pending exactly our current
+      // key, the self-heal exception in `pollReachability`).
       guard PairingStore.shared.isPaired,
         let current = self.networkDevices.first(where: {
-          $0.id == device.id && $0.pendingFingerprint == nil
+          $0.id == device.id
+            && ($0.pendingFingerprint == nil
+              || $0.pendingFingerprint == PairingStore.shared.fingerprint)
         })
       else { return }
       self.probeReachability(of: current)
