@@ -293,13 +293,16 @@ private struct PeripheralRowView: View {
 
   /// Shared fixed-width label so the pill is the same size across its
   /// resting states instead of hugging each title. The floor clears
-  /// "Connect" (51.2pt) and "Pairing…" (51.9pt at the 13pt control font),
-  /// so rows align and a Connect ↔ Release flip doesn't nudge; sizing the
-  /// floor to the rarely-seen "Releasing…" (68.8pt) instead left the two
-  /// resting titles swimming in dead space, and the brief growth during a
-  /// release reads as activity rather than jitter.
+  /// "Connect" (51.2pt) and "Pairing…" (51.9pt at the 13pt control font) —
+  /// the 54 buys the latter a couple of points of headroom against
+  /// font-metric drift, where a 52 floor would sit 0.1pt from a
+  /// connecting-state nudge — so rows align and a Connect ↔ Release flip
+  /// doesn't nudge; sizing the floor to the rarely-seen "Releasing…"
+  /// (68.8pt) instead left the two resting titles swimming in dead space,
+  /// and the brief growth during a release reads as activity rather than
+  /// jitter.
   private func actionLabel(_ title: String) -> some View {
-    Text(title).frame(minWidth: 52)
+    Text(title).frame(minWidth: 54)
   }
 
   @ViewBuilder
