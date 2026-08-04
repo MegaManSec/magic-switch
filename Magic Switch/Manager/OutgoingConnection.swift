@@ -200,6 +200,19 @@ final class OutgoingConnection {
           case .success:
             self.connectTimer?.cancel()
             self.connectTimer = nil
+            // The handshake is mutual — the responder proved possession of
+            // this key before our `.success` fired — so feed the
+            // identity-mismatch self-heal from the initiating side too:
+            // the reachability poll's own ping is what creates this proof
+            // for a parked-but-current peer, and without this arm the
+            // initiator would stay parked until the peer happened to dial
+            // back. Fingerprint the PSK snapshot this channel actually ran
+            // with (see `resolvePendingFingerprint`).
+            let provedFingerprint = PairingStore.fingerprint(forKey: psk)
+            DispatchQueue.main.async {
+              NetworkDeviceStore.shared.resolvePendingFingerprint(
+                provedByHandshake: provedFingerprint)
+            }
             self.startBodyTimer(completion: completion)
             body(channel) { ok in
               self.finish(

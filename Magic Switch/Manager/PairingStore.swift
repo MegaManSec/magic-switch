@@ -226,6 +226,13 @@ final class PairingStore: ObservableObject {
     return prefix.map { String(format: "%02X", $0) }.joined()
   }
 
+  /// Same, over a key already wrapped as `SymmetricKey` — used to fingerprint
+  /// the exact PSK snapshot a secure channel handshaked with, which can lag
+  /// `fingerprint` if the user re-pairs while a connection is in flight.
+  static func fingerprint(forKey key: SymmetricKey) -> String {
+    key.withUnsafeBytes { fingerprint(forKey: Data($0)) }
+  }
+
   // MARK: - Private Methods
 
   private func refreshState() {
