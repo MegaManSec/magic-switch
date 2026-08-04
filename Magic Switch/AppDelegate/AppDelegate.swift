@@ -56,10 +56,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     case receiving  // peripherals are arriving at this Mac
   }
   private var transferState: TransferState = .idle
-  /// Auto-clears the transfer state on the receiver side (the receiver
-  /// only knows "I just got CONNECT_ALL"; it doesn't have a clean "all
-  /// peripherals settled" signal, so we revert after a fixed window).
+  /// When the current transfer state was latched by `beginTransferHold`.
+  /// Non-nil only for held transfers — the ones that end by observing the
+  /// store's per-peripheral transitions rather than by an explicit
+  /// `endTransfer()` from the operation's own completion.
+  private var transferLatchedAt: Date?
+  /// Re-checks a held transfer for settlement (see `maybeEndHeldTransfer`).
   private var transferAutoEndTimer: DispatchSourceTimer?
+  /// Ends a held transfer via `maybeEndHeldTransfer` when the store's
+  /// per-peripheral states change.
+  private var transferSettleObserver: AnyCancellable?
+  /// How long a held transfer keeps its icon with nothing transitioning
+  /// yet: covers the gap between the latching notification and the first
+  /// `connecting`/`releasing` flip (a network round trip at most), and
+  /// doubles as the floor so a no-op transfer still flashes feedback.
+  /// Matches the previous fixed-window revert, so the degenerate case
+  /// where nothing ever transitions behaves exactly as before.
+  private static let transferSettleGrace: TimeInterval = 5
+  /// Backstop for a held transfer whose rows never settle — a `.releasing`
+  /// row has no watchdog of its own, unlike `.connecting`'s 60s pair
+  /// watchdog. Sized to outlast that pair watchdog with slack.
+  private static let transferHardCap: TimeInterval = 90
 
   // MARK: - Lifecycle Methods
 
@@ -311,26 +328,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private func beginTransfer(_ state: TransferState) {
     transferAutoEndTimer?.cancel()
     transferAutoEndTimer = nil
+    transferLatchedAt = nil
     transferState = state
     refreshStatusBarIcon()
   }
 
-  /// Same as `beginTransfer` but auto-reverts after 5s. Used by the
-  /// receiver side, which can't tell when "all peripherals settled."
-  private func beginTransferAutoEnd(_ state: TransferState) {
+  /// Same as `beginTransfer`, but ends by observation instead of an
+  /// explicit completion: the icon holds while any registered peripheral
+  /// is still `connecting`/`releasing` and reverts once the last one
+  /// settles. Used by every path that lacks a single "all peripherals
+  /// settled" callback — the store's per-peripheral states *are* that
+  /// signal (pairing callbacks, the 60s pair watchdog, and the handoff
+  /// completion arms all resolve them), which the old fixed 5s window
+  /// ignored, reverting the icon while a transfer had seconds-to-a-minute
+  /// left to run.
+  private func beginTransferHold(_ state: TransferState) {
     transferState = state
+    transferLatchedAt = Date()
     refreshStatusBarIcon()
     transferAutoEndTimer?.cancel()
+    // The `$connectionStates` sink is the main settle signal; this repeating
+    // check is for what the sink can't see — a transfer where no row ever
+    // starts transitioning (nothing changes, so the sink never fires) and
+    // the hard cap on rows that never settle.
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-    timer.schedule(deadline: .now() + 5.0)
-    timer.setEventHandler { [weak self] in self?.endTransfer() }
+    timer.schedule(
+      deadline: .now() + Self.transferSettleGrace, repeating: Self.transferSettleGrace)
+    timer.setEventHandler { [weak self] in self?.maybeEndHeldTransfer() }
     timer.resume()
     transferAutoEndTimer = timer
+  }
+
+  /// End a held transfer once its rows have settled. No-op for explicit
+  /// (`beginTransfer`) transfers — those end from their own completion.
+  private func maybeEndHeldTransfer() {
+    guard transferState != .idle, let latchedAt = transferLatchedAt else { return }
+    let elapsed = Date().timeIntervalSince(latchedAt)
+    guard elapsed >= Self.transferSettleGrace else { return }
+    if bluetoothStore.isAnyPeripheralTransitioning && elapsed < Self.transferHardCap {
+      return
+    }
+    endTransfer()
   }
 
   private func endTransfer() {
     transferAutoEndTimer?.cancel()
     transferAutoEndTimer = nil
+    transferLatchedAt = nil
     transferState = .idle
     refreshStatusBarIcon()
   }
@@ -341,23 +385,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     transferReceiveObserver = NotificationCenter.default.addObserver(
       forName: .magicSwitchReceivedConnectAll, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.beginTransferAutoEnd(.receiving)
+      self?.beginTransferHold(.receiving)
     }
     transferReleaseObserver = NotificationCenter.default.addObserver(
       forName: .magicSwitchReceivedUnregisterAll, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.beginTransferAutoEnd(.sending)
+      self?.beginTransferHold(.sending)
     }
     transferIncomingOneObserver = NotificationCenter.default.addObserver(
       forName: .magicSwitchPeripheralIncoming, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.beginTransferAutoEnd(.receiving)
+      self?.beginTransferHold(.receiving)
     }
     transferOutgoingOneObserver = NotificationCenter.default.addObserver(
       forName: .magicSwitchPeripheralOutgoing, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.beginTransferAutoEnd(.sending)
+      self?.beginTransferHold(.sending)
     }
+    // Settle signal for held transfers: any per-peripheral state flip
+    // re-evaluates whether the last transitioning row just resolved.
+    transferSettleObserver = bluetoothStore.$connectionStates
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.maybeEndHeldTransfer()
+      }
   }
 
   private func statusBarTooltip() -> String {
@@ -536,9 +587,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       // hop to main before touching the status-bar icon or the stores.
       DispatchQueue.main.async {
         guard let self = self else { return }
-        self.endTransfer()
         switch result {
         case .success, .failure(.connectionFailed), .failure(.connectTimeout):
+          // The transfer is nowhere near done: the peer has only *released*
+          // (or vanished); the local re-pairing below is the long half.
+          // Convert the explicit "receiving" into a held one so the icon
+          // stays up until the last `.connecting` row settles, instead of
+          // reverting here — before the first local connect even starts.
+          self.beginTransferHold(.receiving)
           // Either the peer released everything (success), or we couldn't
           // reach it at all — in which case its machine is unreachable
           // (asleep, off the network, app not running) and it isn't holding
@@ -555,6 +611,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.bluetoothStore.armReconnectForTakeover(peripheral.id)
           }
         case .failure(let err):
+          self.endTransfer()
           // Reachable peer but the release-all errored, so we can't be sure
           // it let go. Don't grab outright (that could yank a peripheral from
           // a peer that didn't release); arm the HOLDS_ONE-gated watcher,
@@ -754,6 +811,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// the state change is more important to surface.
   private func flashStatusBarIcon() {
     guard let button = statusItem?.button else { return }
+    // A transfer arrow outranks the bell: mid-transfer the user is watching
+    // the icon for exactly that state, and the 3s flash would blank it out.
+    guard transferState == .idle else { return }
     let flash = NSImage(
       systemSymbolName: "bell.badge.fill",
       accessibilityDescription: "Received a ping from the other Mac"
