@@ -77,11 +77,7 @@ final class PairingStore: ObservableObject {
   }
 
   /// Returns a display form (`XXXX-XXXX-XXXX`) for a code, grouping into
-  /// fours as it grows ("ABCDE" → "ABCD-E") so a partially typed code picks
-  /// up its dashes live. A complete group gets no trailing dash — the entry
-  /// field reformats on every change, so a trailing dash would reappear the
-  /// moment backspace removed it, and the caret could never move left past
-  /// a group boundary.
+  /// fours as it grows ("ABCDE" → "ABCD-E").
   static func formatCode(_ code: String) -> String {
     let normalized = normalize(code)
     var chunks: [String] = []
@@ -91,6 +87,13 @@ final class PairingStore: ObservableObject {
       rest = rest.dropFirst(4)
     }
     return chunks.joined(separator: "-")
+  }
+
+  /// True when `code` ends exactly at a complete, non-final 4-character
+  /// group — the position where the display format expects a dash next.
+  static func endsAtGroupBoundary(_ code: String) -> Bool {
+    let count = normalize(code).count
+    return count > 0 && count < codeLength && count % 4 == 0
   }
 
   /// Normalizes free-form user input: uppercase, then apply Crockford's

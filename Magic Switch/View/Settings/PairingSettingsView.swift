@@ -253,18 +253,54 @@ private struct EnterCodeSheet: View {
   @State private var errorMessage: String?
   @State private var isPairing = false
 
+  private static let codeFont = Font.system(.title2, design: .monospaced)
+
+  /// Leading inset of the text inside a rounded-border NSTextField, used to
+  /// line the ghost-dash overlay up with the field's own glyphs. Measured
+  /// against an offscreen render of this exact field at 2× — together with
+  /// the -1.5pt baseline offset it puts the ghost dash pixel-identical to
+  /// where the committed dash lands.
+  private static let fieldTextInset: CGFloat = 6.5
+
+  /// The upcoming group separator, drawn grayed at the caret position when
+  /// a group has just been completed. It's a preview, not field text: typing
+  /// "-" commits it, typing the next code character commits both.
+  private var showsGhostDash: Bool {
+    PairingStore.endsAtGroupBoundary(input) && !input.hasSuffix("-")
+  }
+
+  @ViewBuilder
+  private var ghostDash: some View {
+    if showsGhostDash {
+      (Text(input).foregroundColor(.clear) + Text("-").foregroundColor(.secondary))
+        .font(Self.codeFont)
+        .padding(.leading, Self.fieldTextInset)
+        .offset(y: -1.5)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+  }
+
   var body: some View {
     VStack(spacing: 20) {
       Text("Enter Pairing Code")
         .font(.headline)
       TextField("XXXX-XXXX-XXXX", text: $input)
         .textFieldStyle(RoundedBorderTextFieldStyle())
-        .font(.system(.title2, design: .monospaced))
+        .font(Self.codeFont)
         .disabled(isPairing)
+        .overlay(ghostDash, alignment: .leading)
         .onChange(of: input) { newValue in
           let normalized = PairingStore.normalize(newValue)
           let limited = String(normalized.prefix(PairingStore.codeLength))
-          let formatted = PairingStore.formatCode(limited)
+          var formatted = PairingStore.formatCode(limited)
+          // A trailing dash at a complete group boundary is kept, whether
+          // typed or backspaced-up-against; stray dashes anywhere else are
+          // dropped by the reformat. The auto-dash itself is never inserted
+          // here — it lives in the ghost overlay until committed.
+          if newValue.hasSuffix("-"), PairingStore.endsAtGroupBoundary(limited) {
+            formatted += "-"
+          }
           if formatted != newValue {
             input = formatted
           }
