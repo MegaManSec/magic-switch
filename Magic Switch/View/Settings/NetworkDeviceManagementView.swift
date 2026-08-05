@@ -31,6 +31,7 @@ struct NetworkDeviceManagementView: View {
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var diagnostics = AdvertisingDiagnostics.shared
+  @ObservedObject private var dialback = DialbackAddresses.shared
 
   // MARK: - State
 
@@ -81,16 +82,19 @@ struct NetworkDeviceManagementView: View {
         }
       }
 
-      let advisories = [diagnostics.publishWarning, diagnostics.searchWarning].compactMap { $0 }
-      if !advisories.isEmpty {
+      if diagnostics.publishWarning != nil || diagnostics.searchWarning != nil {
         Section {
           // Advisory, not an error: INTRODUCE keeps an added Mac working
           // without Bonjour, so secondary rather than warning colours.
-          ForEach(advisories, id: \.self) { advisory in
-            Label(advisory, systemImage: "info.circle")
-              .font(.callout)
-              .foregroundColor(.secondary)
-              .fixedSize(horizontal: false, vertical: true)
+          // Only the publish advisory gets the dial-back values — it's the
+          // one telling the user to type them on the other Mac; the search
+          // advisory would need the *other* Mac's address, which is
+          // unknowable here.
+          if let warning = diagnostics.publishWarning {
+            advisory(warning + dialbackHint)
+          }
+          if let warning = diagnostics.searchWarning {
+            advisory(warning)
           }
         }
       }
@@ -141,6 +145,22 @@ struct NetworkDeviceManagementView: View {
         )
       }
     }
+  }
+
+  /// Concrete values for the publish advisory's "use Add by Address on the
+  /// other Mac" — with them in hand, the bootstrap needs no other screen.
+  private var dialbackHint: String {
+    guard let addresses = dialback.displayList(),
+      let port = networkStore.localListeningPort
+    else { return "" }
+    return " Enter \(addresses), port \(String(port)) there."
+  }
+
+  private func advisory(_ text: String) -> some View {
+    Label(text, systemImage: "info.circle")
+      .font(.callout)
+      .foregroundColor(.secondary)
+      .fixedSize(horizontal: false, vertical: true)
   }
 
   /// Show both fingerprints so the "verify this was intentional" step can
@@ -340,6 +360,7 @@ private struct AvailableDevicesSectionView: View {
 private struct AddByAddressSheet: View {
   @Binding var isPresented: Bool
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var dialback = DialbackAddresses.shared
 
   @State private var host = ""
   @State private var port = String(ServicePublisher.defaultPort)
@@ -370,9 +391,17 @@ private struct AddByAddressSheet: View {
       .disabled(inProgress)
 
       if let localPort = networkStore.localListeningPort {
-        Text("This Mac accepts connections on port \(String(localPort)).")
-          .font(.caption)
-          .foregroundColor(.secondary)
+        // The reverse-direction values, phrased as an instruction for the
+        // other machine so nobody types this Mac's own address into the
+        // fields above.
+        Text(
+          dialback.displayList().map {
+            "On your other Mac, add this Mac as \($0), port \(String(localPort))."
+          } ?? "This Mac accepts connections on port \(String(localPort))."
+        )
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       }
 
       if inProgress {

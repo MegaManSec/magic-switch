@@ -213,6 +213,9 @@ final class OutgoingConnection {
             // with (see `resolvePendingFingerprint`).
             let provedFingerprint = PairingStore.fingerprint(forKey: psk)
             self.provedFingerprint = provedFingerprint
+            // The peer will see this address as our source and dial it back.
+            DialbackAddresses.shared.noteProven(
+              endpoint: self.connection.currentPath?.localEndpoint)
             DispatchQueue.main.async {
               NetworkDeviceStore.shared.resolvePendingFingerprint(
                 provedByHandshake: provedFingerprint)

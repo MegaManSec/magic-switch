@@ -142,6 +142,9 @@ final class IncomingConnection {
         // this hop can't count a stale proof against the new key.
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
         self.provedFingerprint = provedFingerprint
+        // The peer dialed this address, which proves it dialable.
+        DialbackAddresses.shared.noteProven(
+          endpoint: self.connection.currentPath?.localEndpoint)
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
@@ -408,7 +411,7 @@ final class IncomingConnection {
       } else {
         sendString(DeviceCommand.operationFailed.rawValue)
       }
-      if let host = Self.remoteHost(from: endpoint), let proved = provedFingerprint {
+      if let host = DialbackAddresses.hostString(from: endpoint), let proved = provedFingerprint {
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.ingestIntroducedPeer(
             name: identity.name, host: host, port: Int(identity.port),
@@ -427,28 +430,6 @@ final class IncomingConnection {
   private static func isValidMACAddress(_ value: String) -> Bool {
     let pattern = "^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$"
     return value.range(of: pattern, options: .regularExpression) != nil
-  }
-
-  /// Source address of this connection, suitable for dialing back — unlike
-  /// `RateLimiter`'s bucketing it keeps IPv6 zone ids (a stripped link-local
-  /// address isn't routable) but still collapses IPv4-mapped IPv6.
-  private static func remoteHost(from endpoint: NWEndpoint?) -> String? {
-    guard case .hostPort(let host, _) = endpoint else { return nil }
-    switch host {
-    case .ipv4(let addr):
-      return addr.debugDescription
-    case .ipv6(let addr):
-      let raw = addr.debugDescription
-      if raw.lowercased().hasPrefix("::ffff:") {
-        let v4 = String(raw.dropFirst("::ffff:".count))
-        if v4.split(separator: ".").count == 4 { return v4 }
-      }
-      return raw
-    case .name(let name, _):
-      return name
-    @unknown default:
-      return nil
-    }
   }
 
   // MARK: - Sending
