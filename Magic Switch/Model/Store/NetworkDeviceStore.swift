@@ -89,9 +89,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// pings. Main-only. See `migrateRenamedPeerIfNeeded`.
   private var pendingMigrationProofs: Set<String> = []
 
-  /// Ids that entered `discoveredNetworkDevices` via INTRODUCE. They never
-  /// get a Bonjour goodbye, so `pollReachability` expires unrefreshed ones —
-  /// else a stale entry blocks `renameCandidateID` forever. Main-only.
+  /// Ids whose discovered entry is kept alive only by INTRODUCE exchanges.
+  /// They never get a Bonjour goodbye, so `pollReachability` expires
+  /// unrefreshed ones — else a stale entry blocks `renameCandidateID`
+  /// forever. A Bonjour resolve clears the flag: that entry is back under
+  /// goodbye semantics, and resolves fire once per `didFind`, so the TTL
+  /// would otherwise grey a peer that's still on the air. Main-only.
   private var introducedIDs: Set<String> = []
   private static let introducedDeviceTTL: TimeInterval = 2.5 * reachabilityInterval
 
@@ -218,7 +221,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       print("Refusing INTRODUCE from a peer using this Mac's own name: \(name)")
       return
     }
-    introducedIDs.insert(name)
     let device = NetworkDevice(
       id: name,
       name: name,
@@ -228,6 +230,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       fingerprint: provedFingerprint
     )
     addDiscoveredNetworkDevice(device)
+    // After the add, which treats every update as Bonjour-sourced.
+    introducedIDs.insert(name)
     updateNetworkDevice(device)
     // After the update: if it just parked this record pending exactly the
     // proved key, the proof supersedes the warning in the same tick (the
@@ -463,6 +467,9 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// Adds a newly discovered network device
   func addDiscoveredNetworkDevice(_ device: NetworkDevice) {
+    // All callers but `ingestIntroducedPeer` (which re-flags after) are
+    // Bonjour resolves — the entry is back under goodbye semantics.
+    introducedIDs.remove(device.id)
     if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == device.id }) {
       discoveredNetworkDevices[index].update(with: device)
     } else {
@@ -771,7 +778,8 @@ enum ManualAddError: Error {
     case .selfDial:
       return "That address is this Mac."
     case .legacyPeer:
-      return "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
+      return
+        "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
     case .anotherMacRegistered(let name):
       return "Only one Mac can be connected at a time. Remove \(name) first."
     case .outgoing(let failure):
@@ -831,7 +839,17 @@ struct IntroducedIdentity {
   var encoded: String { "\(port)|\(name)" }
 
   init(name: String, port: UInt16) {
-    self.name = name
+    // Mirror `init?(payload:)`'s rules so `encoded` always round-trips: when
+    // Bonjour never published, the raw computer name is bound by neither the
+    // 63-byte limit nor any character rules, and a peer that rejects the
+    // payload is indistinguishable from a legacy build.
+    var name = name.components(separatedBy: .controlCharacters).joined()
+      .trimmingCharacters(in: .whitespaces)
+    while name.utf8.count > 63 { name.removeLast() }
+    // Truncation can leave interior whitespace trailing, which the receiver
+    // trims — re-trim so both sides hold the identical name.
+    name = name.trimmingCharacters(in: .whitespaces)
+    self.name = name.isEmpty ? "Unknown" : name
     self.port = port
   }
 
@@ -1201,6 +1219,10 @@ extension NetworkDeviceStore {
           if let registered = self.networkDevices.first(where: { $0.id == identity.name }) {
             completion(.success(registered))
           } else if let other = self.networkDevices.first {
+            // `other` may be this same peer under a stale name: the ingest
+            // above already started the rename migration, whose proof ping
+            // outlives this completion. The list self-corrects moments after
+            // this error shows.
             completion(.failure(.anotherMacRegistered(other.name)))
           } else if let discovered = self.discoveredNetworkDevices.first(
             where: { $0.id == identity.name })

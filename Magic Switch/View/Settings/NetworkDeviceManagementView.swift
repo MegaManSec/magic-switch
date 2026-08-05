@@ -81,14 +81,17 @@ struct NetworkDeviceManagementView: View {
         }
       }
 
-      if let warning = diagnostics.warning {
+      let advisories = [diagnostics.publishWarning, diagnostics.searchWarning].compactMap { $0 }
+      if !advisories.isEmpty {
         Section {
           // Advisory, not an error: INTRODUCE keeps an added Mac working
           // without Bonjour, so secondary rather than warning colours.
-          Label(warning, systemImage: "info.circle")
-            .font(.callout)
-            .foregroundColor(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+          ForEach(advisories, id: \.self) { advisory in
+            Label(advisory, systemImage: "info.circle")
+              .font(.callout)
+              .foregroundColor(.secondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
         }
       }
 
@@ -344,7 +347,7 @@ private struct AddByAddressSheet: View {
   @State private var errorMessage: String?
 
   private var canSubmit: Bool {
-    !host.trimmingCharacters(in: .whitespaces).isEmpty && UInt16(port) != nil && !inProgress
+    !host.trimmingCharacters(in: .whitespaces).isEmpty && (UInt16(port) ?? 0) > 0 && !inProgress
   }
 
   var body: some View {
@@ -397,7 +400,7 @@ private struct AddByAddressSheet: View {
   }
 
   private func submit() {
-    guard let portValue = UInt16(port) else { return }
+    guard let portValue = UInt16(port), portValue > 0 else { return }
     inProgress = true
     errorMessage = nil
     networkStore.addPeerManually(

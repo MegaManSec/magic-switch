@@ -57,6 +57,12 @@ extension ServiceBrowser: NetServiceBrowserDelegate {
     service.resolve(withTimeout: timeout)
   }
 
+  func netServiceBrowserWillSearch(_ browser: NetServiceBrowser) {
+    // A search that comes up — including a Refresh restart — retires any
+    // stale "couldn't search" advisory.
+    AdvertisingDiagnostics.shared.serviceSearchStarted()
+  }
+
   func netServiceBrowser(
     _ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]
   ) {

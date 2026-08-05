@@ -46,6 +46,8 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   func stopPublishing() {
     listener?.cancel()
+    // nil so a pending relisten (see the `.failed` case) can't resurrect it.
+    listener = nil
     netService?.stop()
     netService = nil
   }
@@ -107,9 +109,22 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
       }
     case .failed(let error):
       print("Listener error: \(error)")
-      // A busy fixed port fails here at start(), not as an init throw.
-      if usingFixedPort, boundPort == nil {
-        listener?.cancel()
+      listener?.cancel()
+      if boundPort != nil {
+        // Died after ready. Clear the port so INTRODUCE stops asserting a
+        // dead endpoint, then relisten — unless something else replaced this
+        // listener while the delay ran.
+        boundPort = nil
+        // Bind non-optionally: with a nil `listener` (a stopPublishing race)
+        // the identity check would pass vacuously and resurrect it.
+        if let failed = listener {
+          queue.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self = self, self.listener === failed else { return }
+            self.setupListener()
+          }
+        }
+      } else if usingFixedPort {
+        // A busy fixed port fails here at start(), not as an init throw.
         startListener(on: nil)
       }
     case .cancelled:
@@ -154,6 +169,8 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   /// Publishes the service with the specified port
   private func publishService(port: Int) {
+    // A relisten republish must withdraw the previous registration first.
+    netService?.stop()
     let service = NetService(
       domain: serviceDomain,
       type: serviceType,

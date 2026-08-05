@@ -10,7 +10,11 @@ import dnssd
 final class AdvertisingDiagnostics: ObservableObject {
   static let shared = AdvertisingDiagnostics()
 
-  @Published private(set) var warning: String?
+  /// Publish health ("your other Mac can't see this one") and search health
+  /// ("this Mac can't see others") fail independently — separate slots so
+  /// the self-check's verdict can't wipe a search advisory, or vice versa.
+  @Published private(set) var publishWarning: String?
+  @Published private(set) var searchWarning: String?
 
   private static let settleTime: TimeInterval = 10
   private let queue = DispatchQueue(label: "com.magicswitch.diagnostics")
@@ -28,11 +32,15 @@ final class AdvertisingDiagnostics: ObservableObject {
   }
 
   func servicePublishFailed() {
-    report(Self.notAdvertisingMessage())
+    reportPublish(Self.notAdvertisingMessage())
+  }
+
+  func serviceSearchStarted() {
+    reportSearch(nil)
   }
 
   func serviceSearchFailed() {
-    report(
+    reportSearch(
       "This Mac couldn't search the network for other Macs. Use Add by Address if your other Mac doesn't appear."
     )
   }
@@ -72,7 +80,7 @@ final class AdvertisingDiagnostics: ObservableObject {
   private func finishSelfCheck(generation: Int) {
     guard generation == checkGeneration else { return }
     stopBrowse()
-    report(seenOnWire ? nil : Self.notAdvertisingMessage())
+    reportPublish(seenOnWire ? nil : Self.notAdvertisingMessage())
   }
 
   private func stopBrowse() {
@@ -82,8 +90,12 @@ final class AdvertisingDiagnostics: ObservableObject {
     }
   }
 
-  private func report(_ message: String?) {
-    DispatchQueue.main.async { self.warning = message }
+  private func reportPublish(_ message: String?) {
+    DispatchQueue.main.async { self.publishWarning = message }
+  }
+
+  private func reportSearch(_ message: String?) {
+    DispatchQueue.main.async { self.searchWarning = message }
   }
 
   private static func notAdvertisingMessage() -> String {
