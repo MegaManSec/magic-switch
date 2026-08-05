@@ -49,6 +49,8 @@ Tick the Magic devices you want Magic Switch to hand back and forth. Each row's 
 
 Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — one side is enough, the other Mac then lists this one automatically. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+
 <p align="center">
   <img src="docs/assets/device-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
   <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
@@ -124,7 +126,7 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
-- Same network; not blocked by firewall.
+- Same network; TCP port 41952 not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Macs tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
 - **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Pairing and Macs tabs also show their errors inline, so actions taken *there* still report failures either way.)
@@ -152,7 +154,7 @@ This sets `core.hooksPath` to the in-repo `.hooks/` directory, so be aware you'r
 
 ## Architecture
 
-Two Macs discover each other over Bonjour, then exchange short commands over a sealed TCP channel keyed by the shared pairing code.
+Two Macs discover each other over Bonjour, then exchange short commands over a sealed TCP channel keyed by the shared pairing code. Where Bonjour can't carry advertisements, the channel doubles as discovery: every reachability probe is an INTRODUCE exchange that refreshes both sides' endpoints over the authenticated connection, and a Mac can be bootstrapped by IP address from the Macs tab.
 
 ```
                   Bonjour discovery (_magicswitch._tcp. in local.)

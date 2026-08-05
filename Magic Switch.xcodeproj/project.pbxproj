@@ -17,6 +17,7 @@
 		076AB21F2CE9D690004D45F0 /* ServicePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */; };
 		0A00003000000000000000B7 /* SleepMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00003000000000000000A7 /* SleepMonitor.swift */; };
 		0A00007000000000000000BC /* PeripheralBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00007000000000000000AC /* PeripheralBattery.swift */; };
+		0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00008000000000000000AD /* AdvertisingDiagnostics.swift */; };
 		0A00004000000000000000B8 /* DisplayMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00004000000000000000A8 /* DisplayMonitor.swift */; };
 		0A00001000000000000000B1 /* SecureChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A1 /* SecureChannel.swift */; };
 		0A00001000000000000000B2 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A2 /* PairingStore.swift */; };
@@ -52,6 +53,7 @@
 		076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicePublisher.swift; sourceTree = "<group>"; };
 		0A00003000000000000000A7 /* SleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepMonitor.swift; sourceTree = "<group>"; };
 		0A00007000000000000000AC /* PeripheralBattery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeripheralBattery.swift; sourceTree = "<group>"; };
+		0A00008000000000000000AD /* AdvertisingDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDiagnostics.swift; sourceTree = "<group>"; };
 		0A00004000000000000000A8 /* DisplayMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayMonitor.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A1 /* SecureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureChannel.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A2 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 				0A00003000000000000000A7 /* SleepMonitor.swift */,
 				0A00004000000000000000A8 /* DisplayMonitor.swift */,
 				0A00007000000000000000AC /* PeripheralBattery.swift */,
+				0A00008000000000000000AD /* AdvertisingDiagnostics.swift */,
 				0A00001000000000000000A1 /* SecureChannel.swift */,
 				0A00001000000000000000A2 /* PairingStore.swift */,
 				0A00001000000000000000A3 /* IncomingConnection.swift */,
@@ -304,6 +307,7 @@
 				076AB2182CE9D690004D45F0 /* Magic_SwitchApp.swift in Sources */,
 				076AB2192CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift in Sources */,
 				0A00007000000000000000BC /* PeripheralBattery.swift in Sources */,
+				0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */,
 				076AB21A2CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift in Sources */,
 				076AB21B2CE9D690004D45F0 /* BluetoothManager.swift in Sources */,
 				076AB21D2CE9D690004D45F0 /* NotificationManager.swift in Sources */,

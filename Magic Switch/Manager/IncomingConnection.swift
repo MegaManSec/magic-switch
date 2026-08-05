@@ -55,6 +55,8 @@ final class IncomingConnection {
   private let rateLimiter: RateLimiter
   private let pairingStore: PairingStore
   private let queue: DispatchQueue
+  /// This Mac's identity for INTRODUCE replies. Called on `queue`.
+  private let localIdentity: () -> IntroducedIdentity?
   private let bluetoothStore = BluetoothPeripheralStore.shared
 
   // MARK: - State
@@ -66,6 +68,8 @@ final class IncomingConnection {
   private var selfRef: IncomingConnection?
   private var authenticated = false
   private var finished = false
+  /// Fingerprint of the accept-time PSK snapshot the handshake proved.
+  private var provedFingerprint: String?
 
   // MARK: - Init
 
@@ -74,13 +78,15 @@ final class IncomingConnection {
     endpoint: NWEndpoint?,
     rateLimiter: RateLimiter,
     pairingStore: PairingStore,
-    queue: DispatchQueue
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
   ) {
     self.connection = connection
     self.endpoint = endpoint
     self.rateLimiter = rateLimiter
     self.pairingStore = pairingStore
     self.queue = queue
+    self.localIdentity = localIdentity
   }
 
   // MARK: - Lifecycle
@@ -135,6 +141,7 @@ final class IncomingConnection {
         // accept-time PSK snapshot, not the live key, so a re-pair racing
         // this hop can't count a stale proof against the new key.
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
+        self.provedFingerprint = provedFingerprint
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
@@ -202,7 +209,8 @@ final class IncomingConnection {
   private func handleCommand(_ command: DeviceCommand) {
     lastReceivedCommand = command
     switch command {
-    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased:
+    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased,
+      .introduce:
       // Two-frame commands; data frame handled in `handleCommandData`.
       break
     case .connectAll:
@@ -387,6 +395,26 @@ final class IncomingConnection {
       // Acked on receipt: the goal ("you now own these") is recorded even if a
       // given peripheral isn't registered here or needs a retry to connect.
       sendString(DeviceCommand.operationSuccess.rawValue)
+    case .introduce:
+      guard let identity = IntroducedIdentity(payload: message) else {
+        print("introduce: malformed identity payload")
+        sendString(DeviceCommand.operationFailed.rawValue)
+        break
+      }
+      // Reply on this queue (sealed sends stay serialized here), then hand
+      // the peer's identity — with its source IP — off to the store.
+      if let local = localIdentity() {
+        sendString(local.encoded)
+      } else {
+        sendString(DeviceCommand.operationFailed.rawValue)
+      }
+      if let host = Self.remoteHost(from: endpoint), let proved = provedFingerprint {
+        DispatchQueue.main.async {
+          NetworkDeviceStore.shared.ingestIntroducedPeer(
+            name: identity.name, host: host, port: Int(identity.port),
+            provedFingerprint: proved)
+        }
+      }
     default:
       break
     }
@@ -399,6 +427,28 @@ final class IncomingConnection {
   private static func isValidMACAddress(_ value: String) -> Bool {
     let pattern = "^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$"
     return value.range(of: pattern, options: .regularExpression) != nil
+  }
+
+  /// Source address of this connection, suitable for dialing back — unlike
+  /// `RateLimiter`'s bucketing it keeps IPv6 zone ids (a stripped link-local
+  /// address isn't routable) but still collapses IPv4-mapped IPv6.
+  private static func remoteHost(from endpoint: NWEndpoint?) -> String? {
+    guard case .hostPort(let host, _) = endpoint else { return nil }
+    switch host {
+    case .ipv4(let addr):
+      return addr.debugDescription
+    case .ipv6(let addr):
+      let raw = addr.debugDescription
+      if raw.lowercased().hasPrefix("::ffff:") {
+        let v4 = String(raw.dropFirst("::ffff:".count))
+        if v4.split(separator: ".").count == 4 { return v4 }
+      }
+      return raw
+    case .name(let name, _):
+      return name
+    @unknown default:
+      return nil
+    }
   }
 
   // MARK: - Sending

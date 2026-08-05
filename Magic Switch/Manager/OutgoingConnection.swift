@@ -126,6 +126,9 @@ final class OutgoingConnection {
   private var finished = false
   private var connectTimer: DispatchSourceTimer?
   private var bodyTimer: DispatchSourceTimer?
+  /// Fingerprint of the PSK snapshot the completed handshake proved.
+  /// Written and read on `queue`.
+  private(set) var provedFingerprint: String?
 
   // MARK: - Init
 
@@ -209,6 +212,7 @@ final class OutgoingConnection {
             // back. Fingerprint the PSK snapshot this channel actually ran
             // with (see `resolvePendingFingerprint`).
             let provedFingerprint = PairingStore.fingerprint(forKey: psk)
+            self.provedFingerprint = provedFingerprint
             DispatchQueue.main.async {
               NetworkDeviceStore.shared.resolvePendingFingerprint(
                 provedByHandshake: provedFingerprint)

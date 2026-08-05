@@ -17,6 +17,10 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   private let serviceType = "_magicswitch._tcp."
   private let serviceDomain = "local."
+  /// Fixed rather than ephemeral so endpoints learned outside Bonjour
+  /// survive a relaunch. Unassigned, below the ephemeral range; falls back
+  /// to ephemeral if taken (INTRODUCE propagates the actual bound port).
+  static let defaultPort: UInt16 = 41952
 
   // MARK: - Dependencies
 
@@ -29,6 +33,10 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
   private var netService: NetService?
   private let queue = DispatchQueue(label: "com.magicswitch.service.publisher")
   private var fingerprintObserver: AnyCancellable?
+  private var usingFixedPort = false
+  /// Queue-confined, like `advertisedName`.
+  private var boundPort: UInt16?
+  private var advertisedName: String?
 
   // MARK: - NetworkNetworkServicePublishable Implementation
 
@@ -46,11 +54,28 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   /// Sets up the network listener with appropriate configuration and handlers
   private func setupListener() {
+    startListener(on: Self.defaultPort)
+  }
+
+  /// Starts a listener on `port`, or an ephemeral one when nil.
+  private func startListener(on port: UInt16?) {
+    usingFixedPort = port != nil
+    let parameters = NWParameters.tcp
+    // Without reuse, TIME_WAIT from a previous run blocks the re-bind.
+    parameters.allowLocalEndpointReuse = true
     do {
-      listener = try NWListener(using: .tcp)
+      if let port = port {
+        listener = try NWListener(using: parameters, on: NWEndpoint.Port(integerLiteral: port))
+      } else {
+        listener = try NWListener(using: parameters)
+      }
       configureListener()
     } catch {
-      handleListenerError(error)
+      if port != nil {
+        startListener(on: nil)
+      } else {
+        handleListenerError(error)
+      }
     }
   }
 
@@ -75,10 +100,18 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
     case .ready:
       if let port = listener?.port?.rawValue {
         print("Listener ready: Port \(port)")
-        publishService(port: Int(port))
+        boundPort = port
+        // NetService needs a run loop for its delegate callbacks; this
+        // handler's dispatch queue has none.
+        DispatchQueue.main.async { self.publishService(port: Int(port)) }
       }
     case .failed(let error):
       print("Listener error: \(error)")
+      // A busy fixed port fails here at start(), not as an init throw.
+      if usingFixedPort, boundPort == nil {
+        listener?.cancel()
+        startListener(on: nil)
+      }
     case .cancelled:
       print("Listener was cancelled")
     default:
@@ -93,9 +126,25 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
       endpoint: connection.endpoint,
       rateLimiter: rateLimiter,
       pairingStore: pairingStore,
-      queue: queue
+      queue: queue,
+      // Already on `queue`; `currentIdentity()`'s sync hop would deadlock.
+      localIdentity: { [weak self] in self?.identityOnQueue() }
     )
     handler.start()
+  }
+
+  /// This Mac's INTRODUCE identity. Thread-safe; nil until the listener is
+  /// ready.
+  func currentIdentity() -> IntroducedIdentity? {
+    queue.sync { identityOnQueue() }
+  }
+
+  private func identityOnQueue() -> IntroducedIdentity? {
+    guard let port = boundPort else { return nil }
+    return IntroducedIdentity(
+      name: advertisedName ?? Host.current().localizedName ?? "Unknown",
+      port: port
+    )
   }
 
   /// Handles errors that occur during listener setup
@@ -144,9 +193,14 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 extension ServicePublisher: NetServiceDelegate {
   func netServiceDidPublish(_ sender: NetService) {
     print("Service published successfully: \(sender.name)")
+    // mDNS renames on collision; INTRODUCE identities must match the air.
+    let name = sender.name
+    queue.async { self.advertisedName = name }
+    AdvertisingDiagnostics.shared.servicePublished(name: name)
   }
 
   func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
     print("Failed to publish service: \(errorDict)")
+    AdvertisingDiagnostics.shared.servicePublishFailed()
   }
 }

@@ -58,6 +58,13 @@ extension ServiceBrowser: NetServiceBrowserDelegate {
   }
 
   func netServiceBrowser(
+    _ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]
+  ) {
+    print("Failed to search for services: \(errorDict)")
+    AdvertisingDiagnostics.shared.serviceSearchFailed()
+  }
+
+  func netServiceBrowser(
     _ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool
   ) {
     print("Service removed: \(service.name)")
