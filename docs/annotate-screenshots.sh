@@ -124,7 +124,7 @@ annotate other-tab "#282828" 320 88 1480 47 \
 2 1053 388 1083 388
 3 1053 464 1083 464
 4 1030 640 1062 640
-5 1050 1008 1080 1008
+5 270 993 218 993
 6 160 1415 160 1382" \
 "1|Launch at Login — start Magic Switch when you log in
 2|Release peripherals to the other Mac when this Mac sleeps
@@ -134,7 +134,7 @@ annotate other-tab "#282828" 320 88 1480 47 \
 6|Check for Updates — check now (status shows on the right)"
 
 # ---- Menu (translucent material background, smaller legend) ----
-annotate menu "#2D2D30" 150 24 405 36 \
+annotate menu "#25272A" 150 24 405 36 \
 "1 462 72 400 72
 2 330 172 288 172" \
 "1|Click a Mac — move all peripherals there
