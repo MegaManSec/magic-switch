@@ -845,6 +845,13 @@ enum ManualAddError: Error {
         "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
     case .anotherMacRegistered(let name):
       return "Only one Mac can be connected at a time. Remove \(name) first."
+    case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
+      .outgoing(.handshakeFailed(.handshakeTimeout)),
+      .outgoing(.handshakeFailed(.connectionClosed)):
+      // An unpaired peer refuses the connection before the handshake, so it
+      // is indistinguishable here from a firewall drop or a dead host.
+      return
+        "Couldn't reach that Mac securely. Check that Magic Switch is running and paired on it, and that port 41952 isn't blocked between the two Macs."
     case .outgoing(let failure):
       return failure.userMessage
     }
