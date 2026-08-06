@@ -29,7 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// wakes never post `didWake`, so this stays set across overnight
   /// maintenance wakes.
   private var isSystemSleeping = false
+  /// Radio state captured at `willSleep`, gating the wake recheck.
+  private var bluetoothWasOnBeforeSleep = false
   private var wakeBluetoothRecheck: DispatchWorkItem?
+  private static let bluetoothOffNotificationID = "bluetooth-off"
   /// How long after a real wake to wait before deciding Bluetooth is
   /// genuinely off — the radio takes a moment to power back up.
   private static let bluetoothWakeGrace: TimeInterval = 3
@@ -237,7 +240,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         title: "Bluetooth Unsupported",
         body: "This Mac does not support the Bluetooth features Magic Switch needs."
       )
-    case .poweredOn, .resetting, .unknown:
+    case .poweredOn:
+      // The radio is back; retire a delivered "Bluetooth Off" alert.
+      NotificationManager.removeNotification(identifier: Self.bluetoothOffNotificationID)
+    case .resetting, .unknown:
       break
     @unknown default:
       break
@@ -250,15 +256,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     sleepObserver = center.addObserver(
       forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.isSystemSleeping = true
-      self?.wakeBluetoothRecheck?.cancel()
-      self?.wakeBluetoothRecheck = nil
+      guard let self else { return }
+      self.isSystemSleeping = true
+      self.bluetoothWasOnBeforeSleep = BluetoothManager.shared.state == .poweredOn
+      self.wakeBluetoothRecheck?.cancel()
+      self.wakeBluetoothRecheck = nil
     }
     wakeObserver = center.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      self?.isSystemSleeping = false
-      self?.scheduleWakeBluetoothRecheck()
+      guard let self else { return }
+      self.isSystemSleeping = false
+      // Only when sleep began with the radio on: the recheck exists for a
+      // radio that fails to come back, not to re-nag on every wake a user
+      // who keeps Bluetooth off.
+      if self.bluetoothWasOnBeforeSleep {
+        self.scheduleWakeBluetoothRecheck()
+      }
     }
   }
 
@@ -266,6 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// `.poweredOff` during sleep, so no new transition fires and
   /// `handleBluetoothStateChange` stays quiet. Re-check once instead.
   private func scheduleWakeBluetoothRecheck() {
+    wakeBluetoothRecheck?.cancel()
     let work = DispatchWorkItem { [weak self] in
       guard let self, !self.isSystemSleeping else { return }
       self.wakeBluetoothRecheck = nil
@@ -282,7 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     NotificationManager.showNotification(
       title: "Bluetooth Off",
       body: "Magic Switch can't switch peripherals while Bluetooth is off.",
-      identifier: "bluetooth-off"
+      identifier: bluetoothOffNotificationID
     )
   }
 
