@@ -143,8 +143,7 @@ final class IncomingConnection {
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
         self.provedFingerprint = provedFingerprint
         // The peer dialed this address, which proves it dialable.
-        DialbackAddresses.shared.noteProven(
-          endpoint: self.connection.currentPath?.localEndpoint)
+        DialbackAddresses.shared.noteProven(path: self.connection.currentPath)
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)

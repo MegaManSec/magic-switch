@@ -41,15 +41,25 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
   // MARK: - NetworkNetworkServicePublishable Implementation
 
   func startPublishing() {
-    setupListener()
+    // On `queue`: the listener state machine owns `listener`/`boundPort`/
+    // `advertisedName` there, so start, stop, and the relisten never race.
+    queue.async { self.setupListener() }
   }
 
   func stopPublishing() {
-    listener?.cancel()
-    // nil so a pending relisten (see the `.failed` case) can't resurrect it.
-    listener = nil
-    netService?.stop()
-    netService = nil
+    queue.async {
+      self.listener?.cancel()
+      // nil so a pending relisten (see the `.failed` case) can't resurrect
+      // it — serialized here, so the relisten guard can't race this check.
+      self.listener = nil
+      self.boundPort = nil
+      self.advertisedName = nil
+    }
+    DispatchQueue.main.async {
+      self.fingerprintObserver = nil
+      self.netService?.stop()
+      self.netService = nil
+    }
   }
 
   // MARK: - Private Setup Methods
@@ -115,6 +125,14 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
         // dead endpoint, then relisten — unless something else replaced this
         // listener while the delay ran.
         boundPort = nil
+        // Withdraw the advertisement too. Enqueued to main from this serial
+        // queue, so it always lands *after* any still-pending publish hop
+        // from `.ready` — a dead-port ad can't outlive this failure even if
+        // the relisten never succeeds.
+        DispatchQueue.main.async {
+          self.netService?.stop()
+          self.netService = nil
+        }
         // Bind non-optionally: with a nil `listener` (a stopPublishing race)
         // the identity check would pass vacuously and resurrect it.
         if let failed = listener {

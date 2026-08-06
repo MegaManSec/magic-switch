@@ -49,7 +49,7 @@ Tick the Magic devices you want Magic Switch to hand back and forth. Each row's 
 
 Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
-If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — one side is enough, the other Mac then lists this one automatically. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
 
 <p align="center">
   <img src="docs/assets/device-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>

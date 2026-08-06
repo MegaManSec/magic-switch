@@ -89,13 +89,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// pings. Main-only. See `migrateRenamedPeerIfNeeded`.
   private var pendingMigrationProofs: Set<String> = []
 
-  /// Ids whose discovered entry is kept alive only by INTRODUCE exchanges.
-  /// They never get a Bonjour goodbye, so `pollReachability` expires
-  /// unrefreshed ones — else a stale entry blocks `renameCandidateID`
-  /// forever. A Bonjour resolve clears the flag: that entry is back under
-  /// goodbye semantics, and resolves fire once per `didFind`, so the TTL
-  /// would otherwise grey a peer that's still on the air. Main-only.
-  private var introducedIDs: Set<String> = []
+  /// TTL for discovered entries with no live Bonjour presence (INTRODUCE-
+  /// sourced ones): they never get a Bonjour goodbye, so unrefreshed ones
+  /// must expire — else a stale entry blocks `renameCandidateID` forever.
+  /// Entries the browser still sees on the air are exempt; a Bonjour
+  /// resolve fires once per `didFind`, so a quiet-but-advertising peer
+  /// would otherwise decay.
   private static let introducedDeviceTTL: TimeInterval = 2.5 * reachabilityInterval
 
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
@@ -230,8 +229,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       fingerprint: provedFingerprint
     )
     addDiscoveredNetworkDevice(device)
-    // After the add, which treats every update as Bonjour-sourced.
-    introducedIDs.insert(name)
     updateNetworkDevice(device)
     // After the update: if it just parked this record pending exactly the
     // proved key, the proof supersedes the warning in the same tick (the
@@ -467,9 +464,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// Adds a newly discovered network device
   func addDiscoveredNetworkDevice(_ device: NetworkDevice) {
-    // All callers but `ingestIntroducedPeer` (which re-flags after) are
-    // Bonjour resolves — the entry is back under goodbye semantics.
-    introducedIDs.remove(device.id)
     if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == device.id }) {
       discoveredNetworkDevices[index].update(with: device)
     } else {
@@ -582,14 +576,16 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
   }
 
-  /// Introduced entries get no Bonjour goodbye; expire the ones no exchange
-  /// has refreshed so they don't read as "still on the air" forever.
+  /// Entries with no live Bonjour presence get no goodbye; expire the ones
+  /// no exchange has refreshed so they don't read as "still on the air"
+  /// forever. The browser's view is the exemption ground truth — an entry
+  /// it still sees advertised dies by goodbye, not by TTL.
   private func expireStaleIntroducedDevices() {
     let cutoff = Date().addingTimeInterval(-Self.introducedDeviceTTL)
     for index in discoveredNetworkDevices.indices
-    where introducedIDs.contains(discoveredNetworkDevices[index].id)
-      && discoveredNetworkDevices[index].isActive
+    where discoveredNetworkDevices[index].isActive
       && discoveredNetworkDevices[index].lastUpdated < cutoff
+      && !serviceBrowser.isCurrentlyBrowsed(discoveredNetworkDevices[index].id)
     {
       discoveredNetworkDevices[index].isActive = false
     }
@@ -644,8 +640,40 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
             // long-dark peer doesn't re-arm the watcher every poll forever;
             // a recovery resets the streak and re-arms it for the next one.
             BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
+            if device.port != Int(ServicePublisher.defaultPort) {
+              self.probeDefaultPortFallback(of: device)
+            }
           }
         }
+      }
+    }
+  }
+
+  /// A peer that fell back to an ephemeral port (its fixed port was taken
+  /// at launch) binds 41952 again after a relaunch — and with Bonjour
+  /// blocked, nothing else ever re-learns the move, stranding the
+  /// registered record on the dead ephemeral port. Once per confirmed
+  /// outage, try the fixed port; a success re-ingests the fresh endpoint
+  /// through the normal pipeline.
+  private func probeDefaultPortFallback(of device: NetworkDevice) {
+    let candidate = NetworkDevice(
+      id: device.id,
+      name: device.name,
+      host: device.host,
+      port: Int(ServicePublisher.defaultPort),
+      isActive: true,
+      fingerprint: device.fingerprint
+    )
+    executeIntroduce(on: candidate, countsTowardRateLimit: false) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self = self,
+          case .success(.peer(let identity, let proved)) = result
+        else { return }
+        self.ingestIntroducedPeer(
+          name: identity.name, host: device.host, port: Int(identity.port),
+          provedFingerprint: proved)
+        self.deviceReachability[device.id] = true
+        self.consecutivePollFailures[device.id] = 0
       }
     }
   }
@@ -1224,16 +1252,23 @@ extension NetworkDeviceStore {
             // outlives this completion. The list self-corrects moments after
             // this error shows.
             completion(.failure(.anotherMacRegistered(other.name)))
-          } else if let discovered = self.discoveredNetworkDevices.first(
-            where: { $0.id == identity.name })
-          {
-            self.registerNetworkDevice(device: discovered)
+          } else {
+            // Register from the exchange itself, not the merged discovered
+            // entry — a parked entry from an earlier pairing would smuggle
+            // in its stale host while this very connection just proved the
+            // typed one.
+            let proven = NetworkDevice(
+              id: identity.name,
+              name: identity.name,
+              host: host,
+              port: Int(identity.port),
+              isActive: true,
+              fingerprint: proved
+            )
+            self.registerNetworkDevice(device: proven)
             self.deviceReachability[identity.name] = true
             self.consecutivePollFailures[identity.name] = 0
-            self.resolvePendingFingerprint(provedByHandshake: proved)
-            completion(.success(discovered))
-          } else {
-            completion(.failure(.outgoing(.bodyFailed)))
+            completion(.success(proven))
           }
         }
       }

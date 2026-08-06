@@ -26,13 +26,17 @@ final class DialbackAddresses: ObservableObject {
     monitor.start(queue: DispatchQueue(label: "com.magicswitch.dialback"))
   }
 
-  /// Record the local endpoint of a connection whose handshake completed.
-  /// Loopback and link-local are refused: a self-dial's handshake succeeds
-  /// against our own listener, and a link-local address is only routable
-  /// with the *dialer's* zone id, which we can't know.
-  func noteProven(endpoint: NWEndpoint?) {
-    guard let host = Self.hostString(from: endpoint), Self.isDialable(host) else { return }
+  /// Record the local endpoint of a connection whose handshake completed —
+  /// unless the *remote* end is this Mac itself: a self-dial handshakes
+  /// fine (same key, both roles) but proves nothing about how a peer
+  /// reaches us. Loopback and link-local are refused for the same reason a
+  /// link-local address is undialable without the dialer's own zone id.
+  func noteProven(path: NWPath?) {
+    guard let host = Self.hostString(from: path?.localEndpoint), Self.isDialable(host),
+      let remote = Self.hostString(from: path?.remoteEndpoint)
+    else { return }
     DispatchQueue.main.async {
+      guard !Self.interfaceAddresses().contains(where: { $0.host == remote }) else { return }
       if self.provenHost != host { self.provenHost = host }
     }
   }
@@ -65,7 +69,7 @@ final class DialbackAddresses: ObservableObject {
       return Self.entry(address.host, label)
     }
     if entries.isEmpty {
-      entries = addresses.filter { $0.isIPv4 }.map { Self.entry($0.host, nil) }
+      entries = addresses.filter { $0.isIPv4 && !$0.pointToPoint }.map { Self.entry($0.host, nil) }
     }
     guard !entries.isEmpty else { return nil }
     return (entries.prefix(2).joined(separator: " or "), proven: false)
@@ -111,11 +115,15 @@ final class DialbackAddresses: ObservableObject {
       && !lower.hasPrefix("169.254.")
   }
 
-  /// Addresses of the up, non-loopback, non-point-to-point interfaces —
-  /// the point-to-point flag is what keeps VPN tunnels out, whose
-  /// addresses the peer usually can't reach.
-  private static func interfaceAddresses() -> [(interface: String, host: String, isIPv4: Bool)] {
-    var result: [(interface: String, host: String, isIPv4: Bool)] = []
+  /// Addresses of the up, non-loopback interfaces. Point-to-point ones
+  /// (VPN tunnels) are included and flagged: the guess tier excludes them
+  /// (the peer usually can't reach a tunnel address it isn't inside), but
+  /// a *proven* tunnel address — the only route on overlay-network setups —
+  /// must still validate against them.
+  private static func interfaceAddresses()
+    -> [(interface: String, host: String, isIPv4: Bool, pointToPoint: Bool)]
+  {
+    var result: [(interface: String, host: String, isIPv4: Bool, pointToPoint: Bool)] = []
     var ifaddrPtr: UnsafeMutablePointer<ifaddrs>?
     guard getifaddrs(&ifaddrPtr) == 0 else { return result }
     defer { freeifaddrs(ifaddrPtr) }
@@ -123,7 +131,7 @@ final class DialbackAddresses: ObservableObject {
     while let current = cursor {
       defer { cursor = current.pointee.ifa_next }
       let flags = Int32(bitPattern: current.pointee.ifa_flags)
-      guard flags & IFF_UP != 0, flags & (IFF_LOOPBACK | IFF_POINTOPOINT) == 0,
+      guard flags & IFF_UP != 0, flags & IFF_LOOPBACK == 0,
         let sa = current.pointee.ifa_addr
       else { continue }
       let family = sa.pointee.sa_family
@@ -140,7 +148,8 @@ final class DialbackAddresses: ObservableObject {
         (
           interface: String(cString: current.pointee.ifa_name),
           host: host,
-          isIPv4: family == sa_family_t(AF_INET)
+          isIPv4: family == sa_family_t(AF_INET),
+          pointToPoint: flags & IFF_POINTOPOINT != 0
         ))
     }
     return result

@@ -32,6 +32,12 @@ final class AdvertisingDiagnostics: ObservableObject {
   }
 
   func servicePublishFailed() {
+    // Kill any in-flight self-check: its settle timer would otherwise read
+    // pre-failure browse results and clear the warning posted here.
+    queue.async {
+      self.checkGeneration += 1
+      self.stopBrowse()
+    }
     reportPublish(Self.notAdvertisingMessage())
   }
 

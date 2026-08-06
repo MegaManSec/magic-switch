@@ -43,6 +43,12 @@ final class ServiceBrowser: NSObject, ServiceBrowsing {
     stopBrowsing()
     startBrowsing()
   }
+
+  /// Whether the browser currently sees `name` on the air (found and no
+  /// goodbye yet). Main-only, like the delegate callbacks maintaining it.
+  func isCurrentlyBrowsed(_ name: String) -> Bool {
+    services.contains { $0.name == name }
+  }
 }
 
 // MARK: - NetServiceBrowserDelegate
