@@ -851,7 +851,7 @@ enum ManualAddError: Error {
       // An unpaired peer refuses the connection before the handshake, so it
       // is indistinguishable here from a firewall drop or a dead host.
       return
-        "Couldn't reach that Mac securely. Check that Magic Switch is running and paired on it, and that port 41952 isn't blocked between the two Macs."
+        "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code, and that no firewall is blocking the port."
     case .outgoing(let failure):
       return failure.userMessage
     }
