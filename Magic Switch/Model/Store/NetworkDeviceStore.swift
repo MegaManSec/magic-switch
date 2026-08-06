@@ -574,6 +574,41 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     where device.pendingFingerprint == nil || device.pendingFingerprint == currentFingerprint {
       probeReachability(of: device)
     }
+    introduceToDiscoveredPeers()
+  }
+
+  /// The one-sided self-heal: polling is driven by *registered* records, so
+  /// a Mac whose user never registered its peer dials nothing — and an IP
+  /// change on this side then never reaches the peer's registered record
+  /// (without Bonjour it points at the old address forever). When nothing is
+  /// registered here, keep the exchange alive from this side by introducing
+  /// to discovered peers that have proved the current pairing key; the
+  /// receiver's source-IP ingest does the healing. Registered setups skip
+  /// this — their poll already exchanges both ways. Same fingerprint gate as
+  /// `migrateRenamedPeerIfNeeded`: an impostor echoing our `fp` over
+  /// cleartext Bonjour earns only a failed handshake.
+  private func introduceToDiscoveredPeers() {
+    guard networkDevices.isEmpty,
+      let currentFingerprint = PairingStore.shared.fingerprint
+    else { return }
+    let localHosts = Self.localAddresses()
+    for device in discoveredNetworkDevices
+    where device.isActive
+      && device.fingerprint == currentFingerprint
+      && device.pendingFingerprint == nil
+      && !localHosts.contains(Self.normalizeHost(device.host))
+    {
+      executeIntroduce(on: device, countsTowardRateLimit: false) { [weak self] result in
+        DispatchQueue.main.async {
+          guard let self = self,
+            case .success(.peer(let identity, let proved)) = result
+          else { return }
+          self.ingestIntroducedPeer(
+            name: identity.name, host: device.host, port: Int(identity.port),
+            provedFingerprint: proved)
+        }
+      }
+    }
   }
 
   /// Entries with no live Bonjour presence get no goodbye; expire the ones
