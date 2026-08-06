@@ -91,7 +91,12 @@ struct NetworkDeviceManagementView: View {
           // advisory would need the *other* Mac's address, which is
           // unknowable here.
           if let warning = diagnostics.publishWarning {
-            advisory(warning + dialbackHint)
+            if let display = dialback.display(), let port = networkStore.localListeningPort {
+              advisory(warning + " Enter \(display.addresses), port \(String(port)) there.")
+                .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
+            } else {
+              advisory(warning)
+            }
           }
           if let warning = diagnostics.searchWarning {
             advisory(warning)
@@ -147,15 +152,6 @@ struct NetworkDeviceManagementView: View {
     }
   }
 
-  /// Concrete values for the publish advisory's "use Add by Address on the
-  /// other Mac" — with them in hand, the bootstrap needs no other screen.
-  private var dialbackHint: String {
-    guard let addresses = dialback.displayList(),
-      let port = networkStore.localListeningPort
-    else { return "" }
-    return " Enter \(addresses), port \(String(port)) there."
-  }
-
   private func advisory(_ text: String) -> some View {
     Label(text, systemImage: "info.circle")
       .font(.callout)
@@ -192,6 +188,10 @@ struct NetworkDeviceManagementView: View {
     static let refresh = "Re-scan the network for other Macs running Magic Switch."
     static let addByAddress =
       "Add your other Mac by IP address — for networks that block Bonjour discovery."
+    static let dialbackProven =
+      "Confirmed: the most recent secure connection between the two Macs used this address."
+    static let dialbackGuess =
+      "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network."
     static let trust =
       "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac."
     static let needsPairing = "Pair this Mac in the Pairing tab first."
@@ -394,11 +394,20 @@ private struct AddByAddressSheet: View {
         // The reverse-direction values, phrased as an instruction for the
         // other machine so nobody types this Mac's own address into the
         // fields above.
-        Text(
-          dialback.displayList().map {
-            "On your other Mac, add this Mac as \($0), port \(String(localPort))."
-          } ?? "This Mac accepts connections on port \(String(localPort))."
-        )
+        Group {
+          if let display = dialback.display() {
+            Text(
+              "On your other Mac, add this Mac as \(display.addresses), port \(String(localPort))."
+            )
+            .help(
+              display.proven
+                ? NetworkDeviceManagementView.Help.dialbackProven
+                : NetworkDeviceManagementView.Help.dialbackGuess
+            )
+          } else {
+            Text("This Mac accepts connections on port \(String(localPort)).")
+          }
+        }
         .font(.caption)
         .foregroundColor(.secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -419,9 +428,11 @@ private struct AddByAddressSheet: View {
         Spacer()
         Button("Cancel") { isPresented = false }
           .keyboardShortcut(.cancelAction)
+          .help("Close without adding.")
         Button("Add") { submit() }
           .keyboardShortcut(.defaultAction)
           .disabled(!canSubmit)
+          .help("Connect to this address and add the Mac that answers.")
       }
     }
     .padding(20)

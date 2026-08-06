@@ -38,11 +38,12 @@ final class DialbackAddresses: ObservableObject {
   }
 
   /// One line for UI captions — "192.168.1.23 (Wi-Fi)", possibly
-  /// "… or 10.0.0.5 (Ethernet)". The proven address wins outright while it
-  /// is still assigned to an interface; otherwise up to two labeled
-  /// candidates in the system's own preference order. nil when nothing
-  /// credible is known. Main-only.
-  func displayList() -> String? {
+  /// "… or 10.0.0.5 (Ethernet)" — plus whether a handshake proved it, so
+  /// the UI can qualify its confidence. The proven address wins outright
+  /// while it is still assigned to an interface; otherwise up to two
+  /// labeled candidates in the system's own preference order. nil when
+  /// nothing credible is known. Main-only.
+  func display() -> (addresses: String, proven: Bool)? {
     let addresses = Self.interfaceAddresses()
     let viable = currentPath?.availableInterfaces ?? []
     let labels = Dictionary(
@@ -51,7 +52,7 @@ final class DialbackAddresses: ObservableObject {
     if let proven = provenHost,
       let owner = addresses.first(where: { $0.host == proven })?.interface
     {
-      return Self.entry(proven, labels[owner])
+      return (Self.entry(proven, labels[owner]), proven: true)
     }
     // `availableInterfaces` repeats an interface (once per address family).
     var seenNames: Set<String> = []
@@ -67,7 +68,7 @@ final class DialbackAddresses: ObservableObject {
       entries = addresses.filter { $0.isIPv4 }.map { Self.entry($0.host, nil) }
     }
     guard !entries.isEmpty else { return nil }
-    return entries.prefix(2).joined(separator: " or ")
+    return (entries.prefix(2).joined(separator: " or "), proven: false)
   }
 
   /// Dialable host string of an endpoint — unlike `RateLimiter`'s bucketing
