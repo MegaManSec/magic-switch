@@ -55,6 +55,8 @@ final class IncomingConnection {
   private let rateLimiter: RateLimiter
   private let pairingStore: PairingStore
   private let queue: DispatchQueue
+  /// This Mac's identity for INTRODUCE replies. Called on `queue`.
+  private let localIdentity: () -> IntroducedIdentity?
   private let bluetoothStore = BluetoothPeripheralStore.shared
 
   // MARK: - State
@@ -66,6 +68,8 @@ final class IncomingConnection {
   private var selfRef: IncomingConnection?
   private var authenticated = false
   private var finished = false
+  /// Fingerprint of the accept-time PSK snapshot the handshake proved.
+  private var provedFingerprint: String?
 
   // MARK: - Init
 
@@ -74,13 +78,15 @@ final class IncomingConnection {
     endpoint: NWEndpoint?,
     rateLimiter: RateLimiter,
     pairingStore: PairingStore,
-    queue: DispatchQueue
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
   ) {
     self.connection = connection
     self.endpoint = endpoint
     self.rateLimiter = rateLimiter
     self.pairingStore = pairingStore
     self.queue = queue
+    self.localIdentity = localIdentity
   }
 
   // MARK: - Lifecycle
@@ -135,6 +141,9 @@ final class IncomingConnection {
         // accept-time PSK snapshot, not the live key, so a re-pair racing
         // this hop can't count a stale proof against the new key.
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
+        self.provedFingerprint = provedFingerprint
+        // The peer dialed this address, which proves it dialable.
+        DialbackAddresses.shared.noteProven(path: self.connection.currentPath)
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
@@ -202,7 +211,8 @@ final class IncomingConnection {
   private func handleCommand(_ command: DeviceCommand) {
     lastReceivedCommand = command
     switch command {
-    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased:
+    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased,
+      .introduce:
       // Two-frame commands; data frame handled in `handleCommandData`.
       break
     case .connectAll:
@@ -387,6 +397,26 @@ final class IncomingConnection {
       // Acked on receipt: the goal ("you now own these") is recorded even if a
       // given peripheral isn't registered here or needs a retry to connect.
       sendString(DeviceCommand.operationSuccess.rawValue)
+    case .introduce:
+      guard let identity = IntroducedIdentity(payload: message) else {
+        print("introduce: malformed identity payload")
+        sendString(DeviceCommand.operationFailed.rawValue)
+        break
+      }
+      // Reply on this queue (sealed sends stay serialized here), then hand
+      // the peer's identity — with its source IP — off to the store.
+      if let local = localIdentity() {
+        sendString(local.encoded)
+      } else {
+        sendString(DeviceCommand.operationFailed.rawValue)
+      }
+      if let host = DialbackAddresses.hostString(from: endpoint), let proved = provedFingerprint {
+        DispatchQueue.main.async {
+          NetworkDeviceStore.shared.ingestIntroducedPeer(
+            name: identity.name, host: host, port: Int(identity.port),
+            provedFingerprint: proved)
+        }
+      }
     default:
       break
     }

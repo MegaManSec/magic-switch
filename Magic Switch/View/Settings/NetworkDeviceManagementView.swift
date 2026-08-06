@@ -16,7 +16,7 @@ private enum Constants {
     static let noConnectedDevicesHint =
       "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them."
     static let noAvailableDevicesHint =
-      "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh."
+      "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
     static let connectionLimitMessage =
       "Only one Mac can be connected at a time. Remove the existing one first."
     static let notify = "Ping"
@@ -30,6 +30,8 @@ struct NetworkDeviceManagementView: View {
 
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
   @ObservedObject private var pairing = PairingStore.shared
+  @ObservedObject private var diagnostics = AdvertisingDiagnostics.shared
+  @ObservedObject private var dialback = DialbackAddresses.shared
 
   // MARK: - State
 
@@ -77,6 +79,28 @@ struct NetworkDeviceManagementView: View {
           )
           .font(.callout.bold())
           .foregroundColor(.accentColor)
+        }
+      }
+
+      if diagnostics.publishWarning != nil || diagnostics.searchWarning != nil {
+        Section {
+          // Advisory, not an error: INTRODUCE keeps an added Mac working
+          // without Bonjour, so secondary rather than warning colours.
+          // Only the publish advisory gets the dial-back values — it's the
+          // one telling the user to type them on the other Mac; the search
+          // advisory would need the *other* Mac's address, which is
+          // unknowable here.
+          if let warning = diagnostics.publishWarning {
+            if let display = dialback.display(), let port = networkStore.localListeningPort {
+              advisory(warning + " Enter \(display.addresses), port \(String(port)) there.")
+                .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
+            } else {
+              advisory(warning)
+            }
+          }
+          if let warning = diagnostics.searchWarning {
+            advisory(warning)
+          }
         }
       }
 
@@ -128,6 +152,13 @@ struct NetworkDeviceManagementView: View {
     }
   }
 
+  private func advisory(_ text: String) -> some View {
+    Label(text, systemImage: "info.circle")
+      .font(.callout)
+      .foregroundColor(.secondary)
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
   /// Show both fingerprints so the "verify this was intentional" step can
   /// actually be performed: the new one should match what the other Mac's
   /// Pairing tab shows after the re-pair. Fingerprints are short hex strings
@@ -155,6 +186,12 @@ struct NetworkDeviceManagementView: View {
     static let sync = "Send your peripheral list to this Mac so it knows about them."
     static let remove = "Remove this Mac from the registered list."
     static let refresh = "Re-scan the network for other Macs running Magic Switch."
+    static let addByAddress =
+      "Add your other Mac by IP address — for networks that block Bonjour discovery."
+    static let dialbackProven =
+      "Confirmed: the most recent secure connection between the two Macs used this address."
+    static let dialbackGuess =
+      "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network."
     static let trust =
       "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac."
     static let needsPairing = "Pair this Mac in the Pairing tab first."
@@ -264,11 +301,14 @@ private struct AvailableDevicesSectionView: View {
   // MARK: - Dependencies
 
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var pairing = PairingStore.shared
 
   // MARK: - Properties
 
   let devices: [NetworkDevice]
   let onDeviceRegister: (NetworkDevice) -> Void
+
+  @State private var showingAddByAddress = false
 
   var body: some View {
     Section {
@@ -292,12 +332,126 @@ private struct AvailableDevicesSectionView: View {
         Text(Constants.Strings.availableDevices)
           .font(.headline)
         Spacer()
+        Button(action: { showingAddByAddress = true }) {
+          Image(systemName: "plus")
+        }
+        .buttonStyle(.borderless)
+        .disabled(!pairing.isPaired)
+        .help(
+          pairing.isPaired
+            ? NetworkDeviceManagementView.Help.addByAddress
+            : NetworkDeviceManagementView.Help.needsPairing
+        )
+        .accessibilityLabel("Add a Mac by address")
+        .sheet(isPresented: $showingAddByAddress) {
+          AddByAddressSheet(isPresented: $showingAddByAddress)
+        }
         Button(action: { networkStore.refreshDiscovery() }) {
           Image(systemName: "arrow.clockwise")
         }
         .buttonStyle(.borderless)
         .help(NetworkDeviceManagementView.Help.refresh)
         .accessibilityLabel("Refresh available devices")
+      }
+    }
+  }
+}
+
+private struct AddByAddressSheet: View {
+  @Binding var isPresented: Bool
+  @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var dialback = DialbackAddresses.shared
+
+  @State private var host = ""
+  @State private var port = String(ServicePublisher.defaultPort)
+  @State private var inProgress = false
+  @State private var errorMessage: String?
+
+  private var canSubmit: Bool {
+    !host.trimmingCharacters(in: .whitespaces).isEmpty && (UInt16(port) ?? 0) > 0 && !inProgress
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Add a Mac by Address")
+        .font(.headline)
+      Text(
+        "For networks that block Bonjour. Pair both Macs with the same code first, then enter the other Mac's IP address."
+      )
+      .font(.callout)
+      .foregroundColor(.secondary)
+      .fixedSize(horizontal: false, vertical: true)
+
+      HStack {
+        TextField("IP address", text: $host)
+        TextField("Port", text: $port)
+          .frame(width: 64)
+      }
+      .textFieldStyle(RoundedBorderTextFieldStyle())
+      .disabled(inProgress)
+
+      if let localPort = networkStore.localListeningPort {
+        // The reverse-direction values, phrased as an instruction for the
+        // other machine so nobody types this Mac's own address into the
+        // fields above.
+        Group {
+          if let display = dialback.display() {
+            Text(
+              "On your other Mac, add this Mac as \(display.addresses), port \(String(localPort))."
+            )
+            .help(
+              display.proven
+                ? NetworkDeviceManagementView.Help.dialbackProven
+                : NetworkDeviceManagementView.Help.dialbackGuess
+            )
+          } else {
+            Text("This Mac accepts connections on port \(String(localPort)).")
+          }
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      }
+
+      if inProgress {
+        Text("Connecting…")
+          .font(.caption)
+          .foregroundColor(.secondary)
+      } else if let errorMessage = errorMessage {
+        Text(errorMessage)
+          .font(.caption)
+          .foregroundColor(.red)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+
+      HStack {
+        Spacer()
+        Button("Cancel") { isPresented = false }
+          .keyboardShortcut(.cancelAction)
+          .help("Close without adding.")
+        Button("Add") { submit() }
+          .keyboardShortcut(.defaultAction)
+          .disabled(!canSubmit)
+          .help("Connect to this address and add the Mac that answers.")
+      }
+    }
+    .padding(20)
+    .frame(width: 360)
+  }
+
+  private func submit() {
+    guard let portValue = UInt16(port), portValue > 0 else { return }
+    inProgress = true
+    errorMessage = nil
+    networkStore.addPeerManually(
+      host: host.trimmingCharacters(in: .whitespaces), port: portValue
+    ) { result in
+      inProgress = false
+      switch result {
+      case .success:
+        isPresented = false
+      case .failure(let error):
+        errorMessage = error.userMessage
       }
     }
   }

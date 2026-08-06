@@ -43,6 +43,12 @@ final class ServiceBrowser: NSObject, ServiceBrowsing {
     stopBrowsing()
     startBrowsing()
   }
+
+  /// Whether the browser currently sees `name` on the air (found and no
+  /// goodbye yet). Main-only, like the delegate callbacks maintaining it.
+  func isCurrentlyBrowsed(_ name: String) -> Bool {
+    services.contains { $0.name == name }
+  }
 }
 
 // MARK: - NetServiceBrowserDelegate
@@ -55,6 +61,19 @@ extension ServiceBrowser: NetServiceBrowserDelegate {
     services.append(service)
     service.delegate = self
     service.resolve(withTimeout: timeout)
+  }
+
+  func netServiceBrowserWillSearch(_ browser: NetServiceBrowser) {
+    // A search that comes up — including a Refresh restart — retires any
+    // stale "couldn't search" advisory.
+    AdvertisingDiagnostics.shared.serviceSearchStarted()
+  }
+
+  func netServiceBrowser(
+    _ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]
+  ) {
+    print("Failed to search for services: \(errorDict)")
+    AdvertisingDiagnostics.shared.serviceSearchFailed()
   }
 
   func netServiceBrowser(
