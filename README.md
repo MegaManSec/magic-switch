@@ -10,7 +10,7 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 <p align="center">
   <img src="docs/assets/menu.png" alt="The Magic Switch menu-bar dropdown" width="340"><br>
-  <em>It lives in the menu bar: click a Mac to move every peripheral to it, or a single peripheral to move just that one. A checkmark marks whatever's on this Mac right now.</em>
+  <em>It lives in the menu bar: click a Mac to move every peripheral to it, or a single peripheral to move just that one. A checkmark marks whatever's on this Mac right now, with its battery level.</em>
 </p>
 
 ## Installation
@@ -33,7 +33,7 @@ Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompte
 
 ### 2. Peripheral tab — choose what to manage
 
-Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic.
+Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic. Rows show a live battery level while the peripheral is connected to this Mac.
 
 <p align="center">
   <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab showing registered and available peripherals" width="600"><br>
@@ -52,8 +52,13 @@ Choose the other Mac under **Macs Found on the Network**. It shows up once it's 
 If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
 
 <p align="center">
-  <img src="docs/assets/device-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
+  <img src="docs/assets/macs-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
   <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/add-by-address.png" alt="The Add a Mac by Address sheet" width="600"><br>
+  <em>Add a Mac by Address (the <strong>+</strong> button) — the sheet shows this Mac's address and port to enter on the other one.</em>
 </p>
 
 ### 4. Pairing tab — link the two Macs (required)
@@ -85,8 +90,8 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 **Launch at Login**, recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
 
 <p align="center">
-  <img src="docs/assets/other-tab.png" alt="Other tab showing app preferences" width="600"><br>
-  <em>Other tab — Launch at Login, the sleep-release and auto-reconnect toggles, license info, version, and a manual update check.</em>
+  <img src="docs/assets/other-tab.png" alt="Other tab showing the peripheral-handling toggles, keyboard shortcuts, and display list" width="600"><br>
+  <em>Other tab — the sleep-release and auto-reconnect toggles, the keyboard shortcut recorders, and the display-connect list. Launch at Login sits above; version and update check below.</em>
 </p>
 
 ## Usage
