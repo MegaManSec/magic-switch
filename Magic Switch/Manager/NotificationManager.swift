@@ -65,6 +65,15 @@ final class NotificationManager: NotificationManaging {
     }
   }
 
+  /// Removes a delivered (and any pending) notification posted under
+  /// `identifier` — for stable-identifier alerts whose condition has since
+  /// cleared.
+  static func removeNotification(identifier: String) {
+    let center = UNUserNotificationCenter.current()
+    center.removeDeliveredNotifications(withIdentifiers: [identifier])
+    center.removePendingNotificationRequests(withIdentifiers: [identifier])
+  }
+
   static func showNotification(title: String, body: String, identifier: String? = nil) {
     let content = createNotificationContent(title: title, body: body)
     let request = UNNotificationRequest(
