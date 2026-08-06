@@ -62,6 +62,10 @@ final class UpdateChecker: ObservableObject {
   /// malformed; callers guard on it.
   let releasePageURL = URL(string: Constants.latestReleasePage)
 
+  /// Stable identifier of the update notification, exposed so the
+  /// notification-click router in `AppDelegate` can match on it.
+  static var updateNotificationIdentifier: String { Constants.updateNotificationID }
+
   /// True while a check is in flight; drives the "Checking…" state on the
   /// manual Check-for-Updates button, and guards against overlapping checks.
   /// Main-thread only.
@@ -195,7 +199,10 @@ final class UpdateChecker: ObservableObject {
 
   /// One notification per discovered version, and only from automatic checks —
   /// a manual check's result is already on screen next to the button that
-  /// triggered it. A check that finds no update retires any delivered banner
+  /// triggered it. The version is recorded as announced only once the banner
+  /// is accepted for delivery, so a post lost to the launch-time permission
+  /// race (or to denied notifications) stays eligible for the next automatic
+  /// check. A check that finds no update retires any delivered banner
   /// (the update was installed, or GitHub stopped advertising it). Main-only,
   /// called from `performCheck`'s completion.
   private func reconcileUpdateNotification(manual: Bool) {
@@ -206,13 +213,15 @@ final class UpdateChecker: ObservableObject {
     guard !manual,
       UserDefaults.standard.string(forKey: Constants.notifiedVersionKey) != latest
     else { return }
-    UserDefaults.standard.set(latest, forKey: Constants.notifiedVersionKey)
     NotificationManager.showNotification(
       title: "Update Available",
       body:
-        "Magic Switch v\(latest) is available (you have v\(currentVersion)). The Update Available notice in the menu opens the download page.",
+        "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the download page.",
       identifier: Constants.updateNotificationID
-    )
+    ) { error in
+      guard error == nil else { return }
+      UserDefaults.standard.set(latest, forKey: Constants.notifiedVersionKey)
+    }
   }
 
   /// Pull `tag_name` out of the `releases/latest` JSON without a model type.
