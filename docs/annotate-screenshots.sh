@@ -106,16 +106,32 @@ annotate macs-tab "#282828" 0 88 490 47 \
 4|Add a Mac by IP address — for networks that block Bonjour
 5|Refresh — rescan the network for nearby Macs"
 
-# ---- Other tab (scrolled to the shortcut and display sections; legend below the window) ----
-annotate other-tab "#292929" 240 88 900 47 \
-"1 1055 87 1085 87
-2 1055 161 1085 161
-3 1030 350 1062 350
-4 1055 717 1085 717" \
-"1|Release peripherals to the other Mac when this Mac sleeps
-2|Reconnect peripherals automatically if they drop
-3|Record a shortcut — send, take, or toggle every peripheral from anywhere
-4|A marked display — when it connects, peripherals switch to this Mac"
+# ---- Other tab ----
+# The tab is taller than the window, so the raw is stitched from three
+# scrolled captures (other-tab-{top,mid,bottom}.png): each slice is cut on
+# flat background between sections, aligned by crop offset (the window was
+# identical; only the capture regions drifted), and has the transient
+# overlay scrollbar painted out.
+if [ -f "$RAW/other-tab-top.png" ]; then
+  magick \
+    \( "$RAW/other-tab-top.png"    -crop 1188x530+2+0   +repage -fill "#282828" -draw "rectangle 1164,74 1188,530" \) \
+    \( "$RAW/other-tab-mid.png"    -crop 1188x340+0+240 +repage -fill "#282828" -draw "rectangle 1164,0 1188,340" \) \
+    \( "$RAW/other-tab-bottom.png" -crop 1188x565+4+115 +repage -fill "#282828" -draw "rectangle 1164,0 1188,565" \) \
+    -append "$RAW/other-tab.png"
+fi
+annotate other-tab "#282828" 320 88 1480 47 \
+"1 1053 201 1083 201
+2 1053 388 1083 388
+3 1053 464 1083 464
+4 1030 640 1062 640
+5 1050 1008 1080 1008
+6 160 1415 160 1382" \
+"1|Launch at Login — start Magic Switch when you log in
+2|Release peripherals to the other Mac when this Mac sleeps
+3|Reconnect peripherals automatically if they drop
+4|Record a shortcut — send, take, or toggle every peripheral from anywhere
+5|A marked display — when it connects, peripherals switch to this Mac
+6|Check for Updates — check now (status shows on the right)"
 
 # ---- Menu (translucent material background, smaller legend) ----
 annotate menu "#2D2D30" 150 24 405 36 \

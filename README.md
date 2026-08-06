@@ -90,8 +90,8 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 **Launch at Login**, recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
 
 <p align="center">
-  <img src="docs/assets/other-tab.png" alt="Other tab showing the peripheral-handling toggles, keyboard shortcuts, and display list" width="600"><br>
-  <em>Other tab — the sleep-release and auto-reconnect toggles, the keyboard shortcut recorders, and the display-connect list. Launch at Login sits above; version and update check below.</em>
+  <img src="docs/assets/other-tab.png" alt="Other tab showing all app preferences" width="600"><br>
+  <em>Other tab — Launch at Login, the peripheral-handling toggles, keyboard shortcut recorders, the display-connect list, version, and update check.</em>
 </p>
 
 ## Usage
