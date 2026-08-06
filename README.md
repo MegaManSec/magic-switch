@@ -45,25 +45,9 @@ Tick the Magic devices you want Magic Switch to hand back and forth. Each row's 
   <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
 </p>
 
-### 3. Macs tab — pick the other Mac
+### 3. Pairing tab — link the two Macs (required)
 
-Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
-
-If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
-
-<p align="center">
-  <img src="docs/assets/macs-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
-  <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
-</p>
-
-<p align="center">
-  <img src="docs/assets/add-by-address.png" alt="The Add a Mac by Address sheet" width="600"><br>
-  <em>Add a Mac by Address (the <strong>+</strong> button) — the sheet shows this Mac's address and port to enter on the other one.</em>
-</p>
-
-### 4. Pairing tab — link the two Macs (required)
-
-Generate a twelve-character code on one Mac and enter it on the other; either direction works, since both Macs derive the same key from the same code. They should then show the same eight-character fingerprint — if they differ, the code was mistyped. Until this is done, switching and peripheral sync refuse to talk to the peer.
+Generate a twelve-character code on one Mac and enter it on the other; either direction works, since both Macs derive the same key from the same code. They should then show the same eight-character fingerprint — if they differ, the code was mistyped. Until this is done, switching and peripheral sync refuse to talk to the peer, and an unpaired Mac can't be added by address in the next step. (Pairing needs no connection between the Macs; the code alone is enough.)
 
 <p align="center">
   <img src="docs/assets/pairing-not-paired.png" alt="Pairing tab before pairing" width="600"><br>
@@ -79,6 +63,22 @@ Generate a twelve-character code on one Mac and enter it on the other; either di
 <p align="center">
   <img src="docs/assets/pairing-paired.png" alt="Pairing tab after pairing, showing the fingerprint" width="600"><br>
   <em>After pairing — both Macs show the same fingerprint. If they differ, the code was mistyped.</em>
+</p>
+
+### 4. Macs tab — pick the other Mac
+
+Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
+
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 3) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+
+<p align="center">
+  <img src="docs/assets/macs-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
+  <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/add-by-address.png" alt="The Add a Mac by Address sheet" width="600"><br>
+  <em>Add a Mac by Address (the <strong>+</strong> button) — the sheet shows this Mac's address and port to enter on the other one.</em>
 </p>
 
 ### 5. Sync your peripherals to the other Mac
@@ -134,6 +134,7 @@ Magic Switch tells you when there's a new version — it never updates itself. A
 - Same network; TCP port 41952 not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Macs tab or the right-click menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
+- **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
 - **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Pairing and Macs tabs also show their errors inline, so actions taken *there* still report failures either way.)
 - On the **Macs** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
 - **Closing or sleeping one Mac hands its peripherals to the other.** When this Mac sleeps (or you close its lid), it hands the peripherals it holds to your other Mac — or, if that Mac isn't reachable yet, frees them so it can pick them up the moment it wakes. That's why you can close one Mac and find the keyboard and mouse already on the other. This is on by default; you can turn it off under **Settings → Other → "Release peripherals when this Mac sleeps."**

@@ -834,6 +834,7 @@ enum ManualAddError: Error {
   case selfDial
   case legacyPeer
   case anotherMacRegistered(String)
+  case listenerNotReady
   case outgoing(OutgoingFailure)
 
   var userMessage: String {
@@ -845,6 +846,19 @@ enum ManualAddError: Error {
         "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
     case .anotherMacRegistered(let name):
       return "Only one Mac can be connected at a time. Remove \(name) first."
+    case .listenerNotReady:
+      return "This Mac isn't accepting connections yet. Try again in a moment."
+    case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
+      .outgoing(.handshakeFailed(.handshakeTimeout)),
+      .outgoing(.handshakeFailed(.connectionClosed)),
+      .outgoing(.handshakeFailed(.sendFailed(_))),
+      .outgoing(.handshakeFailed(.framingFailed)),
+      .outgoing(.handshakeFailed(.frameTooLarge)):
+      // An unpaired peer refuses the connection before the handshake, so it
+      // is indistinguishable here from a firewall drop, a dead host, or a
+      // different service answering on the port.
+      return
+        "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port."
     case .outgoing(let failure):
       return failure.userMessage
     }
@@ -1258,6 +1272,12 @@ extension NetworkDeviceStore {
     host: String, port: UInt16,
     completion: @escaping (Result<NetworkDevice, ManualAddError>) -> Void
   ) {
+    // Without a bound listener there's no local identity to INTRODUCE with;
+    // `executeIntroduce` would report it as a peer-shaped connection failure.
+    guard servicePublisher.currentIdentity() != nil else {
+      completion(.failure(.listenerNotReady))
+      return
+    }
     let target = NetworkDevice(id: host, name: host, host: host, port: Int(port))
     executeIntroduce(on: target) { [weak self] result in
       DispatchQueue.main.async {
