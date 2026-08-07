@@ -36,6 +36,12 @@ final class PairingStore: ObservableObject {
   private static let keychainService = "com.magicswitch.psk-v3"
   private static let keychainAccount = "shared"
 
+  /// Serializes pair/unpair keychain mutations. Without it, a Discard racing
+  /// the ~0.5s in-flight save can interleave delete-then-add and resurrect
+  /// the key the user just threw away.
+  private let mutationQueue = DispatchQueue(
+    label: "com.magicswitch.pairing", qos: .userInitiated)
+
   // MARK: - Published State
 
   @Published private(set) var isPaired: Bool = false
@@ -123,13 +129,13 @@ final class PairingStore: ObservableObject {
 
   /// Derives K from a pairing code and stores it in the keychain.
   /// Runs the PBKDF2 derivation off-main (600k iterations is ~half a second)
-  /// and reports back on main. The published state is updated before the
-  /// completion fires.
+  /// and reports back on main, serialized with `unpair`. The published state
+  /// is updated before the completion fires.
   func pair(
     withCode code: String,
     completion: @escaping (Result<Void, PairingError>) -> Void
   ) {
-    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    mutationQueue.async { [weak self] in
       guard let self = self else { return }
       let normalized = Self.normalize(code)
       guard Self.isValid(normalized) else {
@@ -166,7 +172,7 @@ final class PairingStore: ObservableObject {
   /// authorize them), so an Unpair that fails would otherwise look like
   /// "nothing happened".
   func unpair(completion: ((OSStatus?) -> Void)? = nil) {
-    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    mutationQueue.async { [weak self] in
       guard let self = self else { return }
       let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
@@ -235,7 +241,10 @@ final class PairingStore: ObservableObject {
 
   // MARK: - Private Methods
 
-  private func refreshState() {
+  /// Re-reads the keychain into the published state. Re-run when Settings
+  /// opens: a transient read failure at launch is indistinguishable from
+  /// "unpaired" and would otherwise stick for the whole session.
+  func refreshState() {
     if let data = readKeyData() {
       isPaired = true
       fingerprint = Self.fingerprint(forKey: data)
