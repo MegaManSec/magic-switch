@@ -42,6 +42,12 @@ final class UpdateChecker: ObservableObject {
     /// Persisted state, namespaced like the rest of the app's UserDefaults keys.
     static let lastCheckedKey = "com.magicswitch.updatecheck.lastChecked"
     static let latestVersionKey = "com.magicswitch.updatecheck.latestVersion"
+    /// Last version announced via system notification — one banner per
+    /// version, however many checks rediscover it.
+    static let notifiedVersionKey = "com.magicswitch.updatecheck.notifiedVersion"
+    /// Stable notification identifier, so re-posts replace rather than stack
+    /// and a delivered banner can be retired once the update is installed.
+    static let updateNotificationID = "update-available"
   }
 
   // MARK: - Published State
@@ -55,6 +61,10 @@ final class UpdateChecker: ObservableObject {
   /// Browser URL for the latest release. `nil` only if the constant is ever
   /// malformed; callers guard on it.
   let releasePageURL = URL(string: Constants.latestReleasePage)
+
+  /// Stable identifier of the update notification, exposed so the
+  /// notification-click router in `AppDelegate` can match on it.
+  static var updateNotificationIdentifier: String { Constants.updateNotificationID }
 
   /// True while a check is in flight; drives the "Checking…" state on the
   /// manual Check-for-Updates button, and guards against overlapping checks.
@@ -92,6 +102,12 @@ final class UpdateChecker: ObservableObject {
     // Surface the cached result immediately so the menu / Settings reflect the
     // last successful check without waiting for a network round trip.
     latestVersion = UserDefaults.standard.string(forKey: Constants.latestVersionKey)
+    if !updateAvailable {
+      // The cached "newer" version is usually the one now running — the user
+      // just updated — so retire a delivered update banner rather than leave
+      // it stale in Notification Centre.
+      NotificationManager.removeNotification(identifier: Constants.updateNotificationID)
+    }
     startPolling()
   }
 
@@ -179,8 +195,36 @@ final class UpdateChecker: ObservableObject {
         UserDefaults.standard.set(Date(), forKey: Constants.lastCheckedKey)
         UserDefaults.standard.set(version, forKey: Constants.latestVersionKey)
         self.latestVersion = version
+        self.reconcileUpdateNotification(manual: manual)
       }
     }.resume()
+  }
+
+  /// One notification per discovered version, and only from automatic checks —
+  /// a manual check's result is already on screen next to the button that
+  /// triggered it. The version is recorded as announced only once the banner
+  /// is accepted for delivery, so a post lost to the launch-time permission
+  /// race (or to denied notifications) stays eligible for the next automatic
+  /// check. A check that finds no update retires any delivered banner
+  /// (the update was installed, or GitHub stopped advertising it). Main-only,
+  /// called from `performCheck`'s completion.
+  private func reconcileUpdateNotification(manual: Bool) {
+    guard updateAvailable, let latest = latestVersion else {
+      NotificationManager.removeNotification(identifier: Constants.updateNotificationID)
+      return
+    }
+    guard !manual,
+      UserDefaults.standard.string(forKey: Constants.notifiedVersionKey) != latest
+    else { return }
+    NotificationManager.showNotification(
+      title: "Update Available",
+      body:
+        "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the download page.",
+      identifier: Constants.updateNotificationID
+    ) { error in
+      guard error == nil else { return }
+      UserDefaults.standard.set(latest, forKey: Constants.notifiedVersionKey)
+    }
   }
 
   /// Pull `tag_name` out of the `releases/latest` JSON without a model type.

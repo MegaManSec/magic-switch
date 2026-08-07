@@ -15,7 +15,10 @@ protocol NotificationManaging {
   ///   - identifier: Optional stable identifier. Re-posting with the same
   ///     identifier replaces the previous notification rather than stacking,
   ///     so rapid retries coalesce instead of flooding Notification Centre.
-  static func showNotification(title: String, body: String, identifier: String?)
+  ///   - delivered: Called with the add-request error — nil when the
+  ///     notification was accepted for delivery.
+  static func showNotification(
+    title: String, body: String, identifier: String?, delivered: ((Error?) -> Void)?)
 }
 
 final class NotificationManager: NotificationManaging {
@@ -74,7 +77,10 @@ final class NotificationManager: NotificationManaging {
     center.removePendingNotificationRequests(withIdentifiers: [identifier])
   }
 
-  static func showNotification(title: String, body: String, identifier: String? = nil) {
+  static func showNotification(
+    title: String, body: String, identifier: String? = nil,
+    delivered: ((Error?) -> Void)? = nil
+  ) {
     let content = createNotificationContent(title: title, body: body)
     let request = UNNotificationRequest(
       identifier: identifier ?? UUID().uuidString,
@@ -86,6 +92,7 @@ final class NotificationManager: NotificationManaging {
       if let error = error {
         print("Failed to show notification: \(error)")
       }
+      delivered?(error)
     }
   }
 

@@ -2,9 +2,12 @@ import Cocoa
 import Combine
 import CoreBluetooth
 import SwiftUI
+import UserNotifications
 
 /// Application delegate handling lifecycle and UI setup
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
+  UNUserNotificationCenterDelegate
+{
   // MARK: - Dependencies
 
   private let networkStore = NetworkDeviceStore.shared
@@ -200,6 +203,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   // MARK: - Setup Methods
 
   private func setupNotifications() {
+    // macOS only routes notification clicks — including one that relaunches
+    // the app — to a delegate installed before launch finishes.
+    UNUserNotificationCenter.current().delegate = self
     NotificationManager.requestAuthorizationIfNeeded()
   }
 
@@ -968,6 +974,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     window.isReleasedWhenClosed = false
     window.contentView = NSHostingView(rootView: SettingsView())
     return NSWindowController(window: window)
+  }
+
+  /// Clicking the update banner opens the release page — the same action as
+  /// the Update Available rows it points at. Every other Magic Switch
+  /// notification is informational and just dismisses.
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+      response.notification.request.identifier == UpdateChecker.updateNotificationIdentifier
+    {
+      // Delegate callbacks arrive on an internal queue; hop to main before
+      // touching NSWorkspace.
+      DispatchQueue.main.async { [weak self] in self?.openLatestReleasePage(nil) }
+    }
+    completionHandler()
   }
 
   /// Drops the app back to `.accessory` (no Dock icon) once the last normal
