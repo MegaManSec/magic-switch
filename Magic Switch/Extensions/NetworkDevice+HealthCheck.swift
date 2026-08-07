@@ -39,6 +39,12 @@ extension NetworkDevice: HealthCheckable {
         finish(.success)
       case .failed(let error):
         finish(.failure(error.localizedDescription))
+      case .waiting(let error):
+        // Refused connections park in .waiting without ever failing; report
+        // them now instead of waiting out the 5s timeout.
+        if case .posix(let code) = error, code == .ECONNREFUSED {
+          finish(.failure(error.localizedDescription))
+        }
       default:
         break
       }
