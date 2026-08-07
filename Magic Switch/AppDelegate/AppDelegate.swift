@@ -789,12 +789,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// preflight and `CONNECT_ALL` — if it does, re-connect peripherals
   /// locally rather than leave them stranded.
   private func performHandoffToPeer(device: NetworkDevice) {
-    bluetoothStore.peripherals.forEach { peripheral in
-      bluetoothStore.unregisterFromPC(peripheral)
-    }
-    // Show each row "Releasing…" for the rest of the handoff — the mirror of
-    // the peer's "Pairing…". Set after the releases so it isn't clobbered.
+    // Paint every row "Releasing…" before the releases start — the mirror of
+    // the peer's "Pairing…", and what keeps `isAnyPeripheralTransitioning`
+    // true for the whole release window now that the IOBluetooth work runs
+    // asynchronously on the store's Bluetooth queue. Without it, a second
+    // hotkey/trigger/click during the releases would pass the re-entrancy
+    // guards and launch a take against the in-flight handoff. The release
+    // path leaves `.releasing` rows alone, so the paint survives until a
+    // terminal branch below resolves it.
     bluetoothStore.beginFullSetRelease()
+    let releases = DispatchGroup()
+    bluetoothStore.peripherals.forEach { peripheral in
+      releases.enter()
+      bluetoothStore.unregisterFromPC(peripheral) { releases.leave() }
+    }
+    releases.notify(queue: .main) { [weak self] in
+      self?.continueHandoffToPeer(device: device)
+    }
+  }
+
+  /// Rest of the full-set handoff, entered once every local release landed.
+  private func continueHandoffToPeer(device: NetworkDevice) {
     waitForDisconnection { [weak self] allDisconnected in
       guard let self = self else { return }
       guard allDisconnected else {
@@ -858,10 +873,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       }
     }
 
-    // First check fires immediately — `unregisterFromPC` issues the
-    // IOBluetooth disconnect synchronously, so the device is often already
-    // disconnected by the time we get here. Falls through to the polled
-    // retry loop if not.
+    // First check fires immediately — this runs from the `unregisterFromPC`
+    // completions, after the disconnects were issued on the Bluetooth queue,
+    // so the device is often already disconnected. Falls through to the
+    // polled retry loop if not.
     check()
   }
 
