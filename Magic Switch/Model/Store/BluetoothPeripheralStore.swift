@@ -196,6 +196,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// macOS aborts pairing, dropping the peripheral seconds after it connects.
   private var pendingPairs: [String: IOBluetoothDevicePair] = [:]
 
+  /// The attempt token each pending pair was created under, maintained in
+  /// lockstep with `pendingPairs`. The delegate must fail with the *pair's
+  /// own* token — reading the address's current token at callback time would
+  /// let a stale pair inherit a newer attempt's token during the window
+  /// where that attempt has minted but not yet installed its pair. Main-only.
+  private var pendingPairAttempts: [String: UInt64] = [:]
+
   /// Disconnect notification observers, keyed by peripheral id.
   private var disconnectObservers: [String: IOBluetoothUserNotification] = [:]
 
@@ -275,6 +282,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// notification? True for interactive connects, false for watcher retries
   /// (which would otherwise spam "Pairing Timed Out" while a device is stuck).
   private var pairTimeoutShouldAnnounce: [String: Bool] = [:]
+
+  /// Identity of the newest connect attempt per address. Everything above is
+  /// keyed by address alone, and overlapping attempts for one address are
+  /// reachable (a silent watcher retry can still be in flight — up to the
+  /// 60s pair watchdog — when a peer command starts a fresh attempt). Failure
+  /// paths carry their attempt's token and no-op once it's stale, so the old
+  /// attempt's late death can't cancel the new attempt's watchdog, consume
+  /// its announce flag, or fail its waiters. Main-only.
+  private var connectAttemptTokens: [String: UInt64] = [:]
+  /// Backing counter for `connectAttemptTokens`; lock-guarded so attempts
+  /// can be minted from any thread.
+  private var connectAttemptCounter: UInt64 = 0
+  private let attemptTokenLock = NSLock()
 
   // MARK: - Computed Properties
 
@@ -785,7 +805,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // signal the full-set take raises on the menu-bar icon.
     NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
     setConnectionState(.connecting, for: peripheral.id)
-    schedulePairWatchdog(for: peripheral, announceTimeout: true)
+    // This early watchdog covers the network round trip; the local connect
+    // below re-arms it under its own attempt token.
+    let attempt = beginConnectAttempt(for: peripheral.id)
+    schedulePairWatchdog(for: peripheral, announceTimeout: true, attempt: attempt)
     networkStore.executeUnregisterOne(address: peripheral.id, on: device) {
       [weak self] result in
       guard let self = self else { return }
@@ -1067,7 +1090,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       addConnectResultWaiter(for: peripheral.id, completion)
     }
     setConnectionState(.connecting, for: peripheral.id)
-    schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout)
+    let attempt = beginConnectAttempt(for: peripheral.id)
+    schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout, attempt: attempt)
 
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
@@ -1079,7 +1103,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           inline: "Not found.",
           notifyTitle: "Couldn't Connect",
           notifyBody:
-            "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first."
+            "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first.",
+          attempt: attempt
         )
         return
       }
@@ -1092,7 +1117,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.failConnectAttempt(
           id: peripheral.id, name: peripheral.name,
           inline: "Bluetooth is off.",
-          notifyBody: "", notify: false
+          notifyBody: "", notify: false,
+          attempt: attempt
         )
         return
       }
@@ -1153,7 +1179,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             inline: "Couldn't connect.",
             notifyTitle: "Couldn't Connect",
             notifyBody:
-              "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac."
+              "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac.",
+            attempt: attempt
           )
         }
         return
@@ -1166,7 +1193,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           inline: "Not responding.",
           notifyTitle: "Couldn't Connect",
           notifyBody:
-            "\(peripheral.name) isn't responding. It may be off, out of range, or connected to your other Mac."
+            "\(peripheral.name) isn't responding. It may be off, out of range, or connected to your other Mac.",
+          attempt: attempt
         )
         return
       }
@@ -1177,7 +1205,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           id: peripheral.id, name: peripheral.name,
           inline: "Pairing failed.",
           notifyBody:
-            "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again."
+            "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again.",
+          attempt: attempt
         )
         return
       }
@@ -1186,19 +1215,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       DispatchQueue.main.async {
         self.pendingPairs[peripheral.id]?.stop()
         self.pendingPairs[peripheral.id] = devicePair
+        self.pendingPairAttempts[peripheral.id] = attempt
       }
 
       let pairResult = devicePair.start()
       if pairResult != kIOReturnSuccess {
         print("Failed to start pairing with \(peripheral.name). Error code: \(pairResult)")
         DispatchQueue.main.async {
-          self.pendingPairs.removeValue(forKey: peripheral.id)
+          // Identity-guarded like the delegate: a newer attempt may already
+          // have replaced this entry.
+          if self.pendingPairs[peripheral.id] === devicePair {
+            self.pendingPairs.removeValue(forKey: peripheral.id)
+            self.pendingPairAttempts.removeValue(forKey: peripheral.id)
+          }
         }
         self.failConnectAttempt(
           id: peripheral.id, name: peripheral.name,
           inline: "Pairing failed.",
           notifyBody:
-            "Couldn't start pairing with \(peripheral.name) (error \(pairResult)). Turn it off and on, then try again."
+            "Couldn't start pairing with \(peripheral.name) (error \(pairResult)). Turn it off and on, then try again.",
+          attempt: attempt
         )
       }
       // Success path continues in `devicePairingFinished(_:error:)`.
@@ -1377,50 +1413,68 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     DispatchQueue.main.async {
-      // Only clear our own entry: a stale attempt's late callback must not
-      // free a newer in-flight pair for the same address.
-      if self.pendingPairs[address] === pair {
+      // Identity, not just address, decides staleness: the newest attempt may
+      // not have installed its own pair yet (its preflight is still on the
+      // Bluetooth queue, or its peer round trip is in flight), so reading the
+      // address's *current* token here would let a stale pair inherit it.
+      // The pair's own token travels in `pendingPairAttempts`.
+      let isCurrentPair = self.pendingPairs[address] === pair
+      let attempt = isCurrentPair ? self.pendingPairAttempts[address] : nil
+      if isCurrentPair {
         self.pendingPairs.removeValue(forKey: address)
+        self.pendingPairAttempts.removeValue(forKey: address)
       }
-    }
 
-    guard error == kIOReturnSuccess else {
-      print("Pairing failed for \(address): \(error)")
-      // Route through the shared helper so the delegate arm gets the same
-      // semantics as every pre-flight failure: flag consumed atomically with
-      // the watchdog cancel, inline error only for announced attempts (a
-      // silent watcher/adoption retry must not strobe the row), and no
-      // notification while a watcher retry is still pending.
-      let name = device.name ?? address
-      failConnectAttempt(
-        id: address, name: name,
-        inline: "Pairing failed.",
-        notifyBody: "Couldn't pair \(name). Turn it off and on, then try switching again."
-      )
-      return
-    }
-
-    bluetoothQueue.async { [weak self] in
-      guard let self = self else { return }
-      var openResult = kIOReturnSuccess
-      if !device.isConnected() {
-        openResult = device.openConnection()
-        if openResult != kIOReturnSuccess {
-          print("openConnection failed after pair: \(openResult)")
-        }
-      }
-      if device.isConnected() {
-        self.setConnectionState(.connected, for: address)
-        self.registerForDisconnect(device: device, address: address)
-      } else {
+      guard error == kIOReturnSuccess else {
+        // A superseded pair was already stopped when the newer attempt
+        // replaced it; its failure is about an attempt whose outcome no
+        // longer matters.
+        guard isCurrentPair else { return }
+        print("Pairing failed for \(address): \(error)")
+        // Route through the shared helper so the delegate arm gets the same
+        // semantics as every pre-flight failure: flag consumed atomically with
+        // the watchdog cancel, inline error only for announced attempts (a
+        // silent watcher/adoption retry must not strobe the row), and no
+        // notification while a watcher retry is still pending.
         let name = device.name ?? address
         self.failConnectAttempt(
           id: address, name: name,
-          inline: "Couldn't connect.",
-          notifyTitle: "Couldn't Connect",
-          notifyBody:
-            "Paired \(name), but couldn't open a connection (error \(openResult)). Try turning it off and on."
+          inline: "Pairing failed.",
+          notifyBody: "Couldn't pair \(name). Turn it off and on, then try switching again.",
+          attempt: attempt
         )
+        return
+      }
+
+      // Success is terminal-good whichever attempt produced it: the device
+      // bonded, so open and adopt the connection even when this pair was
+      // superseded or its watchdog fired a beat ago — dropping it would
+      // leave the device bonded but unconnected and untracked.
+      self.bluetoothQueue.async { [weak self] in
+        guard let self = self else { return }
+        var openResult = kIOReturnSuccess
+        if !device.isConnected() {
+          openResult = device.openConnection()
+          if openResult != kIOReturnSuccess {
+            print("openConnection failed after pair: \(openResult)")
+          }
+        }
+        if device.isConnected() {
+          self.setConnectionState(.connected, for: address)
+          self.registerForDisconnect(device: device, address: address)
+        } else if let attempt {
+          let name = device.name ?? address
+          self.failConnectAttempt(
+            id: address, name: name,
+            inline: "Couldn't connect.",
+            notifyTitle: "Couldn't Connect",
+            notifyBody:
+              "Paired \(name), but couldn't open a connection (error \(openResult)). Try turning it off and on.",
+            attempt: attempt
+          )
+        }
+        // A superseded pair's open failure stays silent — the current
+        // attempt is still driving this address and reports its own outcome.
       }
     }
   }
@@ -1541,11 +1595,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// `openConnection` result) looking like nothing happened: the watchdog
   /// no-ops once the state has left `.connecting`, so not even the timeout
   /// notification compensated.
+  ///
+  /// `attempt` is the caller's token from `beginConnectAttempt`; a failure
+  /// whose attempt has been superseded no-ops entirely — the address's
+  /// watchdog, announce flag, waiters and state now describe the newer
+  /// attempt. `nil` skips the check (no caller passes it today; it exists so
+  /// the guard is a choice, not an accident).
   private func failConnectAttempt(
     id: String, name: String, inline: String,
-    notifyTitle: String = "Pairing Failed", notifyBody: String, notify: Bool = true
+    notifyTitle: String = "Pairing Failed", notifyBody: String, notify: Bool = true,
+    attempt: UInt64?
   ) {
     DispatchQueue.main.async {
+      if let attempt, self.connectAttemptTokens[id] != attempt { return }
       self.pairTimers[id]?.cancel()
       self.pairTimers.removeValue(forKey: id)
       // A missing flag means the watchdog already consumed it — the timeout
@@ -1555,6 +1617,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // flag up front in `schedulePairWatchdog`, so absent-because-never-set
       // can't happen.
       let announce = self.pairTimeoutShouldAnnounce.removeValue(forKey: id) ?? false
+      self.setConnectionState(.disconnected, for: id)
       guard announce else { return }
       self.setPeripheralError(inline, for: id)
       // An armed watcher means this failure isn't the end of the attempt:
@@ -1572,7 +1635,28 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         )
       }
     }
-    setConnectionState(.disconnected, for: id)
+  }
+
+  /// Mints the token identifying one connect attempt and records it as `id`'s
+  /// current one. The record lands via the same main-queue FIFO that already
+  /// orders the announce flag ahead of every failure path, so a failure can
+  /// never observe a token newer than its own attempt's.
+  private func beginConnectAttempt(for id: String) -> UInt64 {
+    attemptTokenLock.lock()
+    connectAttemptCounter += 1
+    let token = connectAttemptCounter
+    attemptTokenLock.unlock()
+    let apply: () -> Void = { [weak self] in
+      guard let self = self else { return }
+      // Newest wins: an off-main mint's record can arrive after a later
+      // main-side mint applied inline, and must not roll the map back to the
+      // older attempt (which would orphan the newer one's failure paths).
+      if (self.connectAttemptTokens[id] ?? 0) < token {
+        self.connectAttemptTokens[id] = token
+      }
+    }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
+    return token
   }
 
   /// Set the inline error for a peripheral, and fade it after 5s so it doesn't
@@ -1605,7 +1689,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// We don't explicitly cancel from the success path — the handler no-ops
   /// once the state has moved on; failure paths cancel explicitly via
   /// `failConnectAttempt`.
-  private func schedulePairWatchdog(for peripheral: BluetoothPeripheral, announceTimeout: Bool) {
+  private func schedulePairWatchdog(
+    for peripheral: BluetoothPeripheral, announceTimeout: Bool, attempt: UInt64
+  ) {
     let address = peripheral.id
     let name = peripheral.name
     DispatchQueue.main.async { [weak self] in
@@ -1615,15 +1701,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
       timer.schedule(deadline: .now() + Constants.pairTimeout)
       timer.setEventHandler { [weak self] in
-        self?.handlePairTimeout(address: address, name: name)
+        self?.handlePairTimeout(address: address, name: name, attempt: attempt)
       }
       timer.resume()
       self.pairTimers[address] = timer
     }
   }
 
-  private func handlePairTimeout(address: String, name: String) {
+  private func handlePairTimeout(address: String, name: String, attempt: UInt64) {
     // Timer fires on the main queue.
+    // A superseded attempt's watchdog was cancelled when the newer attempt
+    // re-armed it, but a fire already in flight can still land here — it
+    // must not stop the newer attempt's pair or consume its flag.
+    guard connectAttemptTokens[address] == attempt else { return }
     guard connectionStates[address] == .connecting else {
       pairTimers.removeValue(forKey: address)
       pairTimeoutShouldAnnounce.removeValue(forKey: address)
@@ -1631,6 +1721,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
     pendingPairs[address]?.stop()
     pendingPairs.removeValue(forKey: address)
+    pendingPairAttempts.removeValue(forKey: address)
     pairTimers.removeValue(forKey: address)
     // `?? false` for the same reason as `failConnectAttempt`: an absent flag
     // means another failure path already consumed it — atomically with
