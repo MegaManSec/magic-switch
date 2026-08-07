@@ -626,9 +626,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     fetchConnectedPeripherals()
   }
 
-  /// Removes peripheral information from the system while maintaining it in the list
+  /// Removes peripheral information from the system while maintaining it in
+  /// the list. The IOBluetooth work runs on `bluetoothQueue` — `remove` and
+  /// `closeConnection` are synchronous bluetoothd IPC, seconds in the worst
+  /// case against a dead or out-of-range device, and must never stall main.
   /// - Parameter peripheral: The peripheral to unregister
-  func unregisterFromPC(_ peripheral: BluetoothPeripheral) {
+  /// - Parameter completion: Fires on main after the release has been issued
+  ///   and its state change applied (a `.releasing` row is left as-is — the
+  ///   handoff that painted it owns the row), for callers that sequence on it.
+  func unregisterFromPC(_ peripheral: BluetoothPeripheral, completion: (() -> Void)? = nil) {
+    bluetoothQueue.async { [weak self] in
+      guard let self = self else { return }
+      self.performUnregisterFromPC(peripheral)
+      if let completion { DispatchQueue.main.async(execute: completion) }
+    }
+  }
+
+  /// The IOBluetooth side of `unregisterFromPC`; runs on `bluetoothQueue`.
+  private func performUnregisterFromPC(_ peripheral: BluetoothPeripheral) {
     guard validateBluetoothState() else { return }
     guard let btDevice = getBluetoothDevice(for: peripheral) else { return }
 
@@ -637,7 +652,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     if !btDevice.isConnected() {
       print("Device is already disconnected: \(peripheral.name)")
-      setConnectionState(.disconnected, for: peripheral.id)
+      markDisconnectedAfterRelease(peripheral.id)
       return
     }
 
@@ -647,7 +662,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       noteIntentionalRelease(peripheral.id)
       btDevice.perform(Selector(("remove")))
       print("Device information removed: \(peripheral.name)")
-      setConnectionState(.disconnected, for: peripheral.id)
+      markDisconnectedAfterRelease(peripheral.id)
       return
     }
 
@@ -659,7 +674,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
       print("Fell back to closeConnection() for \(peripheral.name)")
-      setConnectionState(.disconnected, for: peripheral.id)
+      markDisconnectedAfterRelease(peripheral.id)
     } else {
       // The release didn't happen, so no disconnect notification will arrive
       // to consume the flag — clear it so it can't suppress a later genuine
@@ -674,6 +689,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         identifier: "unregister-failed-\(peripheral.id)"
       )
     }
+  }
+
+  /// Land `.disconnected` after a release — unless the row is mid-`.releasing`:
+  /// the handoffs paint that before releasing (it's what keeps the re-entrancy
+  /// guards seeing an in-flight transfer while the queue works) and own the
+  /// row until their terminal branch resolves it.
+  private func markDisconnectedAfterRelease(_ id: String) {
+    let apply: () -> Void = { [weak self] in
+      guard let self = self else { return }
+      guard self.connectionStates[id] != .releasing else { return }
+      self.setConnectionState(.disconnected, for: id)
+    }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
   }
 
   /// Completely remove device from list
@@ -828,8 +856,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // clicks while the preflight below runs — it can take up to 5s, and until
     // it returns the button would otherwise still read "Release". On preflight
     // failure we revert to `.connected`; on success `performSendHandoff`
-    // re-asserts `.releasing` after its `unregisterFromPC` (which lands
-    // `.disconnected`) in the same run-loop tick, so there's no flicker.
+    // re-asserts `.releasing` from its `unregisterFromPC` completion (the
+    // release lands `.disconnected` first, for at most a queue hop).
     setConnectionState(.releasing, for: peripheral.id)
     networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
       DispatchQueue.main.async {
@@ -858,15 +886,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// acked, but it can still die before `CONNECT_ONE`, so the failure arms
   /// re-pair this Mac rather than strand the peripheral.
   private func performSendHandoff(_ peripheral: BluetoothPeripheral, to device: NetworkDevice) {
-    let networkStore = NetworkDeviceStore.shared
     // Peripheral is leaving this Mac for the peer — flash the sending arrow.
     NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
-    unregisterFromPC(peripheral)
-    // Show "Releasing…" for the whole handoff — the mirror of the peer's
-    // "Pairing…". Set *after* `unregisterFromPC` (which lands `.disconnected`)
-    // so it isn't immediately clobbered; the disconnect notification and the
-    // periodic fetch both skip a `.releasing` row, so it persists until a
-    // terminal branch below resolves it.
+    unregisterFromPC(peripheral) { [weak self] in
+      self?.continueSendHandoff(peripheral, to: device)
+    }
+  }
+
+  /// Rest of the send handoff, entered once the local release has been
+  /// issued. The row has read "Releasing…" since `sendPeripheralToPeer`
+  /// painted it (the release path leaves `.releasing` rows alone); the
+  /// disconnect notification and the periodic fetch both skip a `.releasing`
+  /// row, so it persists until a terminal branch resolves it.
+  private func continueSendHandoff(_ peripheral: BluetoothPeripheral, to device: NetworkDevice) {
+    let networkStore = NetworkDeviceStore.shared
+    // Re-assert defensively — the mirror of the peer's "Pairing…".
     setConnectionState(.releasing, for: peripheral.id)
     waitForLocalDisconnect(of: peripheral) { [weak self] success in
       guard let self = self else { return }
@@ -949,9 +983,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         }
       }
     }
-    // First check fires immediately; the IOBluetooth disconnect issued by
-    // `unregisterFromPC` is synchronous, so the peripheral is often
-    // already gone. Polled retry covers the few cases where it isn't.
+    // First check fires immediately; we're entered from `unregisterFromPC`'s
+    // completion, after the disconnect was issued on `bluetoothQueue`, so
+    // the peripheral is often already gone. Polled retry covers the few
+    // cases where it isn't.
     check()
   }
 
@@ -1170,8 +1205,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Disconnect device
+  /// Disconnect device. Like `unregisterFromPC`, the IOBluetooth work runs on
+  /// `bluetoothQueue` — `closeConnection` is synchronous bluetoothd IPC.
   func disconnectPeripheral(_ peripheral: BluetoothPeripheral) {
+    bluetoothQueue.async { [weak self] in
+      self?.performDisconnectPeripheral(peripheral)
+    }
+  }
+
+  /// The IOBluetooth side of `disconnectPeripheral`; runs on `bluetoothQueue`.
+  private func performDisconnectPeripheral(_ peripheral: BluetoothPeripheral) {
     guard IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF else {
       print("Bluetooth is turned off")
       return
