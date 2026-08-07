@@ -63,6 +63,18 @@ final class RateLimiter {
     }
   }
 
+  /// Forget every failure and block, live and persisted. Called when the
+  /// pairing key changes: the history counted handshakes against the old key
+  /// — most commonly the legitimate peer mid-typo — and would otherwise
+  /// outlive the fix by up to 15 minutes.
+  func reset() {
+    queue.sync {
+      failuresByIP.removeAll()
+      blocksByIP.removeAll()
+      UserDefaults.standard.removeObject(forKey: Self.blocksKey)
+    }
+  }
+
   // MARK: - Persistence
 
   private static func loadBlocks() -> [String: CFTimeInterval] {

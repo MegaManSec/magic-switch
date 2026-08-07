@@ -924,6 +924,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   /// properly key under `.regular` to fire — hence the policy bump +
   /// `makeKeyAndOrderFront(_:)`.
   @objc func openSettingsWindow(_ sender: Any?) {
+    PairingStore.shared.refreshState()
     NSApp.setActivationPolicy(.regular)
     if settingsWindowController == nil {
       settingsWindowController = makeSettingsWindowController()

@@ -53,6 +53,9 @@ final class AdvertisingDiagnostics: ObservableObject {
 
   private func startSelfCheck(name: String) {
     stopBrowse()
+    // Invalidate the previous check's settle timer before any early return —
+    // it would otherwise report on the state this restart just reset.
+    checkGeneration += 1
     ownName = name
     seenOnWire = false
     var ref: DNSServiceRef?
@@ -69,7 +72,6 @@ final class AdvertisingDiagnostics: ObservableObject {
     guard err == kDNSServiceErr_NoError, let browse = ref else { return }
     DNSServiceSetDispatchQueue(browse, queue)
     browseRef = browse
-    checkGeneration += 1
     let generation = checkGeneration
     queue.asyncAfter(deadline: .now() + Self.settleTime) { [weak self] in
       self?.finishSelfCheck(generation: generation)

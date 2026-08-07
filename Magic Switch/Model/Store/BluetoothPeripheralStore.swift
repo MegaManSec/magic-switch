@@ -115,10 +115,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// `@AppStorage` key for the per-peripheral icon/type overrides map.
   static let typeOverridesDefaultsKey = "peripheralTypeOverrides"
 
+  /// `@AppStorage` key for the last-known Class of Device per address.
+  static let deviceClassesDefaultsKey = "peripheralDeviceClasses"
+
   @AppStorage("peripherals") private var peripheralsData: Data = Data()
 
   @AppStorage(BluetoothPeripheralStore.typeOverridesDefaultsKey)
   private var typeOverridesData: Data = Data()
+
+  @AppStorage(BluetoothPeripheralStore.deviceClassesDefaultsKey)
+  private var deviceClassesData: Data = Data()
 
   /// When set (default), `prepareForSleep` releases held peripherals on
   /// system sleep. Off lets a user keep a peripheral bonded to a Mac that
@@ -150,8 +156,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Bluetooth Class of Device per address, captured from the live paired
   /// snapshot. Feeds auto-detection (especially audio gear, whose names rarely
-  /// say "headphones"). Not persisted — refreshed each `fetchConnectedPeripherals`.
-  @Published private(set) var deviceClasses: [String: UInt32] = [:]
+  /// say "headphones"). Persisted, and merged rather than replaced on each
+  /// `fetchConnectedPeripherals`: a handed-off peripheral leaves the local
+  /// paired list, and dropping its class would flip type-based matching (menu
+  /// icons, URL-scheme type selectors) to name-only exactly when a cross-Mac
+  /// `take` needs it. A device's class never changes for a given address, so
+  /// kept entries stay correct.
+  @Published private(set) var deviceClasses: [String: UInt32] = [:] {
+    didSet { saveDeviceClasses() }
+  }
 
   /// Runtime connection state per peripheral id. Driven by pair completion and
   /// IOBluetooth disconnect notifications.
@@ -313,6 +326,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     super.init()
     loadPeripherals()
     loadTypeOverrides()
+    loadDeviceClasses()
     fetchConnectedPeripherals()
     registerForSystemBluetoothConnects()
     setupSleepRelease()
@@ -1242,7 +1256,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // an unconditional reassign would fire `objectWillChange` every tick
           // (needless re-renders, and it could dismiss an open type picker).
           if self.discoveredPeripherals != paired { self.discoveredPeripherals = paired }
-          if self.deviceClasses != classes { self.deviceClasses = classes }
+          let mergedClasses = self.deviceClasses.merging(classes) { _, live in live }
+          if self.deviceClasses != mergedClasses { self.deviceClasses = mergedClasses }
           if self.batteryLevels != battery { self.batteryLevels = battery }
           // Renaming a device in System Settings → Bluetooth should propagate
           // to our stored list (and thus the dropdown / Settings), so reconcile
@@ -1319,7 +1334,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     DispatchQueue.main.async {
-      self.pendingPairs.removeValue(forKey: address)
+      // Only clear our own entry: a stale attempt's late callback must not
+      // free a newer in-flight pair for the same address.
+      if self.pendingPairs[address] === pair {
+        self.pendingPairs.removeValue(forKey: address)
+      }
     }
 
     guard error == kIOReturnSuccess else {
@@ -1972,6 +1991,23 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         [String: PeripheralType].self, from: typeOverridesData)
     } catch {
       print("Failed to load type overrides: \(error)")
+    }
+  }
+
+  private func saveDeviceClasses() {
+    do {
+      deviceClassesData = try JSONEncoder().encode(deviceClasses)
+    } catch {
+      print("Failed to save device classes: \(error)")
+    }
+  }
+
+  private func loadDeviceClasses() {
+    guard !deviceClassesData.isEmpty else { return }
+    do {
+      deviceClasses = try JSONDecoder().decode([String: UInt32].self, from: deviceClassesData)
+    } catch {
+      print("Failed to load device classes: \(error)")
     }
   }
 

@@ -69,6 +69,11 @@ final class HotkeyManager: ObservableObject {
   private var hotKeyRefs: [SwitchDirection: EventHotKeyRef] = [:]
   private var eventHandlerRef: EventHandlerRef?
   private var recordingMonitor: Any?
+  /// Ends an abandoned recording when the Settings window closes. The window
+  /// is ordered out rather than torn down (`isReleasedWhenClosed = false`),
+  /// so SwiftUI's `onDisappear` never fires for a close — without this,
+  /// every hotkey would stay unregistered for the rest of the session.
+  private var recordingWindowObserver: NSObjectProtocol?
 
   private init() {}
 
@@ -119,6 +124,12 @@ final class HotkeyManager: ObservableObject {
       self.handleRecordingKeyDown(event)
       return nil  // swallow the event — it was meant for the recorder
     }
+    recordingWindowObserver = NotificationCenter.default.addObserver(
+      forName: NSWindow.willCloseNotification, object: nil, queue: .main
+    ) { [weak self] notification in
+      guard let window = notification.object as? NSWindow, window.level == .normal else { return }
+      self?.cancelRecording()
+    }
   }
 
   func cancelRecording() {
@@ -131,6 +142,10 @@ final class HotkeyManager: ObservableObject {
     if let monitor = recordingMonitor {
       NSEvent.removeMonitor(monitor)
       recordingMonitor = nil
+    }
+    if let observer = recordingWindowObserver {
+      NotificationCenter.default.removeObserver(observer)
+      recordingWindowObserver = nil
     }
     syncRegistration()
   }

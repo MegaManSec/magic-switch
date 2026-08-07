@@ -37,6 +37,19 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
   /// Queue-confined, like `advertisedName`.
   private var boundPort: UInt16?
   private var advertisedName: String?
+  /// Clears inbound rate-limit blocks when the pairing key changes — see
+  /// `RateLimiter.reset()`. Lifetime-long, unlike `fingerprintObserver`.
+  private var repairObserver: AnyCancellable?
+
+  // MARK: - Initialization
+
+  override init() {
+    super.init()
+    repairObserver = pairingStore.$fingerprint
+      .removeDuplicates()
+      .dropFirst()
+      .sink { [weak self] _ in self?.rateLimiter.reset() }
+  }
 
   // MARK: - NetworkNetworkServicePublishable Implementation
 

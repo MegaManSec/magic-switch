@@ -26,11 +26,13 @@ enum OutgoingFailure: Error {
       return "Couldn't reach the other Mac on the network."
     case .connectTimeout:
       return "The other Mac didn't respond in time."
-    case .handshakeFailed(.authFailed):
+    case .handshakeFailed(.authFailed), .handshakeFailed(.decryptionFailed):
+      // A wrong code fails AEAD-open long before the MAC compare, so
+      // mismatched codes surface as decryptionFailed, not authFailed.
       return "Pairing codes don't match. Re-pair both Macs with the same code."
     case .handshakeFailed(.handshakeTimeout):
       return "The other Mac didn't respond to the secure handshake."
-    case .handshakeFailed(.replay), .handshakeFailed(.decryptionFailed):
+    case .handshakeFailed(.replay):
       return "Couldn't establish a secure connection (possible tampering)."
     case .handshakeFailed:
       return "Couldn't establish a secure connection."
@@ -234,6 +236,16 @@ final class OutgoingConnection {
         self.finish(
           .failure(.connectionFailed(error.localizedDescription)),
           completion: completion)
+      case .waiting(let error):
+        // A refused dial parks in .waiting and never reaches .failed — left
+        // alone it burns the full connect timeout and is reported as a
+        // timeout ("didn't respond") instead of unreachable.
+        if case .posix(let code) = error, code == .ECONNREFUSED {
+          print("OutgoingConnection refused: \(error)")
+          self.finish(
+            .failure(.connectionFailed(error.localizedDescription)),
+            completion: completion)
+        }
       case .cancelled:
         // No-op; finish handled explicitly.
         break

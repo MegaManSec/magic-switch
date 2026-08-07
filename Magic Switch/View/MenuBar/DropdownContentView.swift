@@ -51,7 +51,9 @@ final class MenuRowControl: NSControl {
       setHighlighted(inside)
     }
     setHighlighted(false)
-    if inside { onClick() }
+    // The stores can rebuild the menu while the tracking loop runs; a row
+    // replaced mid-press has no window and its action captures stale state.
+    if inside, window != nil { onClick() }
   }
 
   // MARK: - Hover highlight
