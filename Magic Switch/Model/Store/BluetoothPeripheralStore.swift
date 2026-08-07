@@ -455,8 +455,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// it's unreachable). On top of the watcher, fires one direct blind pair
   /// per peripheral we unpaired for sleep (`directReclaimAfterWake`) — those
   /// are usually invisible to the watcher's probe until touched, so the probe
-  /// alone tends to miss them. When off, falls back to the original one-shot reclaim
-  /// of just the peripherals we released for sleep. Waits
+  /// alone tends to miss them. When off, runs just that direct reclaim for
+  /// the sleep-released set — no watcher, same silent one-shot. Waits
   /// `Constants.wakeReclaimDelay` first so the network can reassociate (and
   /// bonded devices get a moment to reconnect on their own) before any
   /// unreachable-looking peer gets a peripheral grabbed back.
@@ -498,37 +498,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
 
-      // Feature off: original one-shot reclaim, scoped to the peripherals we
-      // released for sleep. The registered peer is not gated on `isActive`
-      // (Bonjour may not have re-resolved yet, but `executeHoldsOne` actually
-      // connects, so reachability is decided there).
+      // Feature off: no watcher to arm — reclaim the sleep-released set with
+      // the same one-shot direct pass the watcher path layers on. These
+      // devices are bonded to no Mac, so the announced, range-gated connect
+      // can't see them: it would just no-op into a spurious "Couldn't
+      // Connect" notification per peripheral on every wake.
       for id in released {
         self.intentionalReleases.removeValue(forKey: id)
-        guard let peripheral = self.peripherals.first(where: { $0.id == id }) else { continue }
-        guard let device = NetworkDeviceStore.shared.networkDevices.first,
-          device.pendingFingerprint == nil,
-          PairingStore.shared.isPaired
-        else {
-          // No trusted peer to ask — none registered, or one flagged as a
-          // TOFU identity mismatch. Either way, reclaim locally.
-          self.connectPeripheral(peripheral)
-          continue
-        }
-        NetworkDeviceStore.shared.executeHoldsOne(address: id, on: device) {
-          [weak self] result in
-          guard let self = self else { return }
-          // `.success` = peer holds it (in use over there) → leave it.
-          // Any `.failure` (peer says no, or unreachable) → take it back.
-          if case .failure = result {
-            self.connectPeripheral(peripheral)
-          }
-        }
       }
+      self.directReclaimAfterWake(released)
     }
   }
 
   /// One-shot direct reclaim of the peripherals we unpaired for sleep, run at
-  /// wake alongside arming the watcher (main queue). Covers the round trip
+  /// wake (main queue) — alongside the watcher when auto-reconnect is on,
+  /// alone when it's off. Covers the round trip
   /// where nothing adopted them while we slept (the other Mac stayed asleep or
   /// off the network): such a peripheral is bonded to no Mac, so it never
   /// reconnects on its own, and it only answers the watcher's RSSI probe in
