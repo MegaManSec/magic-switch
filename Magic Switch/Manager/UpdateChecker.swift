@@ -61,7 +61,9 @@ final class UpdateChecker: ObservableObject {
   /// Main-thread only.
   @Published private(set) var isChecking = false
 
-  /// Set when a *manual* check fails to reach GitHub, so the button can say so.
+  /// Set when a *manual* check fails to reach GitHub, so the button can say
+  /// so. Cleared by the next successful check of either kind — a stale
+  /// "Couldn't check" must not outlive a poll that has since succeeded.
   /// Automatic checks stay silent. Main-thread only.
   @Published private(set) var lastCheckFailed = false
 
@@ -171,6 +173,7 @@ final class UpdateChecker: ObservableObject {
           if manual { self.lastCheckFailed = true }
           return
         }
+        self.lastCheckFailed = false
         // Only record success: a transient failure shouldn't suppress the
         // next launch's retry for a full 24h.
         UserDefaults.standard.set(Date(), forKey: Constants.lastCheckedKey)
