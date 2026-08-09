@@ -319,12 +319,20 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// True if at least one registered peripheral is currently connected to this Mac.
-  /// Reads `connectionStates`; main-thread only.
-  var isAnyPeripheralConnected: Bool {
-    peripherals.contains { peripheral in
+  enum PeripheralPresence {
+    case none
+    case connectedHere
+    case away
+  }
+
+  /// Whether any registered peripheral is connected to this Mac, none are,
+  /// or none are registered at all. Reads `connectionStates`; main-thread only.
+  var peripheralPresence: PeripheralPresence {
+    guard !peripherals.isEmpty else { return .none }
+    let anyConnected = peripherals.contains { peripheral in
       connectionState(for: peripheral.id) == .connected
     }
+    return anyConnected ? .connectedHere : .away
   }
 
   /// Resolved display type for `peripheral`: the user's manual override if set,
