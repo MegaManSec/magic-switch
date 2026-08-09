@@ -319,6 +319,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
+  /// True if at least one registered peripheral is currently connected to this Mac.
+  /// Reads `connectionStates`; main-thread only.
+  var isAnyPeripheralConnected: Bool {
+    peripherals.contains { peripheral in
+      connectionState(for: peripheral.id) == .connected
+    }
+  }
+
   /// Resolved display type for `peripheral`: the user's manual override if set,
   /// otherwise auto-detected from the name and (when known) its Class of Device.
   func peripheralType(for peripheral: BluetoothPeripheral) -> PeripheralType {

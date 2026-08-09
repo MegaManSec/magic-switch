@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   private var dropdownContentView: DropdownContentView?
   private var bluetoothStateObserver: AnyCancellable?
   private var pairingObserver: AnyCancellable?
+  private var peripheralsObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
   private var lastBluetoothState: CBManagerState = .unknown
   private var sleepObserver: NSObjectProtocol?
@@ -221,6 +222,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       .sink { [weak self] _ in
         self?.refreshStatusBarIcon()
       }
+    peripheralsObserver = bluetoothStore.$peripherals
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.refreshStatusBarIcon()
+      }
     BluetoothManager.shared.setup()
   }
 
@@ -366,6 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         accessibilityDescription: "Sending peripherals to the other Mac")
       img?.isTemplate = true
       button.image = img
+      button.appearsDisabled = false
       button.toolTip = "Sending peripherals to the other Mac…"
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
@@ -375,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         accessibilityDescription: "Receiving peripherals from the other Mac")
       img?.isTemplate = true
       button.image = img
+      button.appearsDisabled = false
       button.toolTip = "Receiving peripherals from the other Mac…"
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
@@ -393,12 +401,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         accessibilityDescription: "Magic Switch needs attention")
       image?.isTemplate = true
       button.image = image
+      button.appearsDisabled = false
       button.toolTip = statusBarTooltip()
     } else if let normal = NSImage(named: "StatusBarIcon") {
       normal.size = NSSize(width: 24, height: 24)
       normal.isTemplate = true
       button.image = normal
-      button.toolTip = "Magic Switch"
+      button.appearsDisabled = !bluetoothStore.isAnyPeripheralConnected
+      button.toolTip = statusBarTooltip()
     }
     button.setAccessibilityLabel(statusBarTooltip())
   }
@@ -484,11 +494,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       self?.beginTransferHold(.sending)
     }
     // Settle signal for held transfers: any per-peripheral state flip
-    // re-evaluates whether the last transitioning row just resolved.
+    // re-evaluates whether the last transitioning row just resolved and
+    // updates the menu bar icon.
     transferSettleObserver = bluetoothStore.$connectionStates
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in
         self?.maybeEndHeldTransfer()
+        self?.refreshStatusBarIcon()
       }
   }
 
@@ -506,7 +518,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .resetting:
       return "Magic Switch: Bluetooth is resetting."
     case .poweredOn, .unknown:
-      return "Magic Switch"
+      if bluetoothStore.isAnyPeripheralConnected {
+        return "Magic Switch (Connected)"
+      } else {
+        return "Magic Switch (Disconnected)"
+      }
     @unknown default:
       return "Magic Switch"
     }
@@ -927,6 +943,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     )
     flash?.isTemplate = true
     button.image = flash
+    button.appearsDisabled = false
     pingFlashTimer?.cancel()
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
     timer.schedule(deadline: .now() + 3.0)
