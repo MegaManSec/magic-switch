@@ -636,6 +636,8 @@ private struct NetworkDeviceListView: View {
 
 // MARK: - Preview
 
+#if canImport(PreviewsMacros)
 #Preview {
   NetworkDeviceManagementView()
 }
+#endif
