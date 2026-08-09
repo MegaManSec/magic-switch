@@ -362,8 +362,6 @@ private struct EnterCodeSheet: View {
 
 // MARK: - Preview
 
-#if canImport(PreviewsMacros)
 #Preview {
   PairingSettingsView()
 }
-#endif

@@ -385,8 +385,6 @@ private struct SettingsRowView: View {
 
 // MARK: - Preview
 
-#if canImport(PreviewsMacros)
 #Preview {
   OtherSettingsView()
 }
-#endif

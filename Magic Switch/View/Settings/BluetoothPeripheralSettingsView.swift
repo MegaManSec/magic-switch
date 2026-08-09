@@ -335,8 +335,6 @@ private struct PeripheralRowView: View {
 
 // MARK: - Preview
 
-#if canImport(PreviewsMacros)
 #Preview {
   BluetoothPeripheralSettingsView()
 }
-#endif
