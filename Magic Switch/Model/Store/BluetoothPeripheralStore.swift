@@ -1075,6 +1075,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       peripheral,
       announcePairTimeout: true,
       refreshPairingBeforeConnect: false,
+      refreshStaleBondOnFailedOpen: true,
       completion: nil
     )
   }
@@ -1105,6 +1106,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///   pairing record before pairing. Use this only while taking a peripheral
   ///   from the peer: Magic peripherals can sit at `paired=true` but refuse
   ///   `openConnection()` until the target Mac re-pairs.
+  /// - Parameter refreshStaleBondOnFailedOpen: whether a bonded device that
+  ///   refuses `openConnection()` while the RSSI probe can still see it may
+  ///   have its local pairing record removed and re-paired within the same
+  ///   attempt. That combination — alive and in range, yet refusing the
+  ///   bonded connect — is the stale-bond signature: the local record says
+  ///   `paired=true` but the device actually answers to the other Mac (a
+  ///   handoff outside the app, or desynced state). Only interactive local
+  ///   connects pass `true`; the background watcher/reclaim paths keep
+  ///   retrying the plain open instead, so a transient link failure in a
+  ///   retry loop can't repeatedly tear bonds down.
   /// - Parameter skipRangeCheck: start the pair even when the RSSI probe can't
   ///   see the device. A peripheral we unpaired for sleep that nothing adopted
   ///   is bonded to no Mac and invisible to the probe until the user touches
@@ -1117,6 +1128,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     _ peripheral: BluetoothPeripheral,
     announcePairTimeout: Bool,
     refreshPairingBeforeConnect: Bool,
+    refreshStaleBondOnFailedOpen: Bool = false,
     skipRangeCheck: Bool = false,
     completion: ((Bool) -> Void)?
   ) {
@@ -1164,22 +1176,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
 
       if refreshPairingBeforeConnect, btDevice.isPaired() {
-        if btDevice.responds(to: Selector(("remove"))) {
-          btDevice.perform(Selector(("remove")))
-          print("Removed stale local pairing before taking \(peripheral.name)")
-          // `-remove` tears the bond down asynchronously in the Bluetooth
-          // daemon; re-pairing before it settles can race the unbond and fail.
-          // A short fixed settle is simpler than a poll loop here (there's no
-          // condition to poll — just "give the daemon a moment"). We're on
-          // `bluetoothQueue`, a background serial queue, so this briefly stalls
-          // other queued BT work but never the main thread / UI.
-          Thread.sleep(forTimeInterval: 0.5)
-          if let refreshed = IOBluetoothDevice(addressString: peripheral.id) {
-            btDevice = refreshed
-          }
-        } else {
-          print("Cannot refresh stale pairing for \(peripheral.name): remove selector unavailable")
-        }
+        btDevice = self.removeStaleBond(of: btDevice, id: peripheral.id, name: peripheral.name)
       }
 
       // Already bonded to this Mac. A peripheral we're holding that merely
@@ -1190,9 +1187,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // strands the UI at "(Pairing…)" — the pair callback never fires for an
       // already-connected device, and `fetchConnectedPeripherals` won't
       // overwrite the in-flight `.connecting`). So adopt the live connection,
-      // or just open one — never re-pair. For peer takeovers, a stale
-      // `paired=true connected=false` record is removed above so this branch
-      // does not mask the required re-pair.
+      // or just open one — don't re-pair up front. For peer takeovers, a
+      // stale `paired=true connected=false` record is removed above so this
+      // branch does not mask the required re-pair; interactive connects can
+      // instead escalate to that same refresh below, but only after the plain
+      // open has failed against a device the probe can still see.
       if !refreshPairingBeforeConnect, btDevice.isConnected() || btDevice.isPaired() {
         var openResult = kIOReturnSuccess
         if !btDevice.isConnected() {
@@ -1201,13 +1200,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         if btDevice.isConnected() {
           self.setConnectionState(.connected, for: peripheral.id)
           self.registerForDisconnect(device: btDevice, address: peripheral.id)
+          return
+        }
+        print("openConnection to bonded \(peripheral.name) failed: \(openResult)")
+        if refreshStaleBondOnFailedOpen,
+          btDevice.responds(to: Selector(("remove"))),
+          btDevice.rssi() != Constants.invalidRSSI
+        {
+          // Alive and in range, yet refusing the bonded connect — the
+          // stale-bond signature (see the parameter doc). Break the dead
+          // record and fall through to a fresh pair. The RSSI gate is what
+          // makes this safe to do unprompted: a healthy bond whose device is
+          // merely off or out of range doesn't answer the probe, and removing
+          // *that* bond would cost the automatic reconnect macOS performs
+          // when the device comes back.
+          btDevice = self.removeStaleBond(of: btDevice, id: peripheral.id, name: peripheral.name)
         } else {
           // Bonded but didn't come up (still booting / out of range / link
           // failure). macOS or the watcher's next probe may still bring it
           // back, but an interactive Connect that lands here previously
           // discarded the openConnection result and looked like nothing
           // happened.
-          print("openConnection to bonded \(peripheral.name) failed: \(openResult)")
           self.failConnectAttempt(
             id: peripheral.id, name: peripheral.name,
             inline: "Couldn't connect.",
@@ -1216,8 +1229,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
               "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac.",
             attempt: attempt
           )
+          return
         }
-        return
       }
 
       if !skipRangeCheck, btDevice.rssi() == Constants.invalidRSSI {
@@ -1273,6 +1286,29 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
       // Success path continues in `devicePairingFinished(_:error:)`.
     }
+  }
+
+  /// Removes a local pairing record judged stale so the caller can re-pair
+  /// from scratch. Runs on `bluetoothQueue` (it blocks in a settle sleep).
+  /// Returns a re-fetched device handle — the old one still reports the
+  /// removed bond.
+  private func removeStaleBond(
+    of btDevice: IOBluetoothDevice, id: String, name: String
+  ) -> IOBluetoothDevice {
+    guard btDevice.responds(to: Selector(("remove"))) else {
+      print("Cannot refresh stale pairing for \(name): remove selector unavailable")
+      return btDevice
+    }
+    btDevice.perform(Selector(("remove")))
+    print("Removed stale local pairing before taking \(name)")
+    // `-remove` tears the bond down asynchronously in the Bluetooth
+    // daemon; re-pairing before it settles can race the unbond and fail.
+    // A short fixed settle is simpler than a poll loop here (there's no
+    // condition to poll — just "give the daemon a moment"). We're on
+    // `bluetoothQueue`, a background serial queue, so this briefly stalls
+    // other queued BT work but never the main thread / UI.
+    Thread.sleep(forTimeInterval: 0.5)
+    return IOBluetoothDevice(addressString: id) ?? btDevice
   }
 
   /// Disconnect device. Like `unregisterFromPC`, the IOBluetooth work runs on
