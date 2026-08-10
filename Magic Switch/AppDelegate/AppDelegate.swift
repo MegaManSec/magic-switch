@@ -222,8 +222,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       .sink { [weak self] _ in
         self?.refreshStatusBarIcon()
       }
-    peripheralsObserver = bluetoothStore.$peripherals.map { _ in () }
-      .merge(with: bluetoothStore.$connectionStates.map { _ in () })
+    peripheralsObserver = bluetoothStore.$peripherals
+      .combineLatest(bluetoothStore.$connectionStates) {
+        BluetoothPeripheralStore.presence(of: $0, connectionStates: $1)
+      }
+      .removeDuplicates()
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in
         self?.refreshStatusBarIcon()
@@ -256,6 +259,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .poweredOn:
       // The radio is back; retire a delivered "Bluetooth Off" alert.
       NotificationManager.removeNotification(identifier: Self.bluetoothOffNotificationID)
+      // The store's init-time snapshot bails while the radio reads off (e.g.
+      // a login-item launch), and already-connected peripherals fire no new
+      // connect event — re-resolve connection states now that it's up.
+      bluetoothStore.fetchConnectedPeripherals()
     case .resetting, .unknown:
       break
     @unknown default:
@@ -358,11 +365,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     dropdownContentView?.updateFrameToFit()
   }
 
+  /// `NSImage(named:)` returns the shared cache instance — never mutate it,
+  /// copy first.
+  private static let statusBarGlyph = NSImage(named: "StatusBarIcon")
+
   /// The idle glyph, template-tinted like every other state the icon shows.
   private static let statusBarIdleIcon: NSImage? = {
-    let icon = NSImage(named: "StatusBarIcon")
-    icon?.size = NSSize(width: 24, height: 24)
-    icon?.isTemplate = true
+    guard let icon = statusBarGlyph?.copy() as? NSImage else { return nil }
+    icon.size = NSSize(width: 24, height: 24)
+    icon.isTemplate = true
     return icon
   }()
 
@@ -370,7 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// Center "engaged" look — shown while peripherals are connected to this
   /// Mac. Composited from the same asset so the two states can't drift.
   private static let statusBarConnectedIcon: NSImage? = {
-    guard let glyph = NSImage(named: "StatusBarIcon") else { return nil }
+    guard let glyph = statusBarGlyph?.copy() as? NSImage else { return nil }
     let icon = NSImage(size: NSSize(width: 24, height: 24), flipped: false) { rect in
       NSBezierPath(roundedRect: rect.insetBy(dx: 2, dy: 4), xRadius: 5, yRadius: 5).fill()
       glyph.draw(
@@ -381,14 +392,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     return icon
   }()
 
-  /// Peripheral presence for the idle icon/tooltip. Only trusts the store
-  /// once Bluetooth is up: before the first `.poweredOn`, `connectionStates`
-  /// is still empty and would misreport connected peripherals as away.
-  private func idlePeripheralPresence() -> BluetoothPeripheralStore.PeripheralPresence {
-    guard BluetoothManager.shared.state == .poweredOn else { return .none }
-    return bluetoothStore.peripheralPresence
-  }
-
   /// Updates the menu-bar icon based on transfer state (highest priority),
   /// then Pairing + Bluetooth state. Transfer state shows arrow icons so
   /// the user can tell at a glance that peripherals are moving, and in
@@ -398,6 +401,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// to this Mac.
   private func refreshStatusBarIcon() {
     guard let button = statusItem?.button else { return }
+
+    let needsAttention =
+      !PairingStore.shared.isPaired
+      || (BluetoothManager.shared.state != .poweredOn
+        && BluetoothManager.shared.state != .unknown)
+
+    // A transfer arrow or attention icon forfeits an in-flight ping flash —
+    // that state change is more important to surface. Routine connection
+    // churn must not: the idle branch below leaves the bell alone.
+    if transferState != .idle || needsAttention {
+      pingFlashTimer?.cancel()
+      pingFlashTimer = nil
+    }
 
     switch transferState {
     case .sending:
@@ -422,26 +438,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       break
     }
 
-    let needsAttention =
-      !PairingStore.shared.isPaired
-      || (BluetoothManager.shared.state != .poweredOn
-        && BluetoothManager.shared.state != .unknown)
-
+    let tooltip = statusBarTooltip()
     if needsAttention {
       let image = NSImage(
         systemSymbolName: "exclamationmark.triangle.fill",
         accessibilityDescription: "Magic Switch needs attention")
       image?.isTemplate = true
       button.image = image
-      button.toolTip = statusBarTooltip()
-    } else {
-      let connected = idlePeripheralPresence() == .connectedHere
+    } else if pingFlashTimer == nil {
+      let connected = bluetoothStore.peripheralPresence == .connectedHere
       if let image = connected ? Self.statusBarConnectedIcon : Self.statusBarIdleIcon {
         button.image = image
       }
-      button.toolTip = statusBarTooltip()
     }
-    button.setAccessibilityLabel(statusBarTooltip())
+    button.toolTip = tooltip
+    button.setAccessibilityLabel(tooltip)
   }
 
   /// Set the transfer-direction icon for the duration of a transfer.
@@ -547,7 +558,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .resetting:
       return "Magic Switch: Bluetooth is resetting."
     case .poweredOn, .unknown:
-      switch idlePeripheralPresence() {
+      switch bluetoothStore.peripheralPresence {
       case .connectedHere:
         return "Magic Switch — peripherals connected to this Mac"
       case .away:
@@ -960,10 +971,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   }
 
   /// Briefly swap the status-bar icon to a "bell" symbol, then restore
-  /// the real state via `refreshStatusBarIcon()`. If a subsequent
-  /// state-change (pairing flip, Bluetooth state) triggers a refresh
-  /// during the flash window, the flash gets cut short — that's fine,
-  /// the state change is more important to surface.
+  /// the real state via `refreshStatusBarIcon()`. A transfer or
+  /// needs-attention refresh during the flash window cuts it short —
+  /// that's fine, the state change is more important to surface — but
+  /// idle refreshes (connection-state churn) leave it up for the full 3s.
   private func flashStatusBarIcon() {
     guard let button = statusItem?.button else { return }
     // A transfer arrow outranks the bell: mid-transfer the user is watching
@@ -978,7 +989,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     pingFlashTimer?.cancel()
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
     timer.schedule(deadline: .now() + 3.0)
-    timer.setEventHandler { [weak self] in self?.refreshStatusBarIcon() }
+    timer.setEventHandler { [weak self] in
+      self?.pingFlashTimer = nil
+      self?.refreshStatusBarIcon()
+    }
     timer.resume()
     pingFlashTimer = timer
   }
