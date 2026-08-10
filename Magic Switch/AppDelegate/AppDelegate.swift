@@ -373,6 +373,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       img?.isTemplate = true
       button.image = img
       button.appearsDisabled = false
+      button.alphaValue = 1.0
+      button.contentTintColor = nil
       button.toolTip = "Sending peripherals to the other Mac…"
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
@@ -383,6 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       img?.isTemplate = true
       button.image = img
       button.appearsDisabled = false
+      button.alphaValue = 1.0
+      button.contentTintColor = nil
       button.toolTip = "Receiving peripherals from the other Mac…"
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
@@ -402,12 +406,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       image?.isTemplate = true
       button.image = image
       button.appearsDisabled = false
+      button.alphaValue = 1.0
+      button.contentTintColor = nil
       button.toolTip = statusBarTooltip()
     } else if let normal = NSImage(named: "StatusBarIcon") {
       normal.size = NSSize(width: 24, height: 24)
       normal.isTemplate = true
       button.image = normal
-      button.appearsDisabled = !bluetoothStore.isAnyPeripheralConnected
+      button.appearsDisabled = false
+      button.alphaValue = 1.0
+      button.contentTintColor = bluetoothStore.isAnyPeripheralConnected ? nil : .tertiaryLabelColor
       button.toolTip = statusBarTooltip()
     }
     button.setAccessibilityLabel(statusBarTooltip())
@@ -944,6 +952,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     flash?.isTemplate = true
     button.image = flash
     button.appearsDisabled = false
+    button.alphaValue = 1.0
+    button.contentTintColor = nil
     pingFlashTimer?.cancel()
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
     timer.schedule(deadline: .now() + 3.0)
