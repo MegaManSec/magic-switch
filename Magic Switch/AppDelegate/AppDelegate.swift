@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   private var dropdownContentView: DropdownContentView?
   private var bluetoothStateObserver: AnyCancellable?
   private var pairingObserver: AnyCancellable?
+  private var peripheralsObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
   private var lastBluetoothState: CBManagerState = .unknown
   private var sleepObserver: NSObjectProtocol?
@@ -221,6 +222,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       .sink { [weak self] _ in
         self?.refreshStatusBarIcon()
       }
+    peripheralsObserver = bluetoothStore.$peripherals.map { _ in () }
+      .merge(with: bluetoothStore.$connectionStates.map { _ in () })
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in
+        self?.refreshStatusBarIcon()
+      }
     BluetoothManager.shared.setup()
   }
 
@@ -351,11 +358,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     dropdownContentView?.updateFrameToFit()
   }
 
+  /// The idle glyph, template-tinted like every other state the icon shows.
+  private static let statusBarIdleIcon: NSImage? = {
+    let icon = NSImage(named: "StatusBarIcon")
+    icon?.size = NSSize(width: 24, height: 24)
+    icon?.isTemplate = true
+    return icon
+  }()
+
+  /// The idle glyph knocked out of a filled rounded square — the Control
+  /// Center "engaged" look — shown while peripherals are connected to this
+  /// Mac. Composited from the same asset so the two states can't drift.
+  private static let statusBarConnectedIcon: NSImage? = {
+    guard let glyph = NSImage(named: "StatusBarIcon") else { return nil }
+    let icon = NSImage(size: NSSize(width: 24, height: 24), flipped: false) { rect in
+      NSBezierPath(roundedRect: rect.insetBy(dx: 2, dy: 4), xRadius: 5, yRadius: 5).fill()
+      glyph.draw(
+        in: rect.insetBy(dx: 3, dy: 3), from: .zero, operation: .destinationOut, fraction: 1)
+      return true
+    }
+    icon.isTemplate = true
+    return icon
+  }()
+
+  /// Peripheral presence for the idle icon/tooltip. Only trusts the store
+  /// once Bluetooth is up: before the first `.poweredOn`, `connectionStates`
+  /// is still empty and would misreport connected peripherals as away.
+  private func idlePeripheralPresence() -> BluetoothPeripheralStore.PeripheralPresence {
+    guard BluetoothManager.shared.state == .poweredOn else { return .none }
+    return bluetoothStore.peripheralPresence
+  }
+
   /// Updates the menu-bar icon based on transfer state (highest priority),
   /// then Pairing + Bluetooth state. Transfer state shows arrow icons so
   /// the user can tell at a glance that peripherals are moving, and in
   /// which direction. When the app cannot function (unpaired, Bluetooth
-  /// off, etc.) we show a triangle exclamation mark instead.
+  /// off, etc.) we show a triangle exclamation mark instead. When idle,
+  /// the icon gains a filled background while peripherals are connected
+  /// to this Mac.
   private func refreshStatusBarIcon() {
     guard let button = statusItem?.button else { return }
 
@@ -394,11 +434,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       image?.isTemplate = true
       button.image = image
       button.toolTip = statusBarTooltip()
-    } else if let normal = NSImage(named: "StatusBarIcon") {
-      normal.size = NSSize(width: 24, height: 24)
-      normal.isTemplate = true
-      button.image = normal
-      button.toolTip = "Magic Switch"
+    } else {
+      let connected = idlePeripheralPresence() == .connectedHere
+      if let image = connected ? Self.statusBarConnectedIcon : Self.statusBarIdleIcon {
+        button.image = image
+      }
+      button.toolTip = statusBarTooltip()
     }
     button.setAccessibilityLabel(statusBarTooltip())
   }
@@ -506,7 +547,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .resetting:
       return "Magic Switch: Bluetooth is resetting."
     case .poweredOn, .unknown:
-      return "Magic Switch"
+      switch idlePeripheralPresence() {
+      case .connectedHere:
+        return "Magic Switch — peripherals connected to this Mac"
+      case .away:
+        return "Magic Switch — no peripherals connected to this Mac"
+      case .none:
+        return "Magic Switch"
+      }
     @unknown default:
       return "Magic Switch"
     }
