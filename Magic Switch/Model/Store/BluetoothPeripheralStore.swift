@@ -325,14 +325,32 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     case away
   }
 
-  /// Whether any registered peripheral is connected to this Mac, none are,
-  /// or none are registered at all. Reads `connectionStates`; main-thread only.
+  /// Whether any registered peripheral is on this Mac, none are, or the
+  /// answer isn't known. `.releasing` counts as here: the device stays
+  /// physically connected through the handoff preflight, and the transfer
+  /// arrow takes over the icon once the release actually starts. Reads
+  /// `connectionStates`; main-thread only.
   var peripheralPresence: PeripheralPresence {
+    Self.presence(of: peripherals, connectionStates: connectionStates)
+  }
+
+  /// A registered peripheral with no `connectionStates` entry hasn't been
+  /// resolved by a snapshot yet (every snapshot writes one per registered
+  /// id), so its absence means "unknown", not "away".
+  static func presence(
+    of peripherals: [BluetoothPeripheral],
+    connectionStates: [String: PeripheralConnectionState]
+  ) -> PeripheralPresence {
     guard !peripherals.isEmpty else { return .none }
-    let anyConnected = peripherals.contains { peripheral in
-      connectionState(for: peripheral.id) == .connected
+    var unresolved = false
+    for peripheral in peripherals {
+      switch connectionStates[peripheral.id] {
+      case .connected, .releasing: return .connectedHere
+      case .disconnected, .connecting: break
+      case nil: unresolved = true
+      }
     }
-    return anyConnected ? .connectedHere : .away
+    return unresolved ? .none : .away
   }
 
   /// Resolved display type for `peripheral`: the user's manual override if set,
