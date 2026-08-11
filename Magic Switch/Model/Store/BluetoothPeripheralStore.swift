@@ -1558,8 +1558,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     else {
       return
     }
-    print("Accepting Bluetooth pairing confirmation for \(address): \(numericValue)")
-    pair.replyUserConfirmation(true)
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      let initiated = self.pendingPairs[address] === pair
+      print(
+        "Bluetooth pairing confirmation for \(address) (\(numericValue)): "
+          + (initiated ? "accept" : "refuse"))
+      pair.replyUserConfirmation(initiated)
+    }
   }
 
   @objc func devicePairingPINCodeRequest(_ sender: Any!) {
