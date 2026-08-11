@@ -68,6 +68,7 @@ final class IncomingConnection {
   private var selfRef: IncomingConnection?
   private var authenticated = false
   private var finished = false
+  private var pendingCounted = false
   /// Fingerprint of the accept-time PSK snapshot the handshake proved.
   private var provedFingerprint: String?
 
@@ -108,6 +109,14 @@ final class IncomingConnection {
       return
     }
 
+    guard rateLimiter.beginPending(endpoint: endpoint) else {
+      print("Rejecting connection: too many concurrent unauthenticated handshakes")
+      connection.cancel()
+      release()
+      return
+    }
+    pendingCounted = true
+
     let channel = SecureChannel(
       connection: connection, role: .server, psk: psk, queue: queue
     )
@@ -132,6 +141,7 @@ final class IncomingConnection {
       switch result {
       case .success:
         self.authenticated = true
+        self.endPendingIfNeeded()
         // The peer has proved possession of the pairing key this handshake
         // ran with — strictly stronger evidence than the fingerprint it
         // advertises over cleartext mDNS. If a registered device is stuck
@@ -492,6 +502,7 @@ final class IncomingConnection {
   private func teardown() {
     guard !finished else { return }
     finished = true
+    endPendingIfNeeded()
     idleTimer?.cancel()
     totalTimer?.cancel()
     idleTimer = nil
@@ -499,6 +510,12 @@ final class IncomingConnection {
     channel?.cancel()
     connection.cancel()
     release()
+  }
+
+  private func endPendingIfNeeded() {
+    guard pendingCounted else { return }
+    pendingCounted = false
+    rateLimiter.endPending(endpoint: endpoint)
   }
 
   private func release() {
