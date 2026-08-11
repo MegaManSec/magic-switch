@@ -179,10 +179,20 @@ final class IncomingConnection {
         self.teardown()
       case .success(let data):
         self.resetIdleTimer()
+        guard self.currentlyAuthorized() else {
+          print("Dropping frame: pairing key changed or removed since handshake")
+          self.teardown()
+          return
+        }
         self.handleIncoming(data: data)
         self.readNext()
       }
     }
+  }
+
+  private func currentlyAuthorized() -> Bool {
+    guard let key = pairingStore.currentKey() else { return false }
+    return PairingStore.fingerprint(forKey: key) == provedFingerprint
   }
 
   // MARK: - Command Handling
