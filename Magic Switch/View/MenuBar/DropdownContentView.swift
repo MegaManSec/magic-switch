@@ -53,7 +53,7 @@ final class MenuRowControl: NSControl {
     setHighlighted(false)
     // The stores can rebuild the menu while the tracking loop runs; a row
     // replaced mid-press has no window and its action captures stale state.
-    if inside, window != nil { onClick() }
+    if inside, self.window != nil { onClick() }
   }
 
   // MARK: - Hover highlight
@@ -306,15 +306,26 @@ final class DropdownContentView: NSView {
     let state = bluetoothStore.connectionState(for: peripheral.id)
     let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
     let row = MenuRowControl { [weak self] in
-      self?.bluetoothStore.switchPeripheral(peripheral, direction: .toggle)
+      guard let self = self else { return }
+      // A click can race the rebuild that follows a state flip — act only on
+      // the state the row was showing when it was pressed.
+      guard self.bluetoothStore.connectionState(for: peripheral.id) == state else { return }
+      if state == .connecting {
+        self.bluetoothStore.cancelConnect(peripheral)
+      } else {
+        self.bluetoothStore.switchPeripheral(peripheral, direction: .toggle)
+      }
     }
     // A disconnected peripheral is always clickable — take it (locally over
     // Bluetooth if there's no peer to ask). A connected one can only be *sent*,
-    // so it greys out when no Mac is reachable to hand it to. A pairing row is
-    // disabled while in flight.
+    // so it greys out when no Mac is reachable to hand it to. A pairing row
+    // stays clickable so the attempt can be cancelled; a releasing one can't
+    // be — aborting a half-done release could strand the peripheral on
+    // neither Mac.
     let enabled: Bool
     switch state {
-    case .connecting, .releasing: enabled = false
+    case .releasing: enabled = false
+    case .connecting: enabled = true
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
@@ -374,7 +385,7 @@ final class DropdownContentView: NSView {
 
     switch state {
     case .connecting:
-      row.toolTip = "Pairing \(peripheral.name)…"
+      row.toolTip = "Pairing \(peripheral.name)… Click to cancel."
     case .releasing:
       row.toolTip = "Releasing \(peripheral.name) to the other Mac…"
     case .connected:
