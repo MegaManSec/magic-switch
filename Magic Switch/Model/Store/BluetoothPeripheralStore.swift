@@ -143,6 +143,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
   private var autoReconnect: Bool = true
 
+  /// The same setting read off the main thread, where the `@AppStorage`
+  /// wrapper isn't safe to touch. `@AppStorage` stores through
+  /// `UserDefaults.standard` under the same key, so an absent value means the
+  /// user has never toggled it and the wrapper's own default applies.
+  private var autoReconnectIsOn: Bool {
+    UserDefaults.standard.object(forKey: Self.autoReconnectDefaultsKey) as? Bool ?? true
+  }
+
   @Published private(set) var peripherals: [BluetoothPeripheral] = [] {
     didSet {
       savePeripherals()
@@ -1161,9 +1169,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///   when it returns is lost. Takeover connects (`skipRangeCheck: true`)
   ///   escalate without the probe: the peer just released the device or
   ///   vanished, so a bond that still refuses the open is stale by
-  ///   construction. The watcher's reclaim retries pass `false` and keep
-  ///   retrying the plain open, so a transient link failure in a retry loop
-  ///   can't repeatedly tear bonds down.
+  ///   construction. That blind escalation is conditional on auto-reconnect
+  ///   being on — its retries, given a fresh window by
+  ///   `armReconnectForBondRepair`, are what make a wrong guess recoverable,
+  ///   and with the setting off nothing would re-pair the device at all. The
+  ///   watcher's reclaim retries pass `false` and keep retrying the plain
+  ///   open, so a transient link failure in a retry loop can't repeatedly
+  ///   tear bonds down.
   /// - Parameter skipRangeCheck: start the pair even when the RSSI probe can't
   ///   see the device. A peripheral the peer just released (a takeover) or
   ///   one we unpaired for sleep that nothing adopted (the wake reclaim) is
@@ -1248,7 +1260,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
         guard refreshStaleBondOnFailedOpen,
           btDevice.responds(to: Selector(("remove"))),
-          skipRangeCheck || btDevice.rssi() != Constants.invalidRSSI
+          (skipRangeCheck && self.autoReconnectIsOn)
+            || btDevice.rssi() != Constants.invalidRSSI
         else {
           // Bonded but didn't come up (still booting / out of range / link
           // failure). macOS or the watcher's next probe may still bring it
@@ -1272,7 +1285,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // and removing *that* bond would cost the automatic reconnect macOS
         // performs when the device comes back. Takeovers skip the gate — the
         // device often stays silent until the peer's release lands, and the
-        // paging pair catches it.
+        // paging pair catches it — but only while auto-reconnect is on, since
+        // the watcher's retries are the whole reason a wrong guess here is
+        // survivable. With it off, an unanswered probe keeps its bond.
         self.removeStaleBond(
           of: btDevice, id: peripheral.id, name: peripheral.name
         ) { refreshed in
@@ -1389,6 +1404,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     btDevice.perform(Selector(("remove")))
     print("Removed stale local pairing before taking \(name)")
     noteBondAwaitingRepair(id)
+    armReconnectForBondRepair(id)
     bluetoothQueue.asyncAfter(deadline: .now() + Constants.unbondSettle) {
       completion(IOBluetoothDevice(addressString: id) ?? btDevice)
     }
@@ -1405,6 +1421,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Main-only.
   private func consumeBondAwaitingRepair(_ id: String) -> Bool {
     bondsAwaitingRepair.remove(id) != nil
+  }
+
+  /// Give `id` a full `reconnectMaxWindow` of watcher retries from now.
+  /// Removing a bond is a debt this Mac just took on, so the retries that pay
+  /// it can't inherit whatever was left of the original drop's window —
+  /// `armReconnect` deliberately preserves that earlier deadline, which on an
+  /// entry armed minutes ago leaves almost no time to re-pair. A peripheral
+  /// whose caller never armed the watcher gets armed here for the same reason.
+  /// Leaves an existing entry's reclaim/adoption flavour alone.
+  private func armReconnectForBondRepair(_ id: String) {
+    let apply: () -> Void = { [weak self] in
+      guard let self = self else { return }
+      guard self.reconnectWatchlist[id] != nil else {
+        self.armReconnect(id)
+        return
+      }
+      self.reconnectWatchlist[id] = Date()
+      print("Auto-reconnect: restarted the retry window for \(id)")
+    }
+    if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
   }
 
   /// Disconnect device. Like `unregisterFromPC`, the IOBluetooth work runs on
