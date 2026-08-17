@@ -1568,7 +1568,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     else {
       return
     }
-    print("Bluetooth pairing requested a PIN code for \(address)")
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      guard self.pendingPairs[address] === pair else {
+        print("Ignoring Bluetooth PIN code request for \(address): not our pairing")
+        return
+      }
+      print("Replying to Bluetooth PIN code request for \(address)")
+      // Legacy HID peripherals with no keypad take the all-zero PIN.
+      var code = BluetoothPINCode()
+      let digits = Array("0000".utf8)
+      withUnsafeMutableBytes(of: &code.data) { raw in
+        for (index, byte) in digits.enumerated() { raw[index] = byte }
+      }
+      pair.replyPINCode(digits.count, pinCode: &code)
+    }
   }
 
   /// Selector target for `IOBluetoothDevice.register(forDisconnectNotification:...)`.
