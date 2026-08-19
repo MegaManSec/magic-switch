@@ -2106,7 +2106,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// failure; an adoption — no prior claim — takes it only once the peer is
   /// provably absent: unreachable at the connect layer for
   /// `adoptionRequiredAbsentStreak` consecutive probes. A peer that answers
-  /// at all — an explicit "not holding" (`.bodyFailed`) included — outranks
+  /// at all — an explicit "not holding" (`.remoteOperationFailed`) included — outranks
   /// us, so stand down and leave the move to its reclaim or to the user.
   /// Pair attempts are capped: a free peripheral pairs on the first try, so
   /// repeated failures mean it's busy with a peer we can't reach.

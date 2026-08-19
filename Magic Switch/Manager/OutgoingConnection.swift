@@ -10,6 +10,12 @@ enum OutgoingFailure: Error {
   case connectionFailed(String)
   case connectTimeout
   case handshakeFailed(SecureChannelError)
+  /// The authenticated peer received the request but reported that it could
+  /// not complete the operation.
+  case remoteOperationFailed
+  /// The authenticated peer replied with data that is not valid for the
+  /// current command.
+  case invalidResponse
   case bodyFailed
   /// Self-throttled because of recent repeated failures to this host.
   /// Prevents a runaway retry loop from racking up failures the peer's
@@ -36,6 +42,10 @@ enum OutgoingFailure: Error {
       return "Couldn't establish a secure connection (possible tampering)."
     case .handshakeFailed:
       return "Couldn't establish a secure connection."
+    case .remoteOperationFailed:
+      return "The other Mac reported that it couldn't complete the operation."
+    case .invalidResponse:
+      return "The other Mac returned an invalid response."
     case .bodyFailed:
       return "The connection dropped mid-message."
     case .tooManyRecentFailures:
@@ -163,7 +173,10 @@ final class OutgoingConnection {
   /// receives a `Result` whose failure case carries a categorised reason
   /// (see `OutgoingFailure`) so the caller can render a useful notification.
   func run(
-    body: @escaping (SecureChannel, @escaping (Bool) -> Void) -> Void,
+    body:
+      @escaping (
+        SecureChannel, @escaping (Result<Void, OutgoingFailure>) -> Void
+      ) -> Void,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     selfRef = self
@@ -222,9 +235,8 @@ final class OutgoingConnection {
                 provedByHandshake: provedFingerprint)
             }
             self.startBodyTimer(completion: completion)
-            body(channel) { ok in
-              self.finish(
-                ok ? .success(()) : .failure(.bodyFailed), completion: completion)
+            body(channel) { result in
+              self.finish(result, completion: completion)
             }
           case .failure(let err):
             print("OutgoingConnection handshake failed: \(err)")
@@ -270,13 +282,15 @@ final class OutgoingConnection {
     bodyTimer = nil
     channel?.cancel()
     connection.cancel()
-    // Feed the outbound rate limiter so a series of failures throttles
-    // future attempts, and a success clears the counter immediately. Skip
+    // Feed the outbound rate limiter so a series of transport/protocol
+    // failures throttles future attempts, and a healthy authenticated reply
+    // clears the counter immediately. OP_FAILED is an operation failure, not
+    // a network failure: the peer received and answered the request. Skip
     // `tooManyRecentFailures` — that's the limiter's own refusal and would
     // double-count. Background reachability probes opt out entirely.
     if countsTowardRateLimit {
       switch result {
-      case .success:
+      case .success, .failure(.remoteOperationFailed):
         rateLimiter.recordSuccess(host: host)
       case .failure(.tooManyRecentFailures):
         break
