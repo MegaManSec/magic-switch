@@ -907,6 +907,25 @@ enum DeviceCommand: String, Codable {
   case introduce = "INTRODUCE"
 }
 
+/// Decodes the standard OP_SUCCESS/OP_FAILED acknowledgement used by normal
+/// commands. A valid failure acknowledgement proves the authenticated channel
+/// stayed healthy; malformed or command-shaped replies are protocol errors.
+private func decodeOperationResponse(_ data: Data) -> Result<Void, OutgoingFailure> {
+  guard let response = String(data: data, encoding: .utf8),
+    let command = DeviceCommand(rawValue: response)
+  else {
+    return .failure(.invalidResponse)
+  }
+  switch command {
+  case .operationSuccess:
+    return .success(())
+  case .operationFailed:
+    return .failure(.remoteOperationFailed)
+  default:
+    return .failure(.invalidResponse)
+  }
+}
+
 /// Identity carried by `INTRODUCE` frames: `<listenPort>|<name>`, port first
 /// so the name may contain `|`.
 struct IntroducedIdentity {
@@ -995,21 +1014,16 @@ extension NetworkDeviceStore {
         channel.send(Data(command.rawValue.utf8)) { sendErr in
           if let sendErr = sendErr {
             print("Failed to send command: \(sendErr)")
-            done(false)
+            done(.failure(.bodyFailed))
             return
           }
           channel.receive { result in
             switch result {
             case .failure(let err):
               print("Failed to receive response: \(err)")
-              done(false)
+              done(.failure(.bodyFailed))
             case .success(let data):
-              let response = String(data: data, encoding: .utf8) ?? ""
-              if let resp = DeviceCommand(rawValue: response) {
-                done(resp == .operationSuccess)
-              } else {
-                done(false)
-              }
+              done(decodeOperationResponse(data))
             }
           }
         }
@@ -1036,14 +1050,14 @@ extension NetworkDeviceStore {
         channel.send(Data(DeviceCommand.notification.rawValue.utf8)) { err in
           if let err = err {
             print("Notification command send failed: \(err)")
-            done(false)
+            done(.failure(.bodyFailed))
             return
           }
           let payload = "\(title)|\(message)"
           channel.send(Data(payload.utf8)) { err2 in
             if let err2 = err2 {
               print("Notification payload send failed: \(err2)")
-              done(false)
+              done(.failure(.bodyFailed))
               return
             }
             // Wait for the receiver's OP_SUCCESS/OP_FAILED before tearing
@@ -1055,10 +1069,9 @@ extension NetworkDeviceStore {
               switch result {
               case .failure(let err):
                 print("Notification ack receive failed: \(err)")
-                done(false)
+                done(.failure(.bodyFailed))
               case .success(let data):
-                let response = String(data: data, encoding: .utf8) ?? ""
-                done(DeviceCommand(rawValue: response) == .operationSuccess)
+                done(decodeOperationResponse(data))
               }
             }
           }
@@ -1100,13 +1113,13 @@ extension NetworkDeviceStore {
         channel.send(Data(DeviceCommand.syncPeripherals.rawValue.utf8)) { err in
           if let err = err {
             print("syncPeripherals command send failed: \(err)")
-            done(false)
+            done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(jsonString.utf8)) { err2 in
             if let err2 = err2 {
               print("syncPeripherals payload send failed: \(err2)")
-              done(false)
+              done(.failure(.bodyFailed))
               return
             }
             // Same rationale as the notification path: wait for the
@@ -1116,10 +1129,9 @@ extension NetworkDeviceStore {
               switch result {
               case .failure(let err):
                 print("syncPeripherals ack receive failed: \(err)")
-                done(false)
+                done(.failure(.bodyFailed))
               case .success(let data):
-                let response = String(data: data, encoding: .utf8) ?? ""
-                done(DeviceCommand(rawValue: response) == .operationSuccess)
+                done(decodeOperationResponse(data))
               }
             }
           }
@@ -1221,32 +1233,32 @@ extension NetworkDeviceStore {
         channel.send(Data(DeviceCommand.introduce.rawValue.utf8)) { err in
           if let err = err {
             print("INTRODUCE command send failed: \(err)")
-            done(false)
+            done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(local.encoded.utf8)) { err2 in
             if let err2 = err2 {
               print("INTRODUCE payload send failed: \(err2)")
-              done(false)
+              done(.failure(.bodyFailed))
               return
             }
             channel.receive { result in
               switch result {
               case .failure(let err):
                 print("INTRODUCE reply receive failed: \(err)")
-                done(false)
+                done(.failure(.bodyFailed))
               case .success(let data):
                 let response = String(data: data, encoding: .utf8) ?? ""
                 if let identity = IntroducedIdentity(payload: response),
                   let proved = outgoing.provedFingerprint
                 {
                   reply = .peer(identity, provedFingerprint: proved)
-                  done(true)
+                  done(.success(()))
                 } else if DeviceCommand(rawValue: response) == .operationFailed {
                   reply = .legacy
-                  done(true)
+                  done(.success(()))
                 } else {
-                  done(false)
+                  done(.failure(.invalidResponse))
                 }
               }
             }
@@ -1355,23 +1367,22 @@ extension NetworkDeviceStore {
         channel.send(Data(command.rawValue.utf8)) { err in
           if let err = err {
             print("\(command.rawValue) command send failed: \(err)")
-            done(false)
+            done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(payload.utf8)) { err2 in
             if let err2 = err2 {
               print("\(command.rawValue) payload send failed: \(err2)")
-              done(false)
+              done(.failure(.bodyFailed))
               return
             }
             channel.receive { result in
               switch result {
               case .failure(let err):
                 print("\(command.rawValue) ack receive failed: \(err)")
-                done(false)
+                done(.failure(.bodyFailed))
               case .success(let data):
-                let response = String(data: data, encoding: .utf8) ?? ""
-                done(DeviceCommand(rawValue: response) == .operationSuccess)
+                done(decodeOperationResponse(data))
               }
             }
           }
