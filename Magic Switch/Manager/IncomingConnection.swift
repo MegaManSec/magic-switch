@@ -68,6 +68,7 @@ final class IncomingConnection {
   private var selfRef: IncomingConnection?
   private var authenticated = false
   private var finished = false
+  private var pendingCounted = false
   /// Fingerprint of the accept-time PSK snapshot the handshake proved.
   private var provedFingerprint: String?
 
@@ -108,6 +109,14 @@ final class IncomingConnection {
       return
     }
 
+    guard rateLimiter.beginPending(endpoint: endpoint) else {
+      print("Rejecting connection: too many concurrent unauthenticated handshakes")
+      connection.cancel()
+      release()
+      return
+    }
+    pendingCounted = true
+
     let channel = SecureChannel(
       connection: connection, role: .server, psk: psk, queue: queue
     )
@@ -132,6 +141,7 @@ final class IncomingConnection {
       switch result {
       case .success:
         self.authenticated = true
+        self.endPendingIfNeeded()
         // The peer has proved possession of the pairing key this handshake
         // ran with — strictly stronger evidence than the fingerprint it
         // advertises over cleartext mDNS. If a registered device is stuck
@@ -179,10 +189,20 @@ final class IncomingConnection {
         self.teardown()
       case .success(let data):
         self.resetIdleTimer()
+        guard self.currentlyAuthorized() else {
+          print("Dropping frame: pairing key changed or removed since handshake")
+          self.teardown()
+          return
+        }
         self.handleIncoming(data: data)
         self.readNext()
       }
     }
+  }
+
+  private func currentlyAuthorized() -> Bool {
+    guard let key = pairingStore.currentKey() else { return false }
+    return PairingStore.fingerprint(forKey: key) == provedFingerprint
   }
 
   // MARK: - Command Handling
@@ -356,16 +376,24 @@ final class IncomingConnection {
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
+      let store = bluetoothStore
+      let address = message
       // Read-only query: OP_SUCCESS only if we have a live connection to it,
       // so the peer's wake-time reclaim won't grab a peripheral we're using.
       // The BT check completes on the Bluetooth queue; hop back to the
       // connection queue so all sealed sends stay serialized there (the send
       // counter isn't synchronized across queues).
-      bluetoothStore.isHoldingPeripheral(address: message) { [weak self] held in
+      DispatchQueue.main.async { [weak self] in
         guard let self = self else { return }
-        self.queue.async {
-          self.sendString(
-            (held ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
+        guard store.peripherals.contains(where: { $0.id == address }) else {
+          self.queue.async { self.sendString(DeviceCommand.operationFailed.rawValue) }
+          return
+        }
+        store.isHoldingPeripheral(address: address) { held in
+          self.queue.async {
+            self.sendString(
+              (held ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
+          }
         }
       }
     case .adoptReleased:
@@ -474,6 +502,7 @@ final class IncomingConnection {
   private func teardown() {
     guard !finished else { return }
     finished = true
+    endPendingIfNeeded()
     idleTimer?.cancel()
     totalTimer?.cancel()
     idleTimer = nil
@@ -481,6 +510,12 @@ final class IncomingConnection {
     channel?.cancel()
     connection.cancel()
     release()
+  }
+
+  private func endPendingIfNeeded() {
+    guard pendingCounted else { return }
+    pendingCounted = false
+    rateLimiter.endPending(endpoint: endpoint)
   }
 
   private func release() {

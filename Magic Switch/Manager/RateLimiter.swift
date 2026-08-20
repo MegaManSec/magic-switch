@@ -17,6 +17,8 @@ final class RateLimiter {
   private static let failureThreshold = 5
   private static let blockDuration: TimeInterval = 15 * 60
   private static let blocksKey = "com.magicswitch.ratelimiter.blocks"
+  private static let maxPendingPerIP = 8
+  private static let maxPendingTotal = 64
 
   // MARK: - State
 
@@ -25,6 +27,9 @@ final class RateLimiter {
   private var failuresByIP: [String: [CFTimeInterval]] = [:]
   /// Monotonic deadline (seconds since boot) at which the block lifts.
   private var blocksByIP: [String: CFTimeInterval] = [:]
+  /// In-flight pre-auth connection counts, per IP and in total.
+  private var pendingByIP: [String: Int] = [:]
+  private var pendingTotal = 0
 
   // MARK: - Init
 
@@ -43,6 +48,30 @@ final class RateLimiter {
         return false
       }
       return true
+    }
+  }
+
+  /// Reserve a pre-auth connection slot; false if the per-IP or global cap is hit.
+  func beginPending(endpoint: NWEndpoint?) -> Bool {
+    let key = Self.bucket(for: endpoint)
+    return queue.sync {
+      guard pendingTotal < Self.maxPendingTotal,
+        pendingByIP[key, default: 0] < Self.maxPendingPerIP
+      else { return false }
+      pendingByIP[key, default: 0] += 1
+      pendingTotal += 1
+      return true
+    }
+  }
+
+  /// Release a slot reserved by `beginPending`.
+  func endPending(endpoint: NWEndpoint?) {
+    let key = Self.bucket(for: endpoint)
+    queue.sync {
+      if let count = pendingByIP[key] {
+        if count <= 1 { pendingByIP.removeValue(forKey: key) } else { pendingByIP[key] = count - 1 }
+      }
+      if pendingTotal > 0 { pendingTotal -= 1 }
     }
   }
 
