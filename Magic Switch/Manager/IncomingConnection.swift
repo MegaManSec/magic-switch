@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import QuartzCore
 
 extension Notification.Name {
   /// Posted on the main queue when this Mac receives a `.notification`
@@ -43,6 +44,8 @@ final class IncomingConnection {
   /// connection before it could reply. Must stay >= `NetworkDeviceStore`'s
   /// `handoffBodyTimeout` (the sender's matching wait).
   private static let idleTimeout: TimeInterval = 75
+  /// How long a `currentlyAuthorized()` result may be reused. See its doc.
+  private static let authorizationTTL: CFTimeInterval = 1
   /// Hard cap on a single connection regardless of idle activity. Without it,
   /// a well-behaved-looking attacker could keep `idleTimer` happy with
   /// well-formed sealed frames indefinitely and pin a listener slot forever.
@@ -71,6 +74,8 @@ final class IncomingConnection {
   private var pendingCounted = false
   /// Fingerprint of the accept-time PSK snapshot the handshake proved.
   private var provedFingerprint: String?
+  private var lastAuthorizationCheck: CFTimeInterval = -.greatestFiniteMagnitude
+  private var lastAuthorizationResult = false
 
   // MARK: - Init
 
@@ -200,9 +205,19 @@ final class IncomingConnection {
     }
   }
 
+  /// Whether the pairing key the handshake proved is still the current one.
+  ///
+  /// Re-read at most once per `authorizationTTL`: the underlying
+  /// `SecItemCopyMatching` is a securityd round trip, and this runs per frame
+  /// on the queue that also accepts new connections. The TTL is therefore the
+  /// upper bound on how long a revoked key keeps a live session.
   private func currentlyAuthorized() -> Bool {
-    guard let key = pairingStore.currentKey() else { return false }
-    return PairingStore.fingerprint(forKey: key) == provedFingerprint
+    let now = CACurrentMediaTime()
+    if now - lastAuthorizationCheck < Self.authorizationTTL { return lastAuthorizationResult }
+    let current = pairingStore.currentKey().map { PairingStore.fingerprint(forKey: $0) }
+    lastAuthorizationCheck = now
+    lastAuthorizationResult = current != nil && current == provedFingerprint
+    return lastAuthorizationResult
   }
 
   // MARK: - Command Handling
@@ -380,20 +395,17 @@ final class IncomingConnection {
       let address = message
       // Read-only query: OP_SUCCESS only if we have a live connection to it,
       // so the peer's wake-time reclaim won't grab a peripheral we're using.
+      // Answered from live Bluetooth state, not the registered list: the two
+      // lists only converge on a manual Sync, and a peripheral missing from
+      // ours is still one the peer must not pair away from us.
       // The BT check completes on the Bluetooth queue; hop back to the
       // connection queue so all sealed sends stay serialized there (the send
       // counter isn't synchronized across queues).
-      DispatchQueue.main.async { [weak self] in
+      store.isHoldingPeripheral(address: address) { [weak self] held in
         guard let self = self else { return }
-        guard store.peripherals.contains(where: { $0.id == address }) else {
-          self.queue.async { self.sendString(DeviceCommand.operationFailed.rawValue) }
-          return
-        }
-        store.isHoldingPeripheral(address: address) { held in
-          self.queue.async {
-            self.sendString(
-              (held ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
-          }
+        self.queue.async {
+          self.sendString(
+            (held ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
         }
       }
     case .adoptReleased:

@@ -203,7 +203,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // channel first (as `migrateRenamedPeerIfNeeded` does for a rename),
       // leaving the verified routing untouched until it does.
       if !proven, let stored = prior.fingerprint, stored == device.fingerprint,
-        prior.pendingFingerprint == nil,
         prior.host != device.host || prior.port != device.port
       {
         verifyMovedEndpointIfNeeded(for: device)
