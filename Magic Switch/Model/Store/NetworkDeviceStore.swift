@@ -84,9 +84,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// together) don't stack up multiple rechecks. Main-only.
   private var pendingFastRecheck: Set<String> = []
 
-  /// Advertised names with a rename-migration proof ping already in flight, so
-  /// a burst of resolves for the same service doesn't fan out into a burst of
-  /// pings. Main-only. See `migrateRenamedPeerIfNeeded`.
+  /// Advertised names with a rename-migration or endpoint-move proof ping
+  /// already in flight, so a burst of resolves for the same service doesn't fan
+  /// out into a burst of pings. Main-only. See `migrateRenamedPeerIfNeeded` and
+  /// `verifyMovedEndpointIfNeeded`.
   private var pendingMigrationProofs: Set<String> = []
 
   /// TTL for discovered entries with no live Bonjour presence (INTRODUCE-
@@ -162,6 +163,15 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   func updateNetworkDevice(_ device: NetworkDevice) {
+    updateNetworkDevice(device, proven: false)
+  }
+
+  /// `proven` means the peer just demonstrated this endpoint over the secure
+  /// channel (an INTRODUCE handshake), so it may relocate a pinned record's
+  /// routing at once. An unproven Bonjour resolve may not: its `fp` is
+  /// cleartext multicast any LAN listener can echo, so a matching fingerprint
+  /// alone can't authorise pointing `host`/`port` at an attacker-chosen host.
+  private func updateNetworkDevice(_ device: NetworkDevice, proven: Bool) {
     // Never let an advertisement re-point a registered record at this Mac.
     // Our own service carries the *same* `fp` as the peer — it's a hash of the
     // shared PSK — so `update(with:)` would take it as a trusted routing
@@ -185,6 +195,18 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         if deviceReachability[device.id] != device.isActive {
           deviceReachability[device.id] = device.isActive
         }
+        return
+      }
+      // An unproven resolve carrying the pinned fingerprint but a *new*
+      // endpoint isn't trusted to relocate routing — the fp is cleartext and
+      // any LAN listener can echo it. Prove the endpoint over the secure
+      // channel first (as `migrateRenamedPeerIfNeeded` does for a rename),
+      // leaving the verified routing untouched until it does.
+      if !proven, let stored = prior.fingerprint, stored == device.fingerprint,
+        prior.pendingFingerprint == nil,
+        prior.host != device.host || prior.port != device.port
+      {
+        verifyMovedEndpointIfNeeded(for: device)
         return
       }
       let priorFingerprint = prior.fingerprint
@@ -229,7 +251,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       fingerprint: provedFingerprint
     )
     addDiscoveredNetworkDevice(device)
-    updateNetworkDevice(device)
+    updateNetworkDevice(device, proven: true)
     // After the update: if it just parked this record pending exactly the
     // proved key, the proof supersedes the warning in the same tick (the
     // handshake-time resolve hooks fired before these frames existed).
@@ -350,6 +372,30 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed.",
       identifier: "peer-renamed-\(discovered.id)"
     )
+  }
+
+  /// A pinned registered peer advertising a *new* endpoint under its own name
+  /// may be a real IP/port change — or a LAN bystander echoing the cleartext
+  /// `fp` to redirect us at a host it controls. Probe the advertised endpoint
+  /// and relocate the record only if whoever answers there proves the pairing
+  /// key. Same proof and in-flight de-dup as `migrateRenamedPeerIfNeeded`.
+  private func verifyMovedEndpointIfNeeded(for discovered: NetworkDevice) {
+    guard !pendingMigrationProofs.contains(discovered.id) else { return }
+    pendingMigrationProofs.insert(discovered.id)
+    executeCommand(.ping, on: discovered, countsTowardRateLimit: false) { [weak self] result in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.pendingMigrationProofs.remove(discovered.id)
+        guard case .success = result,
+          let index = self.networkDevices.firstIndex(where: { $0.id == discovered.id }),
+          self.networkDevices[index].fingerprint == discovered.fingerprint,
+          self.networkDevices[index].pendingFingerprint == nil
+        else { return }
+        self.networkDevices[index].update(with: discovered)
+        self.saveNetworkDevices()
+        self.deviceReachability[discovered.id] = self.networkDevices[index].isActive
+      }
+    }
   }
 
   /// Re-attempt migration against services already resolved. A resolve happens
