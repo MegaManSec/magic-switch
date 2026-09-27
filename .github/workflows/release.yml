@@ -91,12 +91,15 @@ jobs:
           persist-credentials: false
 
       - name: Update version
+        env:
+          VERSION: ${{ needs.version.outputs.new-release-version }}
         run: |
-          echo "The version is ${{ needs.version.outputs.new-release-version }}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          BUILD=$((MAJOR * 1000000 + MINOR * 1000 + PATCH))
           PROJECT_FILE="Magic Switch.xcodeproj/project.pbxproj"
-          sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${{ needs.version.outputs.new-release-version }};/g" "$PROJECT_FILE"
-          echo "Updated Marketing version to ${{ needs.version.outputs.new-release-version }}"
-          agvtool next-version -all
+          sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $VERSION;/g" "$PROJECT_FILE"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $BUILD;/g" "$PROJECT_FILE"
+          echo "Version $VERSION, build $BUILD"
 
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
