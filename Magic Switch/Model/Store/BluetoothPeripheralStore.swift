@@ -690,7 +690,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard validateBluetoothState() else { return }
     guard validateDeviceExists(peripheral) else { return }
 
-    var newPeripheral = peripheral
+    let newPeripheral = peripheral
     peripherals.append(newPeripheral)
     // Resolve the new row's live connection state (and register its disconnect
     // observer) right away. Without this the row reads `.disconnected` until
@@ -1617,7 +1617,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
 
-    DispatchQueue.main.async {
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
       // Identity, not just address, decides staleness: the newest attempt may
       // not have installed its own pair yet (its preflight is still on the
       // Bluetooth queue, or its peer round trip is in flight), so reading the
