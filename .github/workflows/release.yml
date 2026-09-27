@@ -209,6 +209,85 @@ jobs:
         if: always()
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
+  app-store:
+    needs: version
+    if: needs.version.outputs.new-release-version != ''
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Update version
+        env:
+          VERSION: ${{ needs.version.outputs.new-release-version }}
+        run: |
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          BUILD=$((MAJOR * 1000000 + MINOR * 1000 + PATCH))
+          PROJECT_FILE="Magic Switch.xcodeproj/project.pbxproj"
+          sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $VERSION;/g" "$PROJECT_FILE"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $BUILD;/g" "$PROJECT_FILE"
+          echo "Version $VERSION, build $BUILD"
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: "26.5"
+
+      - name: Archive
+        run: |
+          xcodebuild clean archive \
+            -project "Magic Switch.xcodeproj" \
+            -scheme "Magic Switch" \
+            -configuration AppStore \
+            -archivePath "Magic Switch.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM=LA3A27SJGR
+
+      - name: Upload to App Store Connect
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          : "${ASC_API_KEY_P8:?secret not set}" "${ASC_API_KEY_ID:?secret not set}" "${ASC_API_ISSUER_ID:?secret not set}"
+          KEY_PATH="$RUNNER_TEMP/asc.p8"
+          EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
+          trap 'rm -f "$KEY_PATH"' EXIT
+          printf '%s\n' "$ASC_API_KEY_P8" > "$KEY_PATH"
+
+          cat > "$EXPORT_OPTIONS" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>upload</string>
+            <key>teamID</key>
+            <string>LA3A27SJGR</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath "Magic Switch.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$EXPORT_OPTIONS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$ASC_API_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_API_ISSUER_ID"
+
   release:
     needs:
       - version
