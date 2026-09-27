@@ -116,25 +116,32 @@ struct OtherSettingsView: View {
           Text(updateChecker.currentVersion)
             .foregroundColor(.secondary)
         }
-        HStack {
-          Button {
-            updateChecker.checkNow()
-          } label: {
-            if updateChecker.isChecking {
-              HStack(spacing: 6) {
-                ProgressView()
-                  .controlSize(.small)
-                Text("Checking…")
+        #if !APP_STORE
+          HStack {
+            Button {
+              updateChecker.checkNow()
+            } label: {
+              if updateChecker.isChecking {
+                HStack(spacing: 6) {
+                  ProgressView()
+                    .controlSize(.small)
+                  Text("Checking…")
+                }
+              } else {
+                Text("Check for Updates")
               }
-            } else {
-              Text("Check for Updates")
             }
+            .disabled(updateChecker.isChecking)
+            .help("Check GitHub for a newer release right now.")
+            Spacer()
+            updateStatus
           }
-          .disabled(updateChecker.isChecking)
-          .help("Check GitHub for a newer release right now.")
-          Spacer()
-          updateStatus
-        }
+          SettingsRowView(
+            title: "Sponsor on GitHub",
+            help: "Support Magic Switch's development. Opens GitHub Sponsors in your browser.",
+            action: openSponsorPage
+          )
+        #endif
       }
     }
     .onAppear(perform: refreshOnAppear)
@@ -243,6 +250,11 @@ struct OtherSettingsView: View {
   private func showLicenseInfo() {
     guard let url = URL(string: "https://github.com/MegaManSec/magic-switch/blob/main/LICENSE")
     else { return }
+    openURL(url)
+  }
+
+  private func openSponsorPage() {
+    guard let url = URL(string: "https://github.com/sponsors/MegaManSec") else { return }
     openURL(url)
   }
 
