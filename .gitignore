@@ -73,3 +73,11 @@ node_modules/
 
 # Raw screenshot captures (local inputs to docs/annotate-screenshots.sh)
 docs/assets/raw/
+
+# Code signing key material (never commit)
+developerID.key
+developerID.certSigningRequest
+developerID_application.cer
+*.p12
+*.p12.password
+*.p8
