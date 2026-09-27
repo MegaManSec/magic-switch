@@ -114,22 +114,6 @@ struct PairingSettingsView: View {
   }
 }
 
-// MARK: - Selectable code helper
-
-extension View {
-  /// Applies `.textSelection(.enabled)` on macOS 12+, no-op otherwise. The
-  /// project's deployment target still includes 11.x where the modifier
-  /// isn't available.
-  @ViewBuilder
-  func userSelectable() -> some View {
-    if #available(macOS 12.0, *) {
-      self.textSelection(.enabled)
-    } else {
-      self
-    }
-  }
-}
-
 private func copyToPasteboard(_ text: String) {
   let pb = NSPasteboard.general
   pb.clearContents()
@@ -165,7 +149,7 @@ private struct GenerateCodeSheet: View {
         .font(.headline)
       Text(formattedCode)
         .font(.system(size: 32, weight: .bold, design: .monospaced))
-        .userSelectable()
+        .textSelection(.enabled)
         .accessibilityLabel("Pairing code: \(formattedCode)")
       HStack {
         Button {

@@ -15,21 +15,7 @@
 		076AB21D2CE9D690004D45F0 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FC2CE9D690004D45F0 /* NotificationManager.swift */; };
 		076AB21E2CE9D690004D45F0 /* ServiceBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FD2CE9D690004D45F0 /* ServiceBrowser.swift */; };
 		076AB21F2CE9D690004D45F0 /* ServicePublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */; };
-		0A00003000000000000000B7 /* SleepMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00003000000000000000A7 /* SleepMonitor.swift */; };
-		0A00007000000000000000BC /* PeripheralBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00007000000000000000AC /* PeripheralBattery.swift */; };
-		0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00008000000000000000AD /* AdvertisingDiagnostics.swift */; };
-		0A00009000000000000000BE /* DialbackAddresses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00009000000000000000AE /* DialbackAddresses.swift */; };
-		0A00004000000000000000B8 /* DisplayMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00004000000000000000A8 /* DisplayMonitor.swift */; };
-		0A00001000000000000000B1 /* SecureChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A1 /* SecureChannel.swift */; };
-		0A00001000000000000000B2 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A2 /* PairingStore.swift */; };
-		0A00001000000000000000B3 /* IncomingConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A3 /* IncomingConnection.swift */; };
-		0A00001000000000000000B4 /* OutgoingConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A4 /* OutgoingConnection.swift */; };
-		0A00001000000000000000B5 /* RateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A5 /* RateLimiter.swift */; };
-		0A00002000000000000000B6 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00002000000000000000A6 /* UpdateChecker.swift */; };
-		0A00006000000000000000BB /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00006000000000000000AB /* HotkeyManager.swift */; };
-		0A00001000000000000000B6 /* PairingSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A6 /* PairingSettingsView.swift */; };
 		076AB2202CE9D690004D45F0 /* BluetoothPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2002CE9D690004D45F0 /* BluetoothPeripheral.swift */; };
-		0A00005000000000000000B9 /* SwitchURLCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00005000000000000000A9 /* SwitchURLCommand.swift */; };
 		076AB2212CE9D690004D45F0 /* NetworkDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2012CE9D690004D45F0 /* NetworkDevice.swift */; };
 		076AB2222CE9D690004D45F0 /* BluetoothPeripheralStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2032CE9D690004D45F0 /* BluetoothPeripheralStore.swift */; };
 		076AB2232CE9D690004D45F0 /* NetworkDeviceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2042CE9D690004D45F0 /* NetworkDeviceStore.swift */; };
@@ -40,6 +26,20 @@
 		076AB22A2CE9D690004D45F0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2102CE9D690004D45F0 /* SettingsView.swift */; };
 		076AB22C2CE9D690004D45F0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 076AB2072CE9D690004D45F0 /* Preview Assets.xcassets */; };
 		076AB22D2CE9D690004D45F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 076AB2132CE9D690004D45F0 /* Assets.xcassets */; };
+		0A00001000000000000000B1 /* SecureChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A1 /* SecureChannel.swift */; };
+		0A00001000000000000000B2 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A2 /* PairingStore.swift */; };
+		0A00001000000000000000B3 /* IncomingConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A3 /* IncomingConnection.swift */; };
+		0A00001000000000000000B4 /* OutgoingConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A4 /* OutgoingConnection.swift */; };
+		0A00001000000000000000B5 /* RateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A5 /* RateLimiter.swift */; };
+		0A00001000000000000000B6 /* PairingSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000A6 /* PairingSettingsView.swift */; };
+		0A00002000000000000000B6 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00002000000000000000A6 /* UpdateChecker.swift */; };
+		0A00003000000000000000B7 /* SleepMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00003000000000000000A7 /* SleepMonitor.swift */; };
+		0A00004000000000000000B8 /* DisplayMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00004000000000000000A8 /* DisplayMonitor.swift */; };
+		0A00005000000000000000B9 /* SwitchURLCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00005000000000000000A9 /* SwitchURLCommand.swift */; };
+		0A00006000000000000000BB /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00006000000000000000AB /* HotkeyManager.swift */; };
+		0A00007000000000000000BC /* PeripheralBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00007000000000000000AC /* PeripheralBattery.swift */; };
+		0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00008000000000000000AD /* AdvertisingDiagnostics.swift */; };
+		0A00009000000000000000BE /* DialbackAddresses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00009000000000000000AE /* DialbackAddresses.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,23 +49,9 @@
 		076AB1F82CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NetworkDevice+HealthCheck.swift"; sourceTree = "<group>"; };
 		076AB1FA2CE9D690004D45F0 /* BluetoothManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManager.swift; sourceTree = "<group>"; };
 		076AB1FC2CE9D690004D45F0 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		0A00006000000000000000AB /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		076AB1FD2CE9D690004D45F0 /* ServiceBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceBrowser.swift; sourceTree = "<group>"; };
 		076AB1FE2CE9D690004D45F0 /* ServicePublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicePublisher.swift; sourceTree = "<group>"; };
-		0A00003000000000000000A7 /* SleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepMonitor.swift; sourceTree = "<group>"; };
-		0A00007000000000000000AC /* PeripheralBattery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeripheralBattery.swift; sourceTree = "<group>"; };
-		0A00008000000000000000AD /* AdvertisingDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDiagnostics.swift; sourceTree = "<group>"; };
-		0A00009000000000000000AE /* DialbackAddresses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialbackAddresses.swift; sourceTree = "<group>"; };
-		0A00004000000000000000A8 /* DisplayMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayMonitor.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A1 /* SecureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureChannel.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A2 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A3 /* IncomingConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingConnection.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A4 /* OutgoingConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutgoingConnection.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A5 /* RateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimiter.swift; sourceTree = "<group>"; };
-		0A00002000000000000000A6 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
-		0A00001000000000000000A6 /* PairingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingSettingsView.swift; sourceTree = "<group>"; };
 		076AB2002CE9D690004D45F0 /* BluetoothPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothPeripheral.swift; sourceTree = "<group>"; };
-		0A00005000000000000000A9 /* SwitchURLCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchURLCommand.swift; sourceTree = "<group>"; };
 		076AB2012CE9D690004D45F0 /* NetworkDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDevice.swift; sourceTree = "<group>"; };
 		076AB2032CE9D690004D45F0 /* BluetoothPeripheralStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothPeripheralStore.swift; sourceTree = "<group>"; };
 		076AB2042CE9D690004D45F0 /* NetworkDeviceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDeviceStore.swift; sourceTree = "<group>"; };
@@ -77,8 +63,22 @@
 		076AB2102CE9D690004D45F0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		076AB2132CE9D690004D45F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		076AB2142CE9D690004D45F0 /* Magic_Switch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Magic_Switch.entitlements; sourceTree = "<group>"; };
-		0A00001000000000000000B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		077473F22CD8426D00571393 /* Magic Switch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Magic Switch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A00001000000000000000A1 /* SecureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureChannel.swift; sourceTree = "<group>"; };
+		0A00001000000000000000A2 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
+		0A00001000000000000000A3 /* IncomingConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingConnection.swift; sourceTree = "<group>"; };
+		0A00001000000000000000A4 /* OutgoingConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutgoingConnection.swift; sourceTree = "<group>"; };
+		0A00001000000000000000A5 /* RateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RateLimiter.swift; sourceTree = "<group>"; };
+		0A00001000000000000000A6 /* PairingSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingSettingsView.swift; sourceTree = "<group>"; };
+		0A00001000000000000000B0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0A00002000000000000000A6 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
+		0A00003000000000000000A7 /* SleepMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepMonitor.swift; sourceTree = "<group>"; };
+		0A00004000000000000000A8 /* DisplayMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayMonitor.swift; sourceTree = "<group>"; };
+		0A00005000000000000000A9 /* SwitchURLCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchURLCommand.swift; sourceTree = "<group>"; };
+		0A00006000000000000000AB /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
+		0A00007000000000000000AC /* PeripheralBattery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeripheralBattery.swift; sourceTree = "<group>"; };
+		0A00008000000000000000AD /* AdvertisingDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDiagnostics.swift; sourceTree = "<group>"; };
+		0A00009000000000000000AE /* DialbackAddresses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialbackAddresses.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -260,7 +260,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1610;
-				LastUpgradeCheck = 1610;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					077473F12CD8426D00571393 = {
 						CreatedOnToolsVersion = 16.1;
@@ -376,7 +376,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LA3A27SJGR;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -395,11 +397,12 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				VERSIONING_SYSTEM = "";
@@ -440,7 +443,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LA3A27SJGR;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -453,10 +458,11 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VERSIONING_SYSTEM = "";
 			};
@@ -471,6 +477,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Magic Switch/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -479,7 +486,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 0.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.megamansec.magic-switch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -498,6 +505,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Magic Switch/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -506,7 +514,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.5;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 0.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.megamansec.magic-switch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
