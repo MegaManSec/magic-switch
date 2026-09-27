@@ -96,9 +96,22 @@ final class UpdateChecker: ObservableObject {
     return Self.isNewer(latest, than: currentVersion)
   }
 
+  /// App Store builds must update through the App Store, so they never check GitHub.
+  static let isEnabled: Bool = {
+    #if APP_STORE
+      return false
+    #else
+      return true
+    #endif
+  }()
+
   // MARK: - Initialization
 
   private init() {
+    guard Self.isEnabled else {
+      NotificationManager.removeNotification(identifier: Constants.updateNotificationID)
+      return
+    }
     // Surface the cached result immediately so the menu / Settings reflect the
     // last successful check without waiting for a network round trip.
     latestVersion = UserDefaults.standard.string(forKey: Constants.latestVersionKey)
@@ -161,7 +174,7 @@ final class UpdateChecker: ObservableObject {
   /// The actual network fetch. A `manual` check surfaces success/failure on the
   /// button; automatic ones stay silent. One in-flight request at a time.
   private func performCheck(manual: Bool) {
-    guard !isChecking else { return }
+    guard Self.isEnabled, !isChecking else { return }
     guard let url = URL(string: Constants.latestReleaseAPI) else { return }
     isChecking = true
     if manual { lastCheckFailed = false }

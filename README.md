@@ -199,6 +199,10 @@ Known limits:
 - On some systems an ad-hoc-signed build can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Pairing and Macs tabs surface their errors inline as a fallback.
 - Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
+## Support
+
+If Magic Switch is useful to you, you can support its development by [sponsoring me on GitHub](https://github.com/sponsors/MegaManSec).
+
 ## License
 
 GNU GPL v3.0. See [LICENSE](LICENSE).
