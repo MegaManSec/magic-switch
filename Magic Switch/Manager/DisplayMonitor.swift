@@ -15,9 +15,8 @@ import SwiftUI
 /// and works for any display, not just Apple's.
 ///
 /// Only a genuine absent → present *edge* fires the trigger:
-/// - The set of displays online at launch is the baseline. A display that's
-///   already attached when the app starts never fires — an app (re)start must
-///   not yank peripherals from a Mac the user is actively working on.
+/// - Launch counts as a dock: a trigger display that's already attached when
+///   the app starts fires once, after the same debounce as a live change.
 /// - Reconfiguration callbacks are debounced and then *reconciled* against
 ///   `CGGetOnlineDisplayList`, so the remove/add churn of a resolution change
 ///   or a wake-time renegotiation nets out to no edge.
@@ -109,17 +108,18 @@ final class DisplayMonitor: ObservableObject {
     loadTriggerDisplays()
   }
 
-  /// Begin monitoring. Snapshots the currently-online displays as the
-  /// no-edge baseline, then registers for reconfiguration callbacks and the
+  /// Begin monitoring. Populates the Settings rows right away, schedules a
+  /// reconcile against an empty present set (so trigger displays already
+  /// attached fire), then registers for reconfiguration callbacks and the
   /// sleep/wake notifications the settle logic needs.
   func start() {
     guard !started else { return }
     started = true
 
     let online = Self.onlineExternalDisplays()
-    presentUUIDs = Set(online.map { $0.id })
     connectedDisplays = online
     refreshTriggerNames(from: online)
+    scheduleReconcile()
 
     let refCon = Unmanaged.passUnretained(self).toOpaque()
     let error = CGDisplayRegisterReconfigurationCallback(Self.reconfigurationCallback, refCon)
