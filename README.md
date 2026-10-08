@@ -15,8 +15,19 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Installation
 
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask megamansec/tap/magic-switch
+```
+
+Or manually:
+
 1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
 2. Unzip and move `Magic Switch.app` to `/Applications`.
+
+Then:
+
 3. Approve **Bluetooth** and **Local Network** access when macOS prompts. Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
 4. Allow **Notifications** when asked. Not strictly required, but it's how Magic Switch reports what happened when no window is open — a switch triggered by hotkey, URL scheme, or dock-on-display that fails does so *silently* without it (see [Troubleshooting](#troubleshooting)). Denied it once? Re-enable under System Settings → Notifications → Magic Switch.
 
@@ -200,6 +211,8 @@ Known limits:
 - Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
 ## Support
+
+Magic Switch is made by me, Joshua Rogers. I write about it and my other projects on my blog, [joshua.hu](https://joshua.hu/).
 
 If Magic Switch is useful to you, you can support its development by [sponsoring me on GitHub](https://github.com/sponsors/MegaManSec).
 
