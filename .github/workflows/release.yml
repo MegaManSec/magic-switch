@@ -344,6 +344,7 @@ jobs:
       - release
     if: needs.version.outputs.new-release-version != ''
     runs-on: ubuntu-latest
+    environment: homebrew-tap
     permissions:
       contents: read
       attestations: read
