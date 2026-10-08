@@ -15,13 +15,21 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Installation
 
-1. Install with [Homebrew](https://brew.sh):
-   ```sh
-   brew install --cask megamansec/tap/magic-switch
-   ```
-   Or grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases), unzip it, and move `Magic Switch.app` to `/Applications`.
-2. Approve **Bluetooth** and **Local Network** access when macOS prompts. Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
-3. Allow **Notifications** when asked. Not strictly required, but it's how Magic Switch reports what happened when no window is open — a switch triggered by hotkey, URL scheme, or dock-on-display that fails does so *silently* without it (see [Troubleshooting](#troubleshooting)). Denied it once? Re-enable under System Settings → Notifications → Magic Switch.
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask megamansec/tap/magic-switch
+```
+
+Or manually:
+
+1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
+2. Unzip and move `Magic Switch.app` to `/Applications`.
+
+Then:
+
+3. Approve **Bluetooth** and **Local Network** access when macOS prompts. Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
+4. Allow **Notifications** when asked. Not strictly required, but it's how Magic Switch reports what happened when no window is open — a switch triggered by hotkey, URL scheme, or dock-on-display that fails does so *silently* without it (see [Troubleshooting](#troubleshooting)). Denied it once? Re-enable under System Settings → Notifications → Magic Switch.
 
 ## Setup
 
@@ -127,7 +135,7 @@ Run the command on the Mac that should act. `direction=take` works even while th
 
 ## Updates
 
-Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself (or run `brew upgrade --cask magic-switch` if you installed with Homebrew). The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
+Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
 
 ## Troubleshooting
 
@@ -203,6 +211,8 @@ Known limits:
 - Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
 ## Support
+
+Magic Switch is made by me, Joshua Rogers. I write about it and my other projects on my blog, [joshua.hu](https://joshua.hu/).
 
 If Magic Switch is useful to you, you can support its development by [sponsoring me on GitHub](https://github.com/sponsors/MegaManSec).
 
