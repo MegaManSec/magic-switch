@@ -337,3 +337,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./.github/release/node_modules/.bin/semantic-release
+
+  homebrew-tap:
+    needs:
+      - version
+      - release
+    if: needs.version.outputs.new-release-version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout tap
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: MegaManSec/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+
+      - name: Update cask
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new-release-version }}
+        run: |
+          CASK=Casks/magic-switch.rb
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern app.zip --dir "$RUNNER_TEMP"
+          SHA256="$(sha256sum "$RUNNER_TEMP/app.zip" | cut -d' ' -f1)"
+          sed -i -E \
+            -e "s/^  version \".*\"$/  version \"$VERSION\"/" \
+            -e "s/^  sha256 \".*\"$/  sha256 \"$SHA256\"/" \
+            "$CASK"
+          grep -qx "  version \"$VERSION\"" "$CASK"
+          grep -qx "  sha256 \"$SHA256\"" "$CASK"
+          if git diff --quiet; then
+            echo "Cask already at $VERSION"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "magic-switch $VERSION"
+          git push
