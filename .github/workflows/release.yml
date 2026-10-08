@@ -346,6 +346,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      attestations: read
 
     steps:
       - name: Checkout tap
@@ -360,18 +361,25 @@ jobs:
           VERSION: ${{ needs.version.outputs.new-release-version }}
         run: |
           CASK=Casks/magic-switch.rb
-          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern app.zip --dir "$RUNNER_TEMP"
-          SHA256="$(sha256sum "$RUNNER_TEMP/app.zip" | cut -d' ' -f1)"
+          CURRENT="$(sed -nE 's/^  version "(.*)"$/\1/p' "$CASK")"
+          if [ "$(printf '%s\n' "$CURRENT" "$VERSION" | sort -V | tail -n1)" = "$CURRENT" ]; then
+            echo "Cask already at $CURRENT"
+            exit 0
+          fi
+          ZIP="$RUNNER_TEMP/app.zip"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern app.zip --output "$ZIP"
+          gh attestation verify "$ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-ref refs/heads/main \
+            --deny-self-hosted-runners
+          SHA256="$(sha256sum "$ZIP" | cut -d' ' -f1)"
           sed -i -E \
             -e "s/^  version \".*\"$/  version \"$VERSION\"/" \
             -e "s/^  sha256 \".*\"$/  sha256 \"$SHA256\"/" \
             "$CASK"
           grep -qx "  version \"$VERSION\"" "$CASK"
           grep -qx "  sha256 \"$SHA256\"" "$CASK"
-          if git diff --quiet; then
-            echo "Cask already at $VERSION"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "magic-switch $VERSION"
