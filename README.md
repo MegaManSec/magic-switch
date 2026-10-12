@@ -15,7 +15,9 @@ This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.c
 
 ## Installation
 
-With [Homebrew](https://brew.sh):
+Get it from the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452), which keeps it up to date for you.
+
+Or with [Homebrew](https://brew.sh):
 
 ```bash
 brew install --cask megamansec/tap/magic-switch
@@ -135,7 +137,9 @@ Run the command on the Mac that should act. `direction=take` works even while th
 
 ## Updates
 
-Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
+If you installed from the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452), the App Store handles updates and none of this applies.
+
+Otherwise, Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
 
 ## Troubleshooting
 

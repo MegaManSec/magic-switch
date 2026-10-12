@@ -25,7 +25,7 @@ So your Macs can find each other, the app announces itself on the local network 
 
 ## Update checks
 
-The version of Magic Switch downloaded from GitHub checks for updates; the Mac App Store version doesn't, since the App Store updates it.
+The version of Magic Switch downloaded from GitHub checks for updates; the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452) version doesn't, since the App Store updates it.
 
 At most once a day while the app is running, and whenever you click **Check for Updates**, the GitHub version asks GitHub (`api.github.com`) for the latest Magic Switch release. The request contains no identifiers or personal data, but GitHub sees your IP address as it would for any web request. GitHub's handling of that is covered by the [GitHub General Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 
