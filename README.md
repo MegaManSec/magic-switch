@@ -115,6 +115,10 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 | Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac, with its battery level |
 | Menu → Settings | Open the Settings window |
 
+Use the Up/Down arrow keys to select a Mac, peripheral, Settings, or Quit, then press Return to activate it. Selecting a device closes the menu; reopen it to see the latest connection state or cancel a pairing attempt. Disabled rows cannot be selected.
+
+Quit exits the application, including when invoked from the Dock or an external application. To keep Magic Switch running while dismissing Settings, close the Settings window instead.
+
 The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs; when idle, the icon gains a **filled background** while peripherals are connected to this Mac (the dropdown is pictured at the top of this README).
 
 ### Trigger switches from anything (URL scheme)
