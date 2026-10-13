@@ -19,8 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   // MARK: - UI Components
 
   private var statusItem: NSStatusItem!
-  /// The AppKit view hosted by the dropdown menu's single item. Kept so it can
-  /// be re-measured each time the menu opens.
+  /// Owns the native device menu items and their live state.
   private var dropdownContentView: DropdownContentView?
   private var bluetoothStateObserver: AnyCancellable?
   private var pairingObserver: AnyCancellable?
@@ -45,12 +44,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// the scene's `showSettingsWindow:` action silently fails to produce a
   /// visible window in this app (LSUIElement + `.accessory`).
   private var settingsWindowController: NSWindowController?
-  /// Set true by `quitFromStatusBar(_:)` immediately before invoking
-  /// `terminate(_:)`. `applicationShouldTerminate(_:)` checks this to
-  /// distinguish "user picked Quit from our menu-bar menu" (real exit)
-  /// from "user pressed Cmd+Q with Settings focused or chose Quit from
-  /// the Dock" (just close the window, keep running).
-  private var quitFromStatusBarMenu = false
   /// Token for the `.magicSwitchReceivedPing` observer registered in
   /// `setupPingFlashObserver`.
   private var pingObserver: NSObjectProtocol?
@@ -126,51 +119,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     return true
   }
 
-  /// Decide whether a `terminate(_:)` request should actually exit.
-  ///
-  /// - Status-bar menu → Quit: real exit (the flag is set in `quitFromStatusBar`).
-  /// - System-initiated (logout / shutdown / restart): real exit.
-  /// - Anything else (Cmd+Q while Settings focused, right-click Dock → Quit,
-  ///   etc.): cancel the terminate, just close Settings and drop the Dock
-  ///   icon. This is the "Magic Switch lives in the menu bar; the Dock entry
-  ///   is only there while Settings is open" mental model the user wants.
+  /// Honor every quit request, including Dock Quit and external AppleEvents.
+  /// Closing Settings is handled by its close button, independently of quitting.
   func applicationShouldTerminate(
     _ sender: NSApplication
   ) -> NSApplication.TerminateReply {
-    if quitFromStatusBarMenu { return .terminateNow }
-    if Self.isSystemInitiatedQuit() { return .terminateNow }
-    // Close any visible normal-level windows (the Settings window is the
-    // only one this app ever has). The willClose observer in
-    // `setupActivationPolicyTracking` will demote the activation policy
-    // back to `.accessory` shortly after; setting it here too just makes
-    // the Dock-icon disappearance feel immediate.
-    for window in NSApp.windows where window.isVisible && window.level == .normal {
-      window.close()
-    }
-    NSApp.setActivationPolicy(.accessory)
-    return .terminateCancel
+    .terminateNow
   }
 
-  /// True when the current AppleEvent reason is logout / shutdown / restart.
-  /// Without this check we'd block the system from quitting us during
-  /// shutdown, which can hang the logout flow.
-  private static func isSystemInitiatedQuit() -> Bool {
-    guard let event = NSAppleEventManager.shared().currentAppleEvent,
-      let reason = event.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason))?
-        .enumCodeValue
-    else { return false }
-    return reason == kAELogOut
-      || reason == kAEReallyLogOut
-      || reason == kAEShowRestartDialog
-      || reason == kAEShowShutdownDialog
-      || reason == kAERestart
-      || reason == kAEShutDown
-  }
-
-  /// Status-bar menu's Quit handler. Sets the "real quit" flag so
-  /// `applicationShouldTerminate` lets us exit.
   @objc func quitFromStatusBar(_ sender: Any?) {
-    quitFromStatusBarMenu = true
     NSApp.terminate(sender)
   }
 
@@ -325,35 +282,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     NSApp.setActivationPolicy(.accessory)
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    // A tracked status-item NSMenu (not a popover): it keeps the menu bar
-    // revealed over full-screen Spaces and never activates the app. Its single
-    // item hosts an AppKit `DropdownContentView` whose controls consume the
-    // mouse-up, so clicks don't dismiss it — the dropdown stays open while a
-    // peripheral pairs. (SwiftUI controls don't track inside a menu.)
+    // Native menu items support mouse, keyboard, and accessibility selection.
     statusItem.menu = makeDropdownMenu()
     refreshStatusBarIcon()
   }
 
-  /// Build the status-item dropdown: an `NSMenu` whose single item hosts the
-  /// AppKit `DropdownContentView`. The view drives switch actions directly;
-  /// Settings / Quit route back through the delegate.
+  /// All rows use AppKit menu items so selection follows standard macOS behavior.
   private func makeDropdownMenu() -> NSMenu {
     let menu = NSMenu()
+    menu.autoenablesItems = false
     menu.delegate = self
-    let item = NSMenuItem()
     let content = DropdownContentView(
-      onSwitchMac: { [weak self] device in self?.performSwitch(with: device) },
-      onOpenSettings: { [weak self] in self?.openSettingsWindow(nil) },
-      onQuit: { [weak self] in self?.quitFromStatusBar(nil) })
-    content.updateFrameToFit()
-    item.view = content
-    menu.addItem(item)
+      menu: menu,
+      onSwitchMac: { [weak self] device in self?.performSwitch(with: device) })
+    // Use native items for window and application actions. AppKit handles
+    // mouse and keyboard selection and ends menu tracking before dispatching
+    // the action, including on Ventura.
+    menu.addItem(.separator())
+    let settingsItem = NSMenuItem(
+      title: "Settings…", action: #selector(openSettingsWindow(_:)), keyEquivalent: ",")
+    settingsItem.target = self
+    menu.addItem(settingsItem)
+    let quitItem = NSMenuItem(
+      title: "Quit", action: #selector(quitFromStatusBar(_:)), keyEquivalent: "q")
+    quitItem.target = self
+    menu.addItem(quitItem)
     dropdownContentView = content
     return menu
   }
 
-  /// Refresh reachability + re-measure the hosted view just before the dropdown
-  /// opens. Probe results land asynchronously and re-render the open menu.
+  /// Refresh devices before opening; update existing rows during menu tracking.
   func menuWillOpen(_ menu: NSMenu) {
     networkStore.refreshReachability()
     // Re-read paired devices so a peripheral renamed in System Settings (and
@@ -361,8 +319,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     BluetoothPeripheralStore.shared.fetchConnectedPeripherals()
     // The snapshot above only triggers a rebuild when something changed;
     // battery levels are read at build time, so ask for one regardless.
-    dropdownContentView?.refreshRows()
-    dropdownContentView?.updateFrameToFit()
+    dropdownContentView?.menuWillOpen()
+  }
+
+  func menuDidClose(_ menu: NSMenu) {
+    dropdownContentView?.menuDidClose()
   }
 
   /// `NSImage(named:)` returns the shared cache instance — never mutate it,
