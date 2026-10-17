@@ -130,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   ///
   /// - Status-bar menu → Quit: real exit (the flag is set in `quitFromStatusBar`).
   /// - System-initiated (logout / shutdown / restart): real exit.
+  /// - Another app's quit AppleEvent (Homebrew, `osascript`): real exit.
   /// - Anything else (Cmd+Q while Settings focused, right-click Dock → Quit,
   ///   etc.): cancel the terminate, just close Settings and drop the Dock
   ///   icon. This is the "Magic Switch lives in the menu bar; the Dock entry
@@ -139,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   ) -> NSApplication.TerminateReply {
     if quitFromStatusBarMenu { return .terminateNow }
     if Self.isSystemInitiatedQuit() { return .terminateNow }
+    if Self.isExternalQuitRequest() { return .terminateNow }
     // Close any visible normal-level windows (the Settings window is the
     // only one this app ever has). The willClose observer in
     // `setupActivationPolicyTracking` will demote the activation policy
@@ -165,6 +167,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       || reason == kAEShowShutdownDialog
       || reason == kAERestart
       || reason == kAEShutDown
+  }
+
+  /// True when another app sent the quit AppleEvent. The Dock's Quit doesn't
+  /// count.
+  private static func isExternalQuitRequest() -> Bool {
+    guard let event = NSAppleEventManager.shared().currentAppleEvent,
+      event.eventClass == AEEventClass(kCoreEventClass),
+      event.eventID == AEEventID(kAEQuitApplication),
+      let senderPID = event.attributeDescriptor(forKeyword: AEKeyword(keySenderPIDAttr))?
+        .int32Value
+    else { return false }
+    return !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock")
+      .contains { $0.processIdentifier == senderPID }
   }
 
   /// Status-bar menu's Quit handler. Sets the "real quit" flag so
