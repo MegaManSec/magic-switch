@@ -326,7 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     // A tracked status-item NSMenu (not a popover): it keeps the menu bar
-    // revealed over full-screen Spaces and never activates the app. Its single
+    // revealed over full-screen Spaces and never activates the app. Its first
     // item hosts an AppKit `DropdownContentView` whose controls consume the
     // mouse-up, so clicks don't dismiss it — the dropdown stays open while a
     // peripheral pairs. (SwiftUI controls don't track inside a menu.)
@@ -334,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     refreshStatusBarIcon()
   }
 
-  /// Build the status-item dropdown: an `NSMenu` whose single item hosts the
+  /// Build the status-item dropdown: an `NSMenu` whose first item hosts the
   /// AppKit `DropdownContentView`. The view drives switch actions directly;
   /// Settings / Quit route back through the delegate.
   private func makeDropdownMenu() -> NSMenu {
@@ -348,6 +348,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     content.updateFrameToFit()
     item.view = content
     menu.addItem(item)
+    if !DropdownContentView.hostsAppActions {
+      let settingsItem = NSMenuItem(
+        title: "Settings…", action: #selector(openSettingsWindow(_:)), keyEquivalent: ",")
+      settingsItem.target = self
+      menu.addItem(settingsItem)
+      let quitItem = NSMenuItem(
+        title: "Quit", action: #selector(quitFromStatusBar(_:)), keyEquivalent: "q")
+      quitItem.target = self
+      menu.addItem(quitItem)
+    }
     dropdownContentView = content
     return menu
   }

@@ -109,6 +109,12 @@ final class DropdownContentView: NSView {
   private var cancellables: Set<AnyCancellable> = []
   private var syncScheduled = false
 
+  /// On macOS 13 and earlier, Settings and Quit are native menu items instead.
+  static let hostsAppActions: Bool = {
+    if #available(macOS 14, *) { return true }
+    return false
+  }()
+
   private static let panelWidth: CGFloat = 260
   private static let inset: CGFloat = 12
   private static let contentWidth: CGFloat = panelWidth - inset * 2
@@ -199,6 +205,12 @@ final class DropdownContentView: NSView {
         previousRow = row
       }
       stack.addArrangedSubview(makeDivider())
+    }
+
+    guard Self.hostsAppActions else {
+      enclosingMenuItem?.isHidden = stack.arrangedSubviews.isEmpty
+      updateFrameToFit()
+      return
     }
 
     // A hair more space above the Settings row than the default inter-row gap.
