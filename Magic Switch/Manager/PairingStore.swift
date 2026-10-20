@@ -150,7 +150,10 @@ final class PairingStore: ObservableObject {
           completion(.success(()))
         }
       } catch let error as PairingError {
-        DispatchQueue.main.async { completion(.failure(error)) }
+        DispatchQueue.main.async {
+          self.refreshState()
+          completion(.failure(error))
+        }
       } catch {
         DispatchQueue.main.async { completion(.failure(.derivationFailed)) }
       }
