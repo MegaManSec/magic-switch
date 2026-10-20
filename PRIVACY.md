@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 27 September 2026_
+_Last updated: 20 October 2026_
 
 Magic Switch is a free, open-source macOS app that moves Bluetooth peripherals, such as a Magic Keyboard or Magic Trackpad, between two of your Macs. This policy explains what data the app handles.
 
@@ -16,6 +16,7 @@ The app keeps the following on your Mac so it can work:
 - The peripherals you've registered: each device's name, type and Bluetooth address.
 - Your settings, such as keyboard shortcuts and the display that triggers a switch.
 - The IP addresses of devices that repeatedly fail to authenticate, used only to block them temporarily.
+- Diagnostic messages in the macOS system log, such as peripheral names and Bluetooth addresses, and your other Mac's name and IP address. They stay on your Mac unless you share them, for example in a bug report.
 
 ## Data shared between your Macs
 

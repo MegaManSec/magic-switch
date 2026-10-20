@@ -67,9 +67,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// connect time (its pair watchdog, `pairTimeout`, is 60s) so the sender
   /// waits for the real result instead of giving up early; and the receiver's
   /// `IncomingConnection.idleTimeout` must stay >= this so it doesn't idle-kill
-  /// the connection before sending that ack. Every other command acks
-  /// immediately and uses `OutgoingConnection`'s 5s default.
+  /// the connection before sending that ack. Apart from the releases below,
+  /// every other command acks immediately and uses `OutgoingConnection`'s 5s
+  /// default.
   private static let handoffBodyTimeout: TimeInterval = 75
+  /// Body-read timeout for `UNREGISTER_ALL` and `UNREGISTER_ONE`, whose
+  /// receiver acks only once its peripherals have actually disconnected.
+  /// `IncomingConnection.idleTimeout` must stay >= this too.
+  private static let releaseBodyTimeout: TimeInterval = 20
 
   /// Consecutive failed `.ping` polls per device id (runtime only). Drives
   /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi
@@ -238,7 +243,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // Without Bonjour's collision rename, a same-named peer would fight this
     // Mac over one name-keyed entry. Refuse; renaming a Mac is the fix.
     guard !isLocalName(name) else {
-      print("Refusing INTRODUCE from a peer using this Mac's own name: \(name)")
+      Log.network.error("Refusing INTRODUCE from a peer using this Mac's own name: \(name)")
       return
     }
     let device = NetworkDevice(
@@ -305,7 +310,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         guard let self = self else { return }
         self.pendingMigrationProofs.remove(discovered.id)
         guard case .success = result else {
-          print(
+          Log.network.error(
             "Rename migration refused: \"\(discovered.id)\" advertised a matching fingerprint but couldn't prove the pairing key"
           )
           return
@@ -363,7 +368,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     deviceReachability[discovered.id] = true
     consecutivePollFailures[discovered.id] = 0
     saveNetworkDevices()
-    print(
+    Log.network.notice(
       "Migrated registered Mac \"\(old.name)\" -> \"\(discovered.name)\" (proved the pairing key)")
     NotificationManager.showNotification(
       title: "Registered Mac Renamed",
@@ -473,7 +478,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // just silently vanish on a user who saw it appear. Reusing the
       // mismatch identifier replaces the stale "choose Trust" alert in
       // Notification Center instead of stacking next to it.
-      print(
+      Log.network.notice(
         "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
       )
       NotificationManager.showNotification(
@@ -859,7 +864,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       let encoded = try JSONEncoder().encode(networkDevices)
       networkDevicesData = encoded
     } catch {
-      print("Failed to save devices: \(error)")
+      Log.network.error("Failed to save devices: \(error)")
     }
   }
 
@@ -867,7 +872,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     do {
       networkDevices = try JSONDecoder().decode([NetworkDevice].self, from: networkDevicesData)
     } catch {
-      print("Failed to load devices: \(error)")
+      Log.network.error("Failed to load devices: \(error)")
     }
   }
 
@@ -931,10 +936,10 @@ enum DeviceCommand: String, Codable {
   /// using.
   case holdsOne = "HOLDS_ONE"
   /// Single-frame no-op the peer immediately acks. Used as a secure-channel
-  /// preflight: a TCP-open `checkHealth` doesn't prove the peer's app will
-  /// accept commands, but a PING that handshakes + receives OP_SUCCESS
-  /// does. Lets the switch action bail out before touching local Bluetooth
-  /// state if the peer can't actually take a command right now.
+  /// health check and preflight: a successful handshake and OP_SUCCESS reply
+  /// prove the peer's app can accept commands. Lets the switch action bail
+  /// out before touching local Bluetooth state if the peer can't actually
+  /// take a command right now.
   case ping = "PING"
   /// Two-frame: opcode then a comma-separated list of MAC addresses the
   /// *sender* just released as it goes to sleep. The receiver acks on receipt
@@ -1019,13 +1024,13 @@ extension NetworkDeviceStore {
       DispatchQueue.main.async {
         switch result {
         case .success:
-          print("Health check successful with \(device.name)")
+          Log.network.debug("Health check successful with \(device.name)")
           completion(result)
         case .failure(let error):
-          print("Health check failed with \(device.name): \(error)")
+          Log.network.debug("Health check failed with \(device.name): \(error)")
           completion(result)
         case .timeout:
-          print("Health check timed out with \(device.name)")
+          Log.network.debug("Health check timed out with \(device.name)")
           completion(result)
         }
       }
@@ -1047,7 +1052,12 @@ extension NetworkDeviceStore {
       return
     }
 
-    let bodyTimeout: TimeInterval = command == .connectAll ? Self.handoffBodyTimeout : 5
+    let bodyTimeout: TimeInterval
+    switch command {
+    case .connectAll: bodyTimeout = Self.handoffBodyTimeout
+    case .unregisterAll: bodyTimeout = Self.releaseBodyTimeout
+    default: bodyTimeout = 5
+    }
     let outgoing = OutgoingConnection(
       host: device.host,
       port: UInt16(device.port),
@@ -1058,14 +1068,14 @@ extension NetworkDeviceStore {
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { sendErr in
           if let sendErr = sendErr {
-            print("Failed to send command: \(sendErr)")
+            Log.network.error("Failed to send command: \(sendErr)")
             done(.failure(.bodyFailed))
             return
           }
           channel.receive { result in
             switch result {
             case .failure(let err):
-              print("Failed to receive response: \(err)")
+              Log.network.error("Failed to receive response: \(err)")
               done(.failure(.bodyFailed))
             case .success(let data):
               done(decodeOperationResponse(data))
@@ -1094,14 +1104,14 @@ extension NetworkDeviceStore {
       body: { channel, done in
         channel.send(Data(DeviceCommand.notification.rawValue.utf8)) { err in
           if let err = err {
-            print("Notification command send failed: \(err)")
+            Log.network.error("Notification command send failed: \(err)")
             done(.failure(.bodyFailed))
             return
           }
           let payload = "\(title)|\(message)"
           channel.send(Data(payload.utf8)) { err2 in
             if let err2 = err2 {
-              print("Notification payload send failed: \(err2)")
+              Log.network.error("Notification payload send failed: \(err2)")
               done(.failure(.bodyFailed))
               return
             }
@@ -1113,7 +1123,7 @@ extension NetworkDeviceStore {
             channel.receive { result in
               switch result {
               case .failure(let err):
-                print("Notification ack receive failed: \(err)")
+                Log.network.error("Notification ack receive failed: \(err)")
                 done(.failure(.bodyFailed))
               case .success(let data):
                 done(decodeOperationResponse(data))
@@ -1146,7 +1156,7 @@ extension NetworkDeviceStore {
     guard let data = try? JSONEncoder().encode(peripherals),
       let jsonString = String(data: data, encoding: .utf8)
     else {
-      print("sendPeripheralSync: failed to encode peripherals")
+      Log.network.error("sendPeripheralSync: failed to encode peripherals")
       completion?(.failure(.connectionFailed("encode failed")))
       return
     }
@@ -1157,13 +1167,13 @@ extension NetworkDeviceStore {
       body: { channel, done in
         channel.send(Data(DeviceCommand.syncPeripherals.rawValue.utf8)) { err in
           if let err = err {
-            print("syncPeripherals command send failed: \(err)")
+            Log.network.error("syncPeripherals command send failed: \(err)")
             done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(jsonString.utf8)) { err2 in
             if let err2 = err2 {
-              print("syncPeripherals payload send failed: \(err2)")
+              Log.network.error("syncPeripherals payload send failed: \(err2)")
               done(.failure(.bodyFailed))
               return
             }
@@ -1173,7 +1183,7 @@ extension NetworkDeviceStore {
             channel.receive { result in
               switch result {
               case .failure(let err):
-                print("syncPeripherals ack receive failed: \(err)")
+                Log.network.error("syncPeripherals ack receive failed: \(err)")
                 done(.failure(.bodyFailed))
               case .success(let data):
                 done(decodeOperationResponse(data))
@@ -1277,20 +1287,20 @@ extension NetworkDeviceStore {
       body: { channel, done in
         channel.send(Data(DeviceCommand.introduce.rawValue.utf8)) { err in
           if let err = err {
-            print("INTRODUCE command send failed: \(err)")
+            Log.network.error("INTRODUCE command send failed: \(err)")
             done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(local.encoded.utf8)) { err2 in
             if let err2 = err2 {
-              print("INTRODUCE payload send failed: \(err2)")
+              Log.network.error("INTRODUCE payload send failed: \(err2)")
               done(.failure(.bodyFailed))
               return
             }
             channel.receive { result in
               switch result {
               case .failure(let err):
-                print("INTRODUCE reply receive failed: \(err)")
+                Log.network.error("INTRODUCE reply receive failed: \(err)")
                 done(.failure(.bodyFailed))
               case .success(let data):
                 let response = String(data: data, encoding: .utf8) ?? ""
@@ -1402,7 +1412,12 @@ extension NetworkDeviceStore {
       completion(.failure(.notPaired))
       return
     }
-    let bodyTimeout: TimeInterval = command == .connectOne ? Self.handoffBodyTimeout : 5
+    let bodyTimeout: TimeInterval
+    switch command {
+    case .connectOne: bodyTimeout = Self.handoffBodyTimeout
+    case .unregisterOne: bodyTimeout = Self.releaseBodyTimeout
+    default: bodyTimeout = 5
+    }
     let outgoing = OutgoingConnection(
       host: device.host, port: UInt16(device.port),
       countsTowardRateLimit: countsTowardRateLimit,
@@ -1411,20 +1426,20 @@ extension NetworkDeviceStore {
       body: { channel, done in
         channel.send(Data(command.rawValue.utf8)) { err in
           if let err = err {
-            print("\(command.rawValue) command send failed: \(err)")
+            Log.network.error("\(command.rawValue) command send failed: \(err)")
             done(.failure(.bodyFailed))
             return
           }
           channel.send(Data(payload.utf8)) { err2 in
             if let err2 = err2 {
-              print("\(command.rawValue) payload send failed: \(err2)")
+              Log.network.error("\(command.rawValue) payload send failed: \(err2)")
               done(.failure(.bodyFailed))
               return
             }
             channel.receive { result in
               switch result {
               case .failure(let err):
-                print("\(command.rawValue) ack receive failed: \(err)")
+                Log.network.error("\(command.rawValue) ack receive failed: \(err)")
                 done(.failure(.bodyFailed))
               case .success(let data):
                 done(decodeOperationResponse(data))

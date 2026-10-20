@@ -124,14 +124,14 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
     switch state {
     case .ready:
       if let port = listener?.port?.rawValue {
-        print("Listener ready: Port \(port)")
+        Log.network.notice("Listener ready: Port \(port)")
         boundPort = port
         // NetService needs a run loop for its delegate callbacks; this
         // handler's dispatch queue has none.
         DispatchQueue.main.async { self.publishService(port: Int(port)) }
       }
     case .failed(let error):
-      print("Listener error: \(error)")
+      Log.network.error("Listener error: \(error)")
       listener?.cancel()
       if boundPort != nil {
         // Died after ready. Clear the port so INTRODUCE stops asserting a
@@ -159,7 +159,7 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
         startListener(on: nil)
       }
     case .cancelled:
-      print("Listener was cancelled")
+      Log.network.notice("Listener was cancelled")
     default:
       break
     }
@@ -195,7 +195,7 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   /// Handles errors that occur during listener setup
   private func handleListenerError(_ error: Error) {
-    print("Failed to create listener: \(error)")
+    Log.network.error("Failed to create listener: \(error)")
   }
 
   /// Publishes the service with the specified port
@@ -240,7 +240,7 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
 extension ServicePublisher: NetServiceDelegate {
   func netServiceDidPublish(_ sender: NetService) {
-    print("Service published successfully: \(sender.name)")
+    Log.network.notice("Service published successfully: \(sender.name)")
     // mDNS renames on collision; INTRODUCE identities must match the air.
     let name = sender.name
     queue.async { self.advertisedName = name }
@@ -248,7 +248,7 @@ extension ServicePublisher: NetServiceDelegate {
   }
 
   func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
-    print("Failed to publish service: \(errorDict)")
+    Log.network.error("Failed to publish service: \(errorDict)")
     AdvertisingDiagnostics.shared.servicePublishFailed()
   }
 }
