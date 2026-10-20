@@ -26,9 +26,35 @@ final class BLETransportManager: NSObject, ObservableObject {
   // Central (Client) state
   private var discoveredPeripherals: [UUID: CBPeripheral] = [:]
   private var lastSeen: [UUID: Date] = [:]
+  private var lastPeerActivity: Date?
   private var activeClientConnections: [UUID: BLETransportConnection] = [:]
   private var pendingClientConnects: [UUID: (Result<BLETransportConnection, Error>) -> Void] = [:]
   private var discoveryTimer: DispatchSourceTimer?
+
+  /// Whether the Bluetooth radio is powered on and ready for connections.
+  var isAvailable: Bool {
+    centralQueue.sync {
+      centralManager?.state == .poweredOn
+    }
+  }
+
+  /// Whether an active BLE session exists or a peer communicated recently.
+  var hasRecentPeerActivity: Bool {
+    centralQueue.sync {
+      if !activeServerConnections.isEmpty || !activeClientConnections.isEmpty { return true }
+      if let activity = lastPeerActivity, Date().timeIntervalSince(activity) < 60 {
+        return true
+      }
+      return false
+    }
+  }
+
+  /// Records recent peer communication over Bluetooth.
+  func notePeerActivity() {
+    centralQueue.async { [weak self] in
+      self?.lastPeerActivity = Date()
+    }
+  }
 
   // Queued outgoing client connection requests per peer (to serialize BLE access)
   private struct QueuedClientRequest {
@@ -163,12 +189,28 @@ final class BLETransportManager: NSObject, ObservableObject {
   /// Checks whether a peer device is currently known and reachable over Bluetooth.
   func isPeerAvailable(identifier: UUID) -> Bool {
     centralQueue.sync {
-      guard let p = discoveredPeripherals[identifier] else { return false }
-      if p.state == .connected { return true }
-      if let seen = lastSeen[identifier], Date().timeIntervalSince(seen) < 30 {
+      if !activeServerConnections.isEmpty || !activeClientConnections.isEmpty { return true }
+      if let seen = lastPeerActivity, Date().timeIntervalSince(seen) < 60 {
         return true
       }
-      return centralManager?.state == .poweredOn
+      if let p = discoveredPeripherals[identifier] {
+        if p.state == .connected { return true }
+        if let seen = lastSeen[identifier], Date().timeIntervalSince(seen) < 30 {
+          return true
+        }
+        return centralManager?.state == .poweredOn
+      }
+      if let central = centralManager, central.state == .poweredOn {
+        if let retrieved = central.retrievePeripherals(withIdentifiers: [identifier]).first {
+          discoveredPeripherals[identifier] = retrieved
+          retrieved.delegate = self
+          return true
+        }
+        if !discoveredPeripherals.isEmpty {
+          return true
+        }
+      }
+      return false
     }
   }
 
@@ -178,13 +220,23 @@ final class BLETransportManager: NSObject, ObservableObject {
     timeout: TimeInterval = MagicSwitchBLE.bleConnectTimeout,
     completion: @escaping (Result<BLETransportConnection, Error>) -> Void
   ) {
+    self.notePeerActivity()
     centralQueue.async {
       guard let central = self.centralManager, central.state == .poweredOn else {
         completion(.failure(BLETransportError.notConnected))
         return
       }
 
-      guard let peripheral = self.discoveredPeripherals[peripheralIdentifier] else {
+      var targetPeripheral = self.discoveredPeripherals[peripheralIdentifier]
+      if targetPeripheral == nil {
+        if let retrieved = central.retrievePeripherals(withIdentifiers: [peripheralIdentifier]).first {
+          self.discoveredPeripherals[peripheralIdentifier] = retrieved
+          retrieved.delegate = self
+          targetPeripheral = retrieved
+        }
+      }
+
+      guard let peripheral = targetPeripheral else {
         completion(.failure(BLETransportError.characteristicNotFound))
         return
       }
@@ -469,6 +521,7 @@ extension BLETransportManager: CBPeripheralManagerDelegate {
       let connection = activeServerConnections[centralID]
 
       if data == MagicSwitchBLE.sessionStartMagic {
+        self.notePeerActivity()
         if let oldConn = connection {
           Log.network.notice(
             "BLETransportManager: resetting previous server session for \(centralID) on sessionStartMagic"
@@ -515,6 +568,7 @@ extension BLETransportManager: CBPeripheralManagerDelegate {
       }
 
       if data == MagicSwitchBLE.sessionEndMagic {
+        self.notePeerActivity()
         if let conn = connection {
           Log.network.notice(
             "BLETransportManager: tearing down server session for \(centralID) on sessionEndMagic"

@@ -84,6 +84,7 @@ final class BLETransportConnection: NSObject, TransportConnection {
 
   /// Called when new raw bytes arrive over the BLE link.
   func ingestIncomingData(_ data: Data) {
+    BLETransportManager.shared.notePeerActivity()
     byteStreamBuffer.append(data)
   }
 
@@ -110,6 +111,7 @@ final class BLETransportConnection: NSObject, TransportConnection {
   // MARK: - TransportConnection Implementation
 
   func send(data: Data, completion: @escaping (Error?) -> Void) {
+    BLETransportManager.shared.notePeerActivity()
     queue.async {
       guard self.isConnected else {
         completion(BLETransportError.notConnected)

@@ -108,7 +108,7 @@ struct NetworkDevice: Identifiable, Codable {
       }
       // Fingerprint matches the pin — a trusted update.
       pendingFingerprint = nil
-      if !device.host.isEmpty {
+      if !device.host.isEmpty || device.port == 0 {
         host = device.host
         port = device.port
       }
@@ -124,7 +124,7 @@ struct NetworkDevice: Identifiable, Codable {
       fingerprint = incoming
     }
     pendingFingerprint = nil
-    if !device.host.isEmpty {
+    if !device.host.isEmpty || device.port == 0 {
       host = device.host
       port = device.port
     }

@@ -190,6 +190,8 @@ final class IncomingConnection {
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
+          NetworkDeviceStore.shared.markPeerReachable(
+            provedFingerprint: provedFingerprint)
         }
         self.resetIdleTimer()
         self.readNext()
@@ -251,6 +253,11 @@ final class IncomingConnection {
   // MARK: - Command Handling
 
   private func handleIncoming(data: Data) {
+    if let proved = provedFingerprint {
+      DispatchQueue.main.async {
+        NetworkDeviceStore.shared.markPeerReachable(provedFingerprint: proved)
+      }
+    }
     guard let message = String(data: data, encoding: .utf8) else {
       Log.network.error("Dropping non-UTF8 frame")
       return
@@ -486,7 +493,8 @@ final class IncomingConnection {
       } else {
         sendString(DeviceCommand.operationFailed.rawValue)
       }
-      if let host = DialbackAddresses.hostString(from: endpoint), let proved = provedFingerprint {
+      if let proved = provedFingerprint {
+        let host = DialbackAddresses.hostString(from: endpoint) ?? ""
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.ingestIntroducedPeer(
             name: identity.name, host: host, port: Int(identity.port),

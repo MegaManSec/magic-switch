@@ -186,6 +186,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     if let index = networkDevices.firstIndex(where: {
       $0.name.caseInsensitiveCompare(name) == .orderedSame
         || ($0.fingerprint != nil && $0.fingerprint == fingerprint)
+        || networkDevices.count == 1
     }) {
       networkDevices[index].bluetoothID = identifier
       if networkDevices[index].fingerprint == nil, let fp = fingerprint {
@@ -553,6 +554,26 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
   }
 
+  /// Marks a peer Mac as reachable based on a successful authenticated handshake or command proof.
+  func markPeerReachable(provedFingerprint: String) {
+    var changed = false
+    for index in networkDevices.indices {
+      if networkDevices[index].fingerprint == provedFingerprint
+        || networkDevices[index].fingerprint == nil
+        || networkDevices.count == 1
+      {
+        if deviceReachability[networkDevices[index].id] != true {
+          deviceReachability[networkDevices[index].id] = true
+          changed = true
+        }
+        consecutivePollFailures[networkDevices[index].id] = 0
+      }
+    }
+    if changed {
+      objectWillChange.send()
+    }
+  }
+
   /// Tear down and re-start Bonjour browsing. Used by the "Refresh" button
   /// when the discovered list goes stale (network change, sleep/wake).
   func refreshDiscovery() {
@@ -645,6 +666,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     if let dev = networkDevices.first(where: { $0.id == id }) ?? discoveredNetworkDevices.first(where: { $0.id == id }) {
       if dev.isBluetoothAvailable {
         return true
+      }
+      if BLETransportManager.shared.isAvailable && dev.isActive {
+        if dev.bluetoothID != nil || dev.host.isEmpty || dev.port == 0 || BLETransportManager.shared.hasRecentPeerActivity {
+          return true
+        }
       }
     }
     return false
