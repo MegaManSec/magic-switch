@@ -67,9 +67,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// connect time (its pair watchdog, `pairTimeout`, is 60s) so the sender
   /// waits for the real result instead of giving up early; and the receiver's
   /// `IncomingConnection.idleTimeout` must stay >= this so it doesn't idle-kill
-  /// the connection before sending that ack. Every other command acks
-  /// immediately and uses `OutgoingConnection`'s 5s default.
+  /// the connection before sending that ack. Apart from the releases below,
+  /// every other command acks immediately and uses `OutgoingConnection`'s 5s
+  /// default.
   private static let handoffBodyTimeout: TimeInterval = 75
+  /// Body-read timeout for `UNREGISTER_ALL` and `UNREGISTER_ONE`, whose
+  /// receiver acks only once its peripherals have actually disconnected.
+  /// `IncomingConnection.idleTimeout` must stay >= this too.
+  private static let releaseBodyTimeout: TimeInterval = 20
 
   /// Consecutive failed `.ping` polls per device id (runtime only). Drives
   /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi
@@ -1047,7 +1052,12 @@ extension NetworkDeviceStore {
       return
     }
 
-    let bodyTimeout: TimeInterval = command == .connectAll ? Self.handoffBodyTimeout : 5
+    let bodyTimeout: TimeInterval
+    switch command {
+    case .connectAll: bodyTimeout = Self.handoffBodyTimeout
+    case .unregisterAll: bodyTimeout = Self.releaseBodyTimeout
+    default: bodyTimeout = 5
+    }
     let outgoing = OutgoingConnection(
       host: device.host,
       port: UInt16(device.port),
@@ -1402,7 +1412,12 @@ extension NetworkDeviceStore {
       completion(.failure(.notPaired))
       return
     }
-    let bodyTimeout: TimeInterval = command == .connectOne ? Self.handoffBodyTimeout : 5
+    let bodyTimeout: TimeInterval
+    switch command {
+    case .connectOne: bodyTimeout = Self.handoffBodyTimeout
+    case .unregisterOne: bodyTimeout = Self.releaseBodyTimeout
+    default: bodyTimeout = 5
+    }
     let outgoing = OutgoingConnection(
       host: device.host, port: UInt16(device.port),
       countsTowardRateLimit: countsTowardRateLimit,

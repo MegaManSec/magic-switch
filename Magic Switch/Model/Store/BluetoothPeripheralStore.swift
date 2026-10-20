@@ -1020,7 +1020,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let networkStore = NetworkDeviceStore.shared
     // Re-assert defensively — the mirror of the peer's "Pairing…".
     setConnectionState(.releasing, for: peripheral.id)
-    waitForLocalDisconnect(of: peripheral) { [weak self] success in
+    waitForLocalDisconnect(of: [peripheral.id]) { [weak self] success in
       guard let self = self else { return }
       guard success else {
         // It never disconnected, so it's still on this Mac — drop back to
@@ -1077,11 +1077,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Polls IOBluetooth (not the cached `connectionStates`) every 0.5s up
-  /// to 5 times, waiting for the device to actually disconnect. Same
-  /// pattern as `AppDelegate.waitForDisconnection`, but for a single
-  /// peripheral instead of the full set.
-  private func waitForLocalDisconnect(
-    of peripheral: BluetoothPeripheral,
+  /// to 5 times, waiting for every device in `ids` to actually disconnect.
+  /// Call on main; the completion fires on main.
+  func waitForLocalDisconnect(
+    of ids: [String],
     completion: @escaping (Bool) -> Void
   ) {
     var attempts = 0
@@ -1089,9 +1088,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     func check() {
       attempts += 1
       bluetoothQueue.async {
-        let connected = IOBluetoothDevice(addressString: peripheral.id)?.isConnected() ?? false
+        let anyConnected = ids.contains {
+          IOBluetoothDevice(addressString: $0)?.isConnected() ?? false
+        }
         DispatchQueue.main.async {
-          if !connected {
+          if !anyConnected {
             completion(true)
           } else if attempts < maxAttempts {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { check() }
@@ -1101,10 +1102,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         }
       }
     }
-    // First check fires immediately; we're entered from `unregisterFromPC`'s
-    // completion, after the disconnect was issued on `bluetoothQueue`, so
-    // the peripheral is often already gone. Polled retry covers the few
-    // cases where it isn't.
+    // First check fires immediately; callers enter from `unregisterFromPC`'s
+    // completion, after the disconnects were issued on `bluetoothQueue`, so
+    // the peripherals are often already gone. Polled retry covers the few
+    // cases where they aren't.
     check()
   }
 

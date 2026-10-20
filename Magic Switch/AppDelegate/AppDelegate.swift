@@ -875,7 +875,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   /// Rest of the full-set handoff, entered once every local release landed.
   private func continueHandoffToPeer(device: NetworkDevice) {
-    waitForDisconnection { [weak self] allDisconnected in
+    let ids = bluetoothStore.peripherals.map(\.id)
+    bluetoothStore.waitForLocalDisconnect(of: ids) { [weak self] allDisconnected in
       guard let self = self else { return }
       guard allDisconnected else {
         self.bluetoothStore.finishFullSetRelease(success: false)
@@ -915,34 +916,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         }
       }
     }
-  }
-
-  /// Waits for all devices to disconnect with a timeout
-  /// - Parameter completion: Called with true if all devices disconnected, false if timeout occurred
-  private func waitForDisconnection(completion: @escaping (Bool) -> Void) {
-    var attempts = 0
-    let maxAttempts = 5
-
-    func check() {
-      attempts += 1
-      bluetoothStore.checkActualConnectionStatusAsync { status in
-        if status == .allDisconnected {
-          completion(true)
-        } else if attempts < maxAttempts {
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            check()
-          }
-        } else {
-          completion(false)
-        }
-      }
-    }
-
-    // First check fires immediately — this runs from the `unregisterFromPC`
-    // completions, after the disconnects were issued on the Bluetooth queue,
-    // so the device is often already disconnected. Falls through to the
-    // polled retry loop if not.
-    check()
   }
 
   // MARK: - Settings Management

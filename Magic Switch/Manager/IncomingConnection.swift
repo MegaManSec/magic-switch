@@ -282,15 +282,20 @@ final class IncomingConnection {
       }
     case .unregisterAll:
       let store = bluetoothStore
-      DispatchQueue.main.async {
+      lastReceivedCommand = nil
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
         NotificationCenter.default.post(name: .magicSwitchReceivedUnregisterAll, object: nil)
-        store.peripherals.forEach { peripheral in
-          store.unregisterFromPC(peripheral)
+        let peripherals = store.peripherals
+        let releases = DispatchGroup()
+        peripherals.forEach { peripheral in
+          releases.enter()
+          store.unregisterFromPC(peripheral) { releases.leave() }
+        }
+        releases.notify(queue: .main) {
+          self.replyOnceDisconnected(peripherals.map(\.id))
         }
       }
-      // See connectAll above for the best-effort-ack rationale.
-      sendString(DeviceCommand.operationSuccess.rawValue)
-      lastReceivedCommand = nil
     case .ping:
       // Pure no-op preflight; just acknowledge.
       sendString(DeviceCommand.operationSuccess.rawValue)
@@ -349,17 +354,20 @@ final class IncomingConnection {
       }
       let store = bluetoothStore
       let address = message
-      DispatchQueue.main.async {
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
         // Peripheral is leaving this Mac for the peer — flash the sending arrow.
         NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
-        if let peripheral = store.peripherals.first(where: { $0.id == address }) {
-          store.unregisterFromPC(peripheral)
+        // A peripheral missing from our registered list isn't released, but
+        // the reply still reflects whether we're connected to it.
+        guard let peripheral = store.peripherals.first(where: { $0.id == address }) else {
+          self.replyOnceDisconnected([address])
+          return
+        }
+        store.unregisterFromPC(peripheral) {
+          self.replyOnceDisconnected([address])
         }
       }
-      // Reply OP_SUCCESS even if the peripheral isn't in our registered
-      // list — from the peer's perspective the goal ("you don't hold it
-      // anymore") is satisfied either way.
-      sendString(DeviceCommand.operationSuccess.rawValue)
     case .connectOne:
       guard Self.isValidMACAddress(message) else {
         print("connectOne: invalid MAC address: \(message)")
@@ -478,6 +486,17 @@ final class IncomingConnection {
     channel.send(Data(message.utf8)) { error in
       if let error = error {
         print("Sealed send failed: \(error)")
+      }
+    }
+  }
+
+  /// Release reply: OP_SUCCESS once none of `ids` is connected to this Mac,
+  /// OP_FAILED if one still is when the wait gives up. Call on main.
+  private func replyOnceDisconnected(_ ids: [String]) {
+    bluetoothStore.waitForLocalDisconnect(of: ids) { released in
+      self.queue.async {
+        self.sendString(
+          (released ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
       }
     }
   }
