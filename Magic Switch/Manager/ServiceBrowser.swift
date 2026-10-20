@@ -57,7 +57,7 @@ extension ServiceBrowser: NetServiceBrowserDelegate {
   func netServiceBrowser(
     _ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool
   ) {
-    print("Service discovered: \(service.name)")
+    Log.network.debug("Service discovered: \(service.name)")
     services.append(service)
     service.delegate = self
     service.resolve(withTimeout: timeout)
@@ -72,14 +72,14 @@ extension ServiceBrowser: NetServiceBrowserDelegate {
   func netServiceBrowser(
     _ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]
   ) {
-    print("Failed to search for services: \(errorDict)")
+    Log.network.error("Failed to search for services: \(errorDict)")
     AdvertisingDiagnostics.shared.serviceSearchFailed()
   }
 
   func netServiceBrowser(
     _ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool
   ) {
-    print("Service removed: \(service.name)")
+    Log.network.debug("Service removed: \(service.name)")
     services.removeAll { $0 == service }
     DispatchQueue.main.async {
       NetworkDeviceStore.shared.updateDeviceIsActive(id: service.name, isActive: false)
@@ -126,7 +126,7 @@ extension ServiceBrowser: NetServiceDelegate {
     DispatchQueue.main.async {
       NetworkDeviceStore.shared.addDiscoveredNetworkDevice(device)
       NetworkDeviceStore.shared.updateNetworkDevice(device)
-      print("Device information updated: \(sender.name)")
+      Log.network.debug("Device information updated: \(sender.name)")
     }
   }
 

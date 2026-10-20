@@ -40,7 +40,7 @@ final class SleepMonitor {
     let refCon = Unmanaged.passUnretained(self).toOpaque()
     rootPort = IORegisterForSystemPower(refCon, &notifyPortRef, Self.callback, &notifierObject)
     guard rootPort != 0, let notifyPortRef = notifyPortRef else {
-      print("SleepMonitor: IORegisterForSystemPower failed")
+      Log.bluetooth.error("SleepMonitor: IORegisterForSystemPower failed")
       return
     }
     CFRunLoopAddSource(

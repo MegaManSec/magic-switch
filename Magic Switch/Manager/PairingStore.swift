@@ -180,7 +180,7 @@ final class PairingStore: ObservableObject {
         kSecAttrAccount as String: Self.keychainAccount,
       ]
       let status = SecItemDelete(query as CFDictionary)
-      print("PairingStore.unpair: SecItemDelete -> \(status)")
+      Log.network.notice("PairingStore.unpair: SecItemDelete -> \(status)")
       DispatchQueue.main.async {
         if status == errSecSuccess || status == errSecItemNotFound {
           self.isPaired = false

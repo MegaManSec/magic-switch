@@ -182,14 +182,14 @@ final class OutgoingConnection {
     selfRef = self
 
     guard !countsTowardRateLimit || rateLimiter.shouldAttempt(host: host) else {
-      print("OutgoingConnection: backing off — too many recent failures to \(host)")
+      Log.network.error("OutgoingConnection: backing off — too many recent failures to \(host)")
       completion(.failure(.tooManyRecentFailures))
       release()
       return
     }
 
     guard let psk = pairingStore.currentKey() else {
-      print("OutgoingConnection: not paired, aborting send")
+      Log.network.error("OutgoingConnection: not paired, aborting send")
       completion(.failure(.notPaired))
       release()
       return
@@ -239,12 +239,12 @@ final class OutgoingConnection {
               self.finish(result, completion: completion)
             }
           case .failure(let err):
-            print("OutgoingConnection handshake failed: \(err)")
+            Log.network.error("OutgoingConnection handshake failed: \(err)")
             self.finish(.failure(.handshakeFailed(err)), completion: completion)
           }
         }
       case .failed(let error):
-        print("OutgoingConnection failed: \(error)")
+        Log.network.error("OutgoingConnection failed: \(error)")
         self.finish(
           .failure(.connectionFailed(error.localizedDescription)),
           completion: completion)
@@ -253,7 +253,7 @@ final class OutgoingConnection {
         // alone it burns the full connect timeout and is reported as a
         // timeout ("didn't respond") instead of unreachable.
         if case .posix(let code) = error, code == .ECONNREFUSED {
-          print("OutgoingConnection refused: \(error)")
+          Log.network.error("OutgoingConnection refused: \(error)")
           self.finish(
             .failure(.connectionFailed(error.localizedDescription)),
             completion: completion)

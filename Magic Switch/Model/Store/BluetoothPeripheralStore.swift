@@ -511,7 +511,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       setConnectionState(.disconnected, for: id)
     }
     if !connectedIDs.isEmpty {
-      print("Before sleep: \(connectedIDs.count) connected, released \(releasedIDs.count)")
+      Log.bluetooth.notice(
+        "Before sleep: \(connectedIDs.count) connected, released \(releasedIDs.count)")
     }
 
     // Proactive handoff: we've just freed these locally, so ask the present
@@ -724,7 +725,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     disarmReconnect(peripheral.id)
 
     if !btDevice.isConnected() {
-      print("Device is already disconnected: \(peripheral.name)")
+      Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
       return
     }
@@ -734,7 +735,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // watcher — we're handing this peripheral away on purpose.
       noteIntentionalRelease(peripheral.id)
       btDevice.perform(Selector(("remove")))
-      print("Device information removed: \(peripheral.name)")
+      Log.bluetooth.notice("Device information removed: \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
       return
     }
@@ -746,14 +747,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
-      print("Fell back to closeConnection() for \(peripheral.name)")
+      Log.bluetooth.notice("Fell back to closeConnection() for \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
     } else {
       // The release didn't happen, so no disconnect notification will arrive
       // to consume the flag — clear it so it can't suppress a later genuine
       // drop's auto-reconnect.
       clearIntentionalRelease(peripheral.id)
-      print("Failed to release \(peripheral.name): closeConnection returned \(result)")
+      Log.bluetooth.error(
+        "Failed to release \(peripheral.name): closeConnection returned \(result)")
       setPeripheralError("Couldn't release.", for: peripheral.id)
       NotificationManager.showNotification(
         title: "Couldn't Release Peripheral",
@@ -780,14 +782,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Completely remove device from list
   func removeFromList(_ peripheral: BluetoothPeripheral) {
     guard peripherals.contains(where: { $0.id == peripheral.id }) else {
-      print("\(peripheral.name) does not exist in the list")
+      Log.bluetooth.error("\(peripheral.name) does not exist in the list")
       return
     }
     peripherals.removeAll { $0.id == peripheral.id }
     // No longer ours — stop watching and forget any pending release flag.
     disarmReconnect(peripheral.id)
     intentionalReleases.removeValue(forKey: peripheral.id)
-    print("\(peripheral.name) has been removed from the list")
+    Log.bluetooth.notice("\(peripheral.name) has been removed from the list")
   }
 
   /// Moves `peripheral` per `direction`. `toggle` is the dropdown row's click
@@ -1208,7 +1210,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       guard let self = self else { return }
 
       guard let btDevice = IOBluetoothDevice(addressString: peripheral.id) else {
-        print("\(peripheral.name) not found")
+        Log.bluetooth.error("\(peripheral.name) not found")
         self.failConnectAttempt(
           id: peripheral.id, name: peripheral.name,
           inline: "Not found.",
@@ -1221,7 +1223,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
 
       guard IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF else {
-        print("Bluetooth is turned off")
+        Log.bluetooth.notice("Bluetooth is turned off")
         // Inline only: a full-set switch loops over every registered
         // peripheral, and a radio that's off would fan one notification
         // out per row.
@@ -1257,7 +1259,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.registerForDisconnect(device: btDevice, address: peripheral.id)
           return
         }
-        print("openConnection to bonded \(peripheral.name) failed: \(openResult)")
+        Log.bluetooth.error("openConnection to bonded \(peripheral.name) failed: \(openResult)")
         // A cancel during the (blocking) open must not escalate into a bond
         // teardown the stopped attempt can never pair back.
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
@@ -1313,7 +1315,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     skipRangeCheck: Bool
   ) {
     if !skipRangeCheck, device.rssi() == Constants.invalidRSSI {
-      print("\(peripheral.name) is out of range or not responding")
+      Log.bluetooth.notice("\(peripheral.name) is out of range or not responding")
       failConnectAttempt(
         id: peripheral.id, name: peripheral.name,
         inline: "Not responding.",
@@ -1326,7 +1328,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     guard let devicePair = IOBluetoothDevicePair(device: device) else {
-      print("Failed to initialize pairing for \(peripheral.name)")
+      Log.bluetooth.error("Failed to initialize pairing for \(peripheral.name)")
       failConnectAttempt(
         id: peripheral.id, name: peripheral.name,
         inline: "Pairing failed.",
@@ -1356,7 +1358,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard isCurrentAttempt(attempt, for: peripheral.id) else { return }
     let pairResult = devicePair.start()
     if pairResult != kIOReturnSuccess {
-      print("Failed to start pairing with \(peripheral.name). Error code: \(pairResult)")
+      Log.bluetooth.error(
+        "Failed to start pairing with \(peripheral.name). Error code: \(pairResult)")
       DispatchQueue.main.async {
         // Identity-guarded like the delegate: a newer attempt may already
         // have replaced this entry.
@@ -1393,7 +1396,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     completion: @escaping (IOBluetoothDevice) -> Void
   ) {
     guard btDevice.responds(to: Selector(("remove"))) else {
-      print("Cannot refresh stale pairing for \(name): remove selector unavailable")
+      Log.bluetooth.error("Cannot refresh stale pairing for \(name): remove selector unavailable")
       completion(btDevice)
       return
     }
@@ -1401,7 +1404,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // cancel landing in that window must not lose the bond it can't re-pair.
     guard isCurrentAttempt(attempt, for: id) else { return }
     btDevice.perform(Selector(("remove")))
-    print("Removed stale local pairing before taking \(name)")
+    Log.bluetooth.notice("Removed stale local pairing before taking \(name)")
     noteBondAwaitingRepair(id)
     armReconnectForBondRepair(id)
     bluetoothQueue.asyncAfter(deadline: .now() + Constants.unbondSettle) {
@@ -1437,7 +1440,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
       self.reconnectWatchlist[id] = Date()
-      print("Auto-reconnect: restarted the retry window for \(id)")
+      Log.bluetooth.notice("Auto-reconnect: restarted the retry window for \(id)")
     }
     if Thread.isMainThread { apply() } else { DispatchQueue.main.async(execute: apply) }
   }
@@ -1453,17 +1456,17 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// The IOBluetooth side of `disconnectPeripheral`; runs on `bluetoothQueue`.
   private func performDisconnectPeripheral(_ peripheral: BluetoothPeripheral) {
     guard IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF else {
-      print("Bluetooth is turned off")
+      Log.bluetooth.notice("Bluetooth is turned off")
       return
     }
 
     guard let btDevice = IOBluetoothDevice(addressString: peripheral.id) else {
-      print("\(peripheral.name) not found")
+      Log.bluetooth.error("\(peripheral.name) not found")
       return
     }
 
     if !btDevice.isConnected() {
-      print("\(peripheral.name) is already disconnected")
+      Log.bluetooth.notice("\(peripheral.name) is already disconnected")
       setConnectionState(.disconnected, for: peripheral.id)
       return
     }
@@ -1474,10 +1477,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
-      print("Disconnected from \(peripheral.name)")
+      Log.bluetooth.notice("Disconnected from \(peripheral.name)")
       setConnectionState(.disconnected, for: peripheral.id)
     } else {
-      print("Failed to disconnect from \(peripheral.name). Error code: \(result)")
+      Log.bluetooth.error("Failed to disconnect from \(peripheral.name). Error code: \(result)")
     }
   }
 
@@ -1495,12 +1498,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       guard let self = self else { return }
       self.bluetoothQueue.async {
         guard IOBluetoothHostController.default().powerState != kBluetoothHCIPowerStateOFF else {
-          print("Bluetooth is turned off")
+          Log.bluetooth.notice("Bluetooth is turned off")
           return
         }
 
         guard let pairedDevices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else {
-          print("No paired peripherals found")
+          Log.bluetooth.notice("No paired peripherals found")
           return
         }
 
@@ -1591,7 +1594,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   func updatePeripherals(_ newPeripherals: [BluetoothPeripheral]) {
     // Cap inbound list size; reject larger payloads outright.
     guard newPeripherals.count <= 64 else {
-      print("Rejecting peripheral sync: list exceeds cap of 64")
+      Log.bluetooth.error("Rejecting peripheral sync: list exceeds cap of 64")
       return
     }
 
@@ -1637,7 +1640,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // replaced it; its failure is about an attempt whose outcome no
         // longer matters.
         guard isCurrentPair else { return }
-        print("Pairing failed for \(address): \(error)")
+        Log.bluetooth.error("Pairing failed for \(address): \(error)")
         // Route through the shared helper so the delegate arm gets the same
         // semantics as every pre-flight failure: flag consumed atomically with
         // the watchdog cancel, inline error only for announced attempts (a
@@ -1667,7 +1670,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         if !device.isConnected() {
           openResult = device.openConnection()
           if openResult != kIOReturnSuccess {
-            print("openConnection failed after pair: \(openResult)")
+            Log.bluetooth.error("openConnection failed after pair: \(openResult)")
           }
         }
         if device.isConnected() {
@@ -1702,7 +1705,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     DispatchQueue.main.async { [weak self] in
       guard let self = self else { return }
       let initiated = self.pendingPairs[address] === pair
-      print(
+      Log.bluetooth.notice(
         "Bluetooth pairing confirmation for \(address) (\(numericValue)): "
           + (initiated ? "accept" : "refuse"))
       pair.replyUserConfirmation(initiated)
@@ -1718,10 +1721,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     DispatchQueue.main.async { [weak self] in
       guard let self = self else { return }
       guard self.pendingPairs[address] === pair else {
-        print("Ignoring Bluetooth PIN code request for \(address): not our pairing")
+        Log.bluetooth.notice("Ignoring Bluetooth PIN code request for \(address): not our pairing")
         return
       }
-      print("Replying to Bluetooth PIN code request for \(address)")
+      Log.bluetooth.notice("Replying to Bluetooth PIN code request for \(address)")
       // Legacy HID peripherals with no keypad take the all-zero PIN.
       var code = BluetoothPINCode()
       let digits = Array("0000".utf8)
@@ -2060,7 +2063,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if reconnectWatchlist[id] == nil {
       reconnectWatchlist[id] = Date()
       if adoption { adoptionProgress[id] = AdoptionProgress() }
-      print("Auto-reconnect: watching \(id)\(adoption ? " (adoption)" : "")")
+      Log.bluetooth.notice("Auto-reconnect: watching \(id)\(adoption ? " (adoption)" : "")")
       // If the timer is mid-interval, pull the next probe forward so this
       // newcomer is checked promptly rather than waiting out the rest of the
       // current interval.
@@ -2175,7 +2178,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         continue
       }
       if now.timeIntervalSince(armedAt) > Constants.reconnectMaxWindow {
-        print("Auto-reconnect: giving up on \(peripheral.name)")
+        Log.bluetooth.notice("Auto-reconnect: giving up on \(peripheral.name)")
         disarmReconnect(id)
         continue
       }
@@ -2283,7 +2286,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         switch result {
         case .success:
           // Peer is actively holding it — leave it there.
-          print("Auto-reconnect: \(peripheral.name) held by \(device.name); leaving it")
+          Log.bluetooth.notice(
+            "Auto-reconnect: \(peripheral.name) held by \(device.name); leaving it")
           self.disarmReconnect(id)
         case .failure(let failure):
           guard self.reconnectWatchlist[id] != nil,
@@ -2293,7 +2297,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             self.continueAdoption(of: peripheral, after: failure)
             return
           }
-          print("Auto-reconnect: reclaiming \(peripheral.name)")
+          Log.bluetooth.notice("Auto-reconnect: reclaiming \(peripheral.name)")
           self.connectPeripheral(
             peripheral,
             announcePairTimeout: false,
@@ -2323,7 +2327,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     default:
       // The peer's machine accepted the TCP connection even though the probe
       // failed past that point — that's a live peer, not an absent one.
-      print("Adoption: \(peripheral.name) — peer is up; standing down")
+      Log.bluetooth.notice("Adoption: \(peripheral.name) — peer is up; standing down")
       disarmReconnect(id)
       return
     }
@@ -2332,14 +2336,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     guard progress.pairAttempts < Constants.adoptionMaxPairAttempts else {
-      print(
+      Log.bluetooth.notice(
         "Adoption: giving up on \(peripheral.name) after \(progress.pairAttempts) pair attempts")
       disarmReconnect(id)
       return
     }
     progress.pairAttempts += 1
     adoptionProgress[id] = progress
-    print("Adoption: taking \(peripheral.name) (attempt \(progress.pairAttempts))")
+    Log.bluetooth.notice("Adoption: taking \(peripheral.name) (attempt \(progress.pairAttempts))")
     // Adoption is a take-from-peer grab (the peer vanished), so a refused
     // bonded open escalates to a bond refresh like the other take-from-peer
     // callers — otherwise a peripheral stuck at `paired=true` with
@@ -2380,7 +2384,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let encoded = try JSONEncoder().encode(peripherals)
       peripheralsData = encoded
     } catch {
-      print("Failed to save peripherals: \(error)")
+      Log.bluetooth.error("Failed to save peripherals: \(error)")
     }
   }
 
@@ -2388,7 +2392,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     do {
       typeOverridesData = try JSONEncoder().encode(typeOverrides)
     } catch {
-      print("Failed to save type overrides: \(error)")
+      Log.bluetooth.error("Failed to save type overrides: \(error)")
     }
   }
 
@@ -2398,7 +2402,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       typeOverrides = try JSONDecoder().decode(
         [String: PeripheralType].self, from: typeOverridesData)
     } catch {
-      print("Failed to load type overrides: \(error)")
+      Log.bluetooth.error("Failed to load type overrides: \(error)")
     }
   }
 
@@ -2406,7 +2410,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     do {
       deviceClassesData = try JSONEncoder().encode(deviceClasses)
     } catch {
-      print("Failed to save device classes: \(error)")
+      Log.bluetooth.error("Failed to save device classes: \(error)")
     }
   }
 
@@ -2415,7 +2419,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     do {
       deviceClasses = try JSONDecoder().decode([String: UInt32].self, from: deviceClassesData)
     } catch {
-      print("Failed to load device classes: \(error)")
+      Log.bluetooth.error("Failed to load device classes: \(error)")
     }
   }
 
@@ -2423,7 +2427,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     do {
       peripherals = try JSONDecoder().decode([BluetoothPeripheral].self, from: peripheralsData)
     } catch {
-      print("Failed to load peripherals: \(error)")
+      Log.bluetooth.error("Failed to load peripherals: \(error)")
     }
   }
 
@@ -2432,7 +2436,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private func validateBluetoothState() -> Bool {
     let powerState = IOBluetoothHostController.default().powerState
     guard powerState != kBluetoothHCIPowerStateOFF else {
-      print("Bluetooth is turned off")
+      Log.bluetooth.notice("Bluetooth is turned off")
       return false
     }
     return true
@@ -2440,7 +2444,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   private func validateDeviceExists(_ peripheral: BluetoothPeripheral) -> Bool {
     guard IOBluetoothDevice(addressString: peripheral.id) != nil else {
-      print("Device not found: \(peripheral.name)")
+      Log.bluetooth.error("Device not found: \(peripheral.name)")
       return false
     }
     return true
@@ -2448,7 +2452,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   private func getBluetoothDevice(for peripheral: BluetoothPeripheral) -> IOBluetoothDevice? {
     guard let device = IOBluetoothDevice(addressString: peripheral.id) else {
-      print("Device not found: \(peripheral.name)")
+      Log.bluetooth.error("Device not found: \(peripheral.name)")
       return nil
     }
     return device

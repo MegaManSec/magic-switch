@@ -40,6 +40,7 @@
 		0A00007000000000000000BC /* PeripheralBattery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00007000000000000000AC /* PeripheralBattery.swift */; };
 		0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00008000000000000000AD /* AdvertisingDiagnostics.swift */; };
 		0A00009000000000000000BE /* DialbackAddresses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00009000000000000000AE /* DialbackAddresses.swift */; };
+		0A0000B000000000000000BF /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000B000000000000000AF /* Log.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +80,7 @@
 		0A00007000000000000000AC /* PeripheralBattery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeripheralBattery.swift; sourceTree = "<group>"; };
 		0A00008000000000000000AD /* AdvertisingDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDiagnostics.swift; sourceTree = "<group>"; };
 		0A00009000000000000000AE /* DialbackAddresses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialbackAddresses.swift; sourceTree = "<group>"; };
+		0A0000B000000000000000AF /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -122,6 +124,7 @@
 				0A00007000000000000000AC /* PeripheralBattery.swift */,
 				0A00008000000000000000AD /* AdvertisingDiagnostics.swift */,
 				0A00009000000000000000AE /* DialbackAddresses.swift */,
+				0A0000B000000000000000AF /* Log.swift */,
 				0A00001000000000000000A1 /* SecureChannel.swift */,
 				0A00001000000000000000A2 /* PairingStore.swift */,
 				0A00001000000000000000A3 /* IncomingConnection.swift */,
@@ -312,6 +315,7 @@
 				0A00007000000000000000BC /* PeripheralBattery.swift in Sources */,
 				0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */,
 				0A00009000000000000000BE /* DialbackAddresses.swift in Sources */,
+				0A0000B000000000000000BF /* Log.swift in Sources */,
 				076AB21A2CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift in Sources */,
 				076AB21B2CE9D690004D45F0 /* BluetoothManager.swift in Sources */,
 				076AB21D2CE9D690004D45F0 /* NotificationManager.swift in Sources */,

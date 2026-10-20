@@ -101,21 +101,21 @@ final class IncomingConnection {
     selfRef = self
 
     guard rateLimiter.shouldAccept(endpoint: endpoint) else {
-      print("Rejecting connection from blocked endpoint")
+      Log.network.error("Rejecting connection from blocked endpoint")
       connection.cancel()
       release()
       return
     }
 
     guard let psk = pairingStore.currentKey() else {
-      print("Rejecting connection: not paired")
+      Log.network.error("Rejecting connection: not paired")
       connection.cancel()
       release()
       return
     }
 
     guard rateLimiter.beginPending(endpoint: endpoint) else {
-      print("Rejecting connection: too many concurrent unauthenticated handshakes")
+      Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
       connection.cancel()
       release()
       return
@@ -166,7 +166,7 @@ final class IncomingConnection {
         self.resetIdleTimer()
         self.readNext()
       case .failure(let error):
-        print("Handshake failed: \(error)")
+        Log.network.error("Handshake failed: \(error)")
         // Only AEAD/auth failures indicate a credential-probe attempt.
         // Framing, timeout, and network errors are flaky-network noise; if we
         // count them we lock out the legitimate peer.
@@ -195,7 +195,7 @@ final class IncomingConnection {
       case .success(let data):
         self.resetIdleTimer()
         guard self.currentlyAuthorized() else {
-          print("Dropping frame: pairing key changed or removed since handshake")
+          Log.network.error("Dropping frame: pairing key changed or removed since handshake")
           self.teardown()
           return
         }
@@ -224,7 +224,7 @@ final class IncomingConnection {
 
   private func handleIncoming(data: Data) {
     guard let message = String(data: data, encoding: .utf8) else {
-      print("Dropping non-UTF8 frame")
+      Log.network.error("Dropping non-UTF8 frame")
       return
     }
     // Order matters: if a command is awaiting its data frame, this is that
@@ -238,7 +238,7 @@ final class IncomingConnection {
       // Unknown opcode (or garbled payload). Reply OP_FAILED so a newer peer
       // that introduces opcodes we don't recognize gets a fast, clean
       // failure instead of hanging on a receive that never comes.
-      print("Unexpected payload with no pending command")
+      Log.network.error("Unexpected payload with no pending command")
       sendString(DeviceCommand.operationFailed.rawValue)
     }
   }
@@ -301,7 +301,7 @@ final class IncomingConnection {
       sendString(DeviceCommand.operationSuccess.rawValue)
       lastReceivedCommand = nil
     default:
-      print("Unsupported command: \(command.rawValue)")
+      Log.network.error("Unsupported command: \(command.rawValue)")
       sendString(DeviceCommand.operationFailed.rawValue)
       lastReceivedCommand = nil
     }
@@ -327,12 +327,12 @@ final class IncomingConnection {
         // payload before TCP delivers it.
         sendString(DeviceCommand.operationSuccess.rawValue)
       } else {
-        print("Invalid notification format received")
+        Log.network.error("Invalid notification format received")
         sendString(DeviceCommand.operationFailed.rawValue)
       }
     case .syncPeripherals:
       guard let data = message.data(using: .utf8) else {
-        print("syncPeripherals: invalid utf8")
+        Log.network.error("syncPeripherals: invalid utf8")
         teardown()
         return
       }
@@ -341,14 +341,14 @@ final class IncomingConnection {
         bluetoothStore.updatePeripherals(peripherals)
         sendString(DeviceCommand.operationSuccess.rawValue)
       } catch {
-        print("syncPeripherals decode failed: \(error)")
+        Log.network.error("syncPeripherals decode failed: \(error)")
         sendString(DeviceCommand.operationFailed.rawValue)
         teardown()
         return
       }
     case .unregisterOne:
       guard Self.isValidMACAddress(message) else {
-        print("unregisterOne: invalid MAC address: \(message)")
+        Log.network.error("unregisterOne: invalid MAC address: \(message)")
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
@@ -370,7 +370,7 @@ final class IncomingConnection {
       }
     case .connectOne:
       guard Self.isValidMACAddress(message) else {
-        print("connectOne: invalid MAC address: \(message)")
+        Log.network.error("connectOne: invalid MAC address: \(message)")
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
@@ -395,7 +395,7 @@ final class IncomingConnection {
       }
     case .holdsOne:
       guard Self.isValidMACAddress(message) else {
-        print("holdsOne: invalid MAC address: \(message)")
+        Log.network.error("holdsOne: invalid MAC address: \(message)")
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
@@ -427,7 +427,7 @@ final class IncomingConnection {
       // that's briefly stuck and needs a power-cycle.
       let macs = message.split(separator: ",").map(String.init)
       guard !macs.isEmpty, macs.count <= 64, macs.allSatisfy(Self.isValidMACAddress) else {
-        print("adoptReleased: empty, oversized, or malformed address list")
+        Log.network.error("adoptReleased: empty, oversized, or malformed address list")
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
@@ -447,7 +447,7 @@ final class IncomingConnection {
       sendString(DeviceCommand.operationSuccess.rawValue)
     case .introduce:
       guard let identity = IntroducedIdentity(payload: message) else {
-        print("introduce: malformed identity payload")
+        Log.network.error("introduce: malformed identity payload")
         sendString(DeviceCommand.operationFailed.rawValue)
         break
       }
@@ -485,7 +485,7 @@ final class IncomingConnection {
     guard let channel = channel else { return }
     channel.send(Data(message.utf8)) { error in
       if let error = error {
-        print("Sealed send failed: \(error)")
+        Log.network.error("Sealed send failed: \(error)")
       }
     }
   }

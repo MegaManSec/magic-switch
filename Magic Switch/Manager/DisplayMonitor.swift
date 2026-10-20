@@ -124,7 +124,7 @@ final class DisplayMonitor: ObservableObject {
     let refCon = Unmanaged.passUnretained(self).toOpaque()
     let error = CGDisplayRegisterReconfigurationCallback(Self.reconfigurationCallback, refCon)
     if error != .success {
-      print("DisplayMonitor: CGDisplayRegisterReconfigurationCallback failed: \(error)")
+      Log.app.error("DisplayMonitor: CGDisplayRegisterReconfigurationCallback failed: \(error)")
     }
 
     // NSWorkspace rather than IOKit on purpose: unlike `SleepMonitor` we
@@ -221,7 +221,7 @@ final class DisplayMonitor: ObservableObject {
         && !(settling && presentAtSleep.contains(display.id))
     }
     guard !triggered.isEmpty else { return }
-    print("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
+    Log.app.notice("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
     onTriggerDisplaysConnected?(triggered.map { $0.name })
   }
 
@@ -257,7 +257,7 @@ final class DisplayMonitor: ObservableObject {
     var ids = [CGDirectDisplayID](repeating: 0, count: Int(Constants.maxDisplays))
     var count: UInt32 = 0
     guard CGGetOnlineDisplayList(Constants.maxDisplays, &ids, &count) == .success else {
-      print("DisplayMonitor: CGGetOnlineDisplayList failed")
+      Log.app.error("DisplayMonitor: CGGetOnlineDisplayList failed")
       return []
     }
     let displays: [ExternalDisplay] = ids.prefix(Int(count)).compactMap { id in
@@ -299,7 +299,7 @@ final class DisplayMonitor: ObservableObject {
     do {
       triggerDisplaysData = try JSONEncoder().encode(triggerDisplays)
     } catch {
-      print("Failed to save trigger displays: \(error)")
+      Log.app.error("Failed to save trigger displays: \(error)")
     }
   }
 
@@ -308,7 +308,7 @@ final class DisplayMonitor: ObservableObject {
     do {
       triggerDisplays = try JSONDecoder().decode([String: String].self, from: triggerDisplaysData)
     } catch {
-      print("Failed to load trigger displays: \(error)")
+      Log.app.error("Failed to load trigger displays: \(error)")
     }
   }
 }
