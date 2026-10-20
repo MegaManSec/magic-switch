@@ -638,7 +638,17 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// would show an offline peer's row enabled on a cold start until the first
   /// probe lands. An online peer un-greys within ~1s: a Bonjour resolve writes
   /// `true`, and the first poll confirms it.
-  func isReachable(_ id: String) -> Bool { deviceReachability[id] ?? false }
+  func isReachable(_ id: String) -> Bool {
+    if let reachable = deviceReachability[id], reachable {
+      return true
+    }
+    if let dev = networkDevices.first(where: { $0.id == id }) ?? discoveredNetworkDevices.first(where: { $0.id == id }) {
+      if dev.isBluetoothAvailable {
+        return true
+      }
+    }
+    return false
+  }
 
   /// A device is switchable when it's reachable *and* not parked behind a
   /// pending TOFU identity mismatch (which the user must Trust first). Drives
@@ -1065,7 +1075,7 @@ struct IntroducedIdentity {
 
   init?(payload: String) {
     let parts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
-    guard parts.count == 2, let port = UInt16(parts[0]), port > 0 else { return nil }
+    guard parts.count == 2, let port = UInt16(parts[0]) else { return nil }
     let name = String(parts[1]).trimmingCharacters(in: .whitespaces)
     // 63 bytes is Bonjour's instance-name limit; introduced ids key the same
     // store entries as advertised ones.
@@ -1146,7 +1156,14 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: { [weak self] result in
+        if case .success = result {
+          DispatchQueue.main.async {
+            self?.deviceReachability[device.id] = true
+          }
+        }
+        completion(result)
+      }
     )
   }
 
@@ -1195,7 +1212,14 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: { [weak self] result in
+        if case .success = result {
+          DispatchQueue.main.async {
+            self?.deviceReachability[device.id] = true
+          }
+        }
+        completion(result)
+      }
     )
   }
 }
@@ -1300,7 +1324,14 @@ extension NetworkDeviceStore {
     // the limiter that gates real switches (mirrors the reachability poll).
     sendTwoFrameCommand(
       .holdsOne, payload: address, to: device, countsTowardRateLimit: false,
-      completion: completion)
+      completion: { [weak self] result in
+        if case .success = result {
+          DispatchQueue.main.async {
+            self?.deviceReachability[device.id] = true
+          }
+        }
+        completion(result)
+      })
   }
 
   /// Tells `device` to take the peripherals the sender just released on its way
@@ -1510,7 +1541,14 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: { [weak self] result in
+        if case .success = result {
+          DispatchQueue.main.async {
+            self?.deviceReachability[device.id] = true
+          }
+        }
+        completion(result)
+      }
     )
   }
 }
