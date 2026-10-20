@@ -247,6 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         self?.refreshStatusBarIcon()
       }
     BluetoothManager.shared.setup()
+    BLETransportManager.shared.start()
   }
 
   private func handleBluetoothStateChange(_ state: CBManagerState) {

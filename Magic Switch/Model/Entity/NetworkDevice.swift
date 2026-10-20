@@ -33,6 +33,15 @@ struct NetworkDevice: Identifiable, Codable {
   /// (which moves it into `fingerprint`). nil means no mismatch is pending.
   var pendingFingerprint: String?
 
+  /// Discovered Bluetooth LE Peripheral identifier for this peer Mac.
+  var bluetoothID: UUID?
+
+  /// Whether the peer is currently reachable via Bluetooth LE.
+  var isBluetoothAvailable: Bool {
+    guard let btID = bluetoothID else { return false }
+    return BLETransportManager.shared.isPeerAvailable(identifier: btID)
+  }
+
   // MARK: - Initialization
 
   /// Creates a new network device instance
@@ -43,13 +52,15 @@ struct NetworkDevice: Identifiable, Codable {
   ///   - port: Communication port number
   ///   - isActive: Initial active state of the device
   ///   - fingerprint: Optional peer PSK fingerprint (TOFU pin)
+  ///   - bluetoothID: Optional Bluetooth LE Peripheral UUID
   init(
     id: String,
     name: String,
     host: String,
     port: Int,
     isActive: Bool = true,
-    fingerprint: String? = nil
+    fingerprint: String? = nil,
+    bluetoothID: UUID? = nil
   ) {
     self.id = id
     self.name = name
@@ -58,6 +69,7 @@ struct NetworkDevice: Identifiable, Codable {
     self.lastUpdated = Date()
     self.isActive = isActive
     self.fingerprint = fingerprint
+    self.bluetoothID = bluetoothID
   }
 
   // MARK: - Public Methods
@@ -96,8 +108,11 @@ struct NetworkDevice: Identifiable, Codable {
       }
       // Fingerprint matches the pin — a trusted update.
       pendingFingerprint = nil
-      host = device.host
-      port = device.port
+      if !device.host.isEmpty {
+        host = device.host
+        port = device.port
+      }
+      if let btID = device.bluetoothID { bluetoothID = btID }
       lastUpdated = Date()
       isActive = device.isActive
       return
@@ -109,8 +124,11 @@ struct NetworkDevice: Identifiable, Codable {
       fingerprint = incoming
     }
     pendingFingerprint = nil
-    host = device.host
-    port = device.port
+    if !device.host.isEmpty {
+      host = device.host
+      port = device.port
+    }
+    if let btID = device.bluetoothID { bluetoothID = btID }
     lastUpdated = Date()
     isActive = device.isActive
   }

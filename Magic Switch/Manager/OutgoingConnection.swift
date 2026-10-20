@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Network
 import QuartzCore
@@ -29,7 +30,7 @@ enum OutgoingFailure: Error {
     case .notPaired:
       return "This Mac isn't paired yet. Open the Pairing tab in Settings."
     case .connectionFailed:
-      return "Couldn't reach the other Mac on the network."
+      return "Couldn't reach the other Mac on the network or via Bluetooth."
     case .connectTimeout:
       return "The other Mac didn't respond in time."
     case .handshakeFailed(.authFailed), .handshakeFailed(.decryptionFailed):
@@ -59,11 +60,6 @@ enum OutgoingFailure: Error {
 /// further attempts to that host fail fast until the window slides forward.
 /// A success clears the history immediately, so transient hiccups don't
 /// permanently inflate the counter.
-///
-/// Lives as a singleton because `OutgoingConnection` instances are
-/// short-lived (one per command); we need the counter to survive across
-/// them. `CACurrentMediaTime()` matches `RateLimiter` — wall-clock changes
-/// can't shorten the backoff.
 final class OutboundRateLimiter {
   static let shared = OutboundRateLimiter()
 
@@ -104,32 +100,24 @@ final class OutboundRateLimiter {
 }
 
 /// Single-shot authenticated client connection to a peer Magic Switch instance.
-/// Owns its NWConnection + SecureChannel; tears itself down once `run` is
-/// complete (success or failure).
+/// Supports both TCP (over local LAN) and Bluetooth LE (as primary or fallback).
+/// Tears itself down once `run` is complete (success or failure).
 final class OutgoingConnection {
   // MARK: - Constants
 
   private static let connectionTimeout: TimeInterval = 5
   /// Upper bound on `body` execution after the handshake completes.
-  /// Receivers that don't respond (or peers that don't recognize a newer
-  /// opcode and don't reply OP_FAILED — i.e. anything older than the
-  /// commit that added the default-case ack) would otherwise hang here
-  /// until the peer's own idle timer (~30s) closes the socket.
-  private static let defaultBodyTimeout: TimeInterval = 5
+  private static let defaultBodyTimeout: TimeInterval = 5.0
 
   // MARK: - State
 
-  private let connection: NWConnection
-  /// Captured separately so we can key the outbound rate limiter on it.
-  /// `NWConnection` doesn't expose the original host string in a
-  /// useful form, hence the dedicated field.
+  private var connection: NWConnection?
+  private var transport: TransportConnection?
   private let host: String
+  private let port: UInt16
+  private let bluetoothID: UUID?
   private let pairingStore: PairingStore
   private let rateLimiter: OutboundRateLimiter
-  /// When false, this connection neither consults nor feeds the outbound rate
-  /// limiter. Used by the background reachability poll so its fixed-cadence
-  /// probes can't trip the limiter — and thereby block a user-initiated switch —
-  /// when a peer is down.
   private let countsTowardRateLimit: Bool
   private let bodyTimeout: TimeInterval
   private let queue: DispatchQueue
@@ -138,6 +126,7 @@ final class OutgoingConnection {
   private var finished = false
   private var connectTimer: DispatchSourceTimer?
   private var bodyTimer: DispatchSourceTimer?
+
   /// Fingerprint of the PSK snapshot the completed handshake proved.
   /// Written and read on `queue`.
   private(set) var provedFingerprint: String?
@@ -147,18 +136,16 @@ final class OutgoingConnection {
   init(
     host: String,
     port: UInt16,
+    bluetoothID: UUID? = nil,
     pairingStore: PairingStore = .shared,
     rateLimiter: OutboundRateLimiter = .shared,
     countsTowardRateLimit: Bool = true,
     bodyTimeout: TimeInterval = OutgoingConnection.defaultBodyTimeout,
     queue: DispatchQueue = DispatchQueue(label: "com.magicswitch.outgoing", qos: .userInitiated)
   ) {
-    self.connection = NWConnection(
-      host: NWEndpoint.Host(host),
-      port: NWEndpoint.Port(integerLiteral: port),
-      using: .tcp
-    )
     self.host = host
+    self.port = port
+    self.bluetoothID = bluetoothID
     self.pairingStore = pairingStore
     self.rateLimiter = rateLimiter
     self.countsTowardRateLimit = countsTowardRateLimit
@@ -166,12 +153,30 @@ final class OutgoingConnection {
     self.queue = queue
   }
 
+  convenience init(
+    device: NetworkDevice,
+    pairingStore: PairingStore = .shared,
+    rateLimiter: OutboundRateLimiter = .shared,
+    countsTowardRateLimit: Bool = true,
+    bodyTimeout: TimeInterval = OutgoingConnection.defaultBodyTimeout,
+    queue: DispatchQueue = DispatchQueue(label: "com.magicswitch.outgoing", qos: .userInitiated)
+  ) {
+    self.init(
+      host: device.host,
+      port: UInt16(device.port),
+      bluetoothID: device.bluetoothID,
+      pairingStore: pairingStore,
+      rateLimiter: rateLimiter,
+      countsTowardRateLimit: countsTowardRateLimit,
+      bodyTimeout: bodyTimeout,
+      queue: queue
+    )
+  }
+
   // MARK: - Public API
 
   /// Runs the handshake then invokes `body` with the live secure channel.
-  /// `body` must call `done(_:)` to release the connection. The completion
-  /// receives a `Result` whose failure case carries a categorised reason
-  /// (see `OutgoingFailure`) so the caller can render a useful notification.
+  /// Automatically tries LAN first and falls back to Bluetooth if available.
   func run(
     body:
       @escaping (
@@ -195,21 +200,73 @@ final class OutgoingConnection {
       return
     }
 
+    // If host is empty or port 0, go straight to Bluetooth
+    if (host.isEmpty || port == 0) && bluetoothID != nil {
+      runViaBluetooth(psk: psk, body: body, completion: completion)
+      return
+    }
+
+    // Try LAN first
+    runViaLAN(psk: psk, body: body) { [weak self] lanResult in
+      guard let self = self else { return }
+      switch lanResult {
+      case .success:
+        self.finish(.success(()), completion: completion)
+      case .failure(let err):
+        // If LAN failed with connection error/timeout and Bluetooth is available, try Bluetooth fallback
+        if self.bluetoothID != nil && self.canFallbackToBluetooth(error: err) {
+          Log.network.notice(
+            "OutgoingConnection: LAN failed to \(self.host) (\(err)), attempting Bluetooth fallback..."
+          )
+          self.runViaBluetooth(psk: psk, body: body, completion: completion)
+        } else {
+          self.finish(.failure(err), completion: completion)
+        }
+      }
+    }
+  }
+
+  private func canFallbackToBluetooth(error: OutgoingFailure) -> Bool {
+    switch error {
+    case .connectionFailed, .connectTimeout, .tooManyRecentFailures:
+      return true
+    default:
+      return false
+    }
+  }
+
+  // MARK: - LAN Transport (TCP)
+
+  private func runViaLAN(
+    psk: SymmetricKey,
+    body:
+      @escaping (
+        SecureChannel, @escaping (Result<Void, OutgoingFailure>) -> Void
+      ) -> Void,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
+    let nwConn = NWConnection(
+      host: NWEndpoint.Host(host),
+      port: NWEndpoint.Port(integerLiteral: port),
+      using: .tcp
+    )
+    self.connection = nwConn
+
     let channel = SecureChannel(
-      connection: connection, role: .client, psk: psk, queue: queue
+      connection: nwConn, role: .client, psk: psk, queue: queue
     )
     self.channel = channel
 
     let timer = DispatchSource.makeTimerSource(queue: queue)
     timer.schedule(deadline: .now() + Self.connectionTimeout)
     timer.setEventHandler { [weak self] in
-      guard let self = self else { return }
-      self.finish(.failure(.connectTimeout), completion: completion)
+      guard self != nil else { return }
+      completion(.failure(.connectTimeout))
     }
     timer.resume()
     connectTimer = timer
 
-    connection.stateUpdateHandler = { [weak self] state in
+    nwConn.stateUpdateHandler = { [weak self] state in
       guard let self = self else { return }
       switch state {
       case .ready:
@@ -218,54 +275,94 @@ final class OutgoingConnection {
           case .success:
             self.connectTimer?.cancel()
             self.connectTimer = nil
-            // The handshake is mutual — the responder proved possession of
-            // this key before our `.success` fired — so feed the
-            // identity-mismatch self-heal from the initiating side too:
-            // the reachability poll's own ping is what creates this proof
-            // for a parked-but-current peer, and without this arm the
-            // initiator would stay parked until the peer happened to dial
-            // back. Fingerprint the PSK snapshot this channel actually ran
-            // with (see `resolvePendingFingerprint`).
             let provedFingerprint = PairingStore.fingerprint(forKey: psk)
             self.provedFingerprint = provedFingerprint
-            // The peer will see this address as our source and dial it back.
-            DialbackAddresses.shared.noteProven(path: self.connection.currentPath)
+            DialbackAddresses.shared.noteProven(path: nwConn.currentPath)
             DispatchQueue.main.async {
               NetworkDeviceStore.shared.resolvePendingFingerprint(
                 provedByHandshake: provedFingerprint)
             }
             self.startBodyTimer(completion: completion)
-            body(channel) { result in
-              self.finish(result, completion: completion)
+            body(channel) { bodyResult in
+              completion(bodyResult)
             }
           case .failure(let err):
             Log.network.error("OutgoingConnection handshake failed: \(err)")
-            self.finish(.failure(.handshakeFailed(err)), completion: completion)
+            completion(.failure(.handshakeFailed(err)))
           }
         }
       case .failed(let error):
         Log.network.error("OutgoingConnection failed: \(error)")
-        self.finish(
-          .failure(.connectionFailed(error.localizedDescription)),
-          completion: completion)
+        completion(.failure(.connectionFailed(error.localizedDescription)))
       case .waiting(let error):
-        // A refused dial parks in .waiting and never reaches .failed — left
-        // alone it burns the full connect timeout and is reported as a
-        // timeout ("didn't respond") instead of unreachable.
         if case .posix(let code) = error, code == .ECONNREFUSED {
           Log.network.error("OutgoingConnection refused: \(error)")
-          self.finish(
-            .failure(.connectionFailed(error.localizedDescription)),
-            completion: completion)
+          completion(.failure(.connectionFailed(error.localizedDescription)))
+        } else if case .dns = error {
+          Log.network.error("OutgoingConnection DNS error: \(error)")
+          completion(.failure(.connectionFailed(error.localizedDescription)))
         }
       case .cancelled:
-        // No-op; finish handled explicitly.
         break
       default:
         break
       }
     }
-    connection.start(queue: queue)
+    nwConn.start(queue: queue)
+  }
+
+  // MARK: - Bluetooth LE Transport
+
+  private func runViaBluetooth(
+    psk: SymmetricKey,
+    body:
+      @escaping (
+        SecureChannel, @escaping (Result<Void, OutgoingFailure>) -> Void
+      ) -> Void,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
+    guard let btID = bluetoothID else {
+      finish(
+        .failure(.connectionFailed("Bluetooth peer identifier not available")),
+        completion: completion)
+      return
+    }
+
+    let connectTimeout = max(MagicSwitchBLE.bleConnectTimeout, bodyTimeout)
+    BLETransportManager.shared.connect(to: btID, timeout: connectTimeout) { [weak self] result in
+      guard let self = self else { return }
+      switch result {
+      case .failure(let error):
+        Log.network.error("OutgoingConnection: Bluetooth connect failed: \(error)")
+        self.finish(
+          .failure(.connectionFailed("Bluetooth: \(error.localizedDescription)")),
+          completion: completion)
+      case .success(let bleTransport):
+        self.transport = bleTransport
+        let channel = SecureChannel(
+          transport: bleTransport, role: .client, psk: psk, queue: self.queue
+        )
+        self.channel = channel
+        channel.performHandshake { handshakeResult in
+          switch handshakeResult {
+          case .success:
+            let provedFingerprint = PairingStore.fingerprint(forKey: psk)
+            self.provedFingerprint = provedFingerprint
+            DispatchQueue.main.async {
+              NetworkDeviceStore.shared.resolvePendingFingerprint(
+                provedByHandshake: provedFingerprint)
+            }
+            self.startBodyTimer(completion: completion)
+            body(channel) { bodyResult in
+              self.finish(bodyResult, completion: completion)
+            }
+          case .failure(let err):
+            Log.network.error("OutgoingConnection (BT) handshake failed: \(err)")
+            self.finish(.failure(.handshakeFailed(err)), completion: completion)
+          }
+        }
+      }
+    }
   }
 
   // MARK: - Helpers
@@ -281,13 +378,9 @@ final class OutgoingConnection {
     bodyTimer?.cancel()
     bodyTimer = nil
     channel?.cancel()
-    connection.cancel()
-    // Feed the outbound rate limiter so a series of transport/protocol
-    // failures throttles future attempts, and a healthy authenticated reply
-    // clears the counter immediately. OP_FAILED is an operation failure, not
-    // a network failure: the peer received and answered the request. Skip
-    // `tooManyRecentFailures` — that's the limiter's own refusal and would
-    // double-count. Background reachability probes opt out entirely.
+    transport?.cancel()
+    connection?.cancel()
+
     if countsTowardRateLimit {
       switch result {
       case .success, .failure(.remoteOperationFailed):

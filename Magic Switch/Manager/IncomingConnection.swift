@@ -53,8 +53,10 @@ final class IncomingConnection {
 
   // MARK: - Dependencies
 
-  private let connection: NWConnection
+  private let transport: TransportConnection
+  private let connection: NWConnection?
   private let endpoint: NWEndpoint?
+  private let endpointDesc: String?
   private let rateLimiter: RateLimiter
   private let pairingStore: PairingStore
   private let queue: DispatchQueue
@@ -80,6 +82,24 @@ final class IncomingConnection {
   // MARK: - Init
 
   init(
+    transport: TransportConnection,
+    endpointDesc: String? = nil,
+    rateLimiter: RateLimiter,
+    pairingStore: PairingStore,
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
+  ) {
+    self.transport = transport
+    self.connection = nil
+    self.endpoint = nil
+    self.endpointDesc = endpointDesc
+    self.rateLimiter = rateLimiter
+    self.pairingStore = pairingStore
+    self.queue = queue
+    self.localIdentity = localIdentity
+  }
+
+  convenience init(
     connection: NWConnection,
     endpoint: NWEndpoint?,
     rateLimiter: RateLimiter,
@@ -87,12 +107,14 @@ final class IncomingConnection {
     queue: DispatchQueue,
     localIdentity: @escaping () -> IntroducedIdentity?
   ) {
-    self.connection = connection
-    self.endpoint = endpoint
-    self.rateLimiter = rateLimiter
-    self.pairingStore = pairingStore
-    self.queue = queue
-    self.localIdentity = localIdentity
+    self.init(
+      transport: NWTransportConnection(connection: connection),
+      endpointDesc: endpoint?.debugDescription,
+      rateLimiter: rateLimiter,
+      pairingStore: pairingStore,
+      queue: queue,
+      localIdentity: localIdentity
+    )
   }
 
   // MARK: - Lifecycle
@@ -100,43 +122,47 @@ final class IncomingConnection {
   func start() {
     selfRef = self
 
-    guard rateLimiter.shouldAccept(endpoint: endpoint) else {
+    if let endpoint = endpoint, !rateLimiter.shouldAccept(endpoint: endpoint) {
       Log.network.error("Rejecting connection from blocked endpoint")
-      connection.cancel()
+      transport.cancel()
       release()
       return
     }
 
     guard let psk = pairingStore.currentKey() else {
       Log.network.error("Rejecting connection: not paired")
-      connection.cancel()
+      transport.cancel()
       release()
       return
     }
 
-    guard rateLimiter.beginPending(endpoint: endpoint) else {
-      Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
-      connection.cancel()
-      release()
-      return
+    if let endpoint = endpoint {
+      guard rateLimiter.beginPending(endpoint: endpoint) else {
+        Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
+        transport.cancel()
+        release()
+        return
+      }
+      pendingCounted = true
     }
-    pendingCounted = true
 
     let channel = SecureChannel(
-      connection: connection, role: .server, psk: psk, queue: queue
+      transport: transport, role: .server, psk: psk, queue: queue
     )
     self.channel = channel
 
-    connection.stateUpdateHandler = { [weak self] state in
-      guard let self = self else { return }
-      switch state {
-      case .failed, .cancelled:
-        self.teardown()
-      default:
-        break
+    if let connection = connection {
+      connection.stateUpdateHandler = { [weak self] state in
+        guard let self = self else { return }
+        switch state {
+        case .failed, .cancelled:
+          self.teardown()
+        default:
+          break
+        }
       }
+      connection.start(queue: queue)
     }
-    connection.start(queue: queue)
 
     startTotalTimer()
     resetIdleTimer()
@@ -158,7 +184,9 @@ final class IncomingConnection {
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
         self.provedFingerprint = provedFingerprint
         // The peer dialed this address, which proves it dialable.
-        DialbackAddresses.shared.noteProven(path: self.connection.currentPath)
+        if let path = self.connection?.currentPath {
+          DialbackAddresses.shared.noteProven(path: path)
+        }
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
@@ -539,7 +567,8 @@ final class IncomingConnection {
     idleTimer = nil
     totalTimer = nil
     channel?.cancel()
-    connection.cancel()
+    transport.cancel()
+    connection?.cancel()
     release()
   }
 

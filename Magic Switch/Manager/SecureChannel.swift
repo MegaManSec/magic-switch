@@ -43,7 +43,7 @@ final class SecureChannel {
 
   // MARK: - State
 
-  private let connection: NWConnection
+  private let transport: TransportConnection
   private let role: Role
   private let psk: SymmetricKey
   private let queue: DispatchQueue
@@ -58,11 +58,20 @@ final class SecureChannel {
 
   // MARK: - Init
 
-  init(connection: NWConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
-    self.connection = connection
+  init(transport: TransportConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
+    self.transport = transport
     self.role = role
     self.psk = psk
     self.queue = queue
+  }
+
+  convenience init(connection: NWConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
+    self.init(
+      transport: NWTransportConnection(connection: connection),
+      role: role,
+      psk: psk,
+      queue: queue
+    )
   }
 
   // MARK: - Handshake
@@ -104,7 +113,7 @@ final class SecureChannel {
       guard let self = self else { return }
       if !self.receivedAuth {
         self.teardown = true
-        self.connection.cancel()
+        self.transport.cancel()
         completion(.failure(.handshakeTimeout))
       }
     }
@@ -223,7 +232,7 @@ final class SecureChannel {
   /// Closes the underlying connection.
   func cancel() {
     teardown = true
-    connection.cancel()
+    transport.cancel()
   }
 
   // MARK: - Sealed Framing
@@ -310,6 +319,9 @@ final class SecureChannel {
           self.lastReceivedCounter = counter
           completion(.success(plaintext))
         } catch {
+          Log.network.error(
+            "SecureChannel: decryption failed: \(error), frame len=\(frame.count), counter=\(counter), lastReceivedCounter=\(String(describing: self.lastReceivedCounter))"
+          )
           completion(.failure(.decryptionFailed))
         }
       }
@@ -323,11 +335,7 @@ final class SecureChannel {
     var frame = Data()
     withUnsafeBytes(of: &lengthBE) { frame.append(contentsOf: $0) }
     frame.append(payload)
-    connection.send(
-      content: frame,
-      completion: .contentProcessed { error in
-        completion(error)
-      })
+    transport.send(data: frame, completion: completion)
   }
 
   private func receiveRaw(completion: @escaping (Result<Data, SecureChannelError>) -> Void) {
@@ -355,21 +363,17 @@ final class SecureChannel {
   private func receiveExact(
     byteCount: Int, completion: @escaping (Result<Data, SecureChannelError>) -> Void
   ) {
-    connection.receive(minimumIncompleteLength: byteCount, maximumLength: byteCount) {
-      data, _, isComplete, error in
-      if error != nil {
+    transport.receive(exactByteCount: byteCount) { result in
+      switch result {
+      case .failure:
         completion(.failure(.connectionClosed))
-        return
-      }
-      guard let data = data, data.count == byteCount else {
-        if isComplete {
-          completion(.failure(.connectionClosed))
-        } else {
+      case .success(let data):
+        guard data.count == byteCount else {
           completion(.failure(.framingFailed))
+          return
         }
-        return
+        completion(.success(data))
       }
-      completion(.success(data))
     }
   }
 

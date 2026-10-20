@@ -42,6 +42,10 @@
 		0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00008000000000000000AD /* AdvertisingDiagnostics.swift */; };
 		0A00009000000000000000BE /* DialbackAddresses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00009000000000000000AE /* DialbackAddresses.swift */; };
 		0A0000B000000000000000BF /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000B000000000000000AF /* Log.swift */; };
+		0A00001000000000000000D1 /* TransportConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000C1 /* TransportConnection.swift */; };
+		0A00001000000000000000D2 /* BLEConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000C2 /* BLEConstants.swift */; };
+		0A00001000000000000000D3 /* BLETransportConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000C3 /* BLETransportConnection.swift */; };
+		0A00001000000000000000D4 /* BLETransportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A00001000000000000000C4 /* BLETransportManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -83,6 +87,10 @@
 		0A00008000000000000000AD /* AdvertisingDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvertisingDiagnostics.swift; sourceTree = "<group>"; };
 		0A00009000000000000000AE /* DialbackAddresses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialbackAddresses.swift; sourceTree = "<group>"; };
 		0A0000B000000000000000AF /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		0A00001000000000000000C1 /* TransportConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportConnection.swift; sourceTree = "<group>"; };
+		0A00001000000000000000C2 /* BLEConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEConstants.swift; sourceTree = "<group>"; };
+		0A00001000000000000000C3 /* BLETransportConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLETransportConnection.swift; sourceTree = "<group>"; };
+		0A00001000000000000000C4 /* BLETransportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLETransportManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +142,10 @@
 				0A00001000000000000000A5 /* RateLimiter.swift */,
 				0A00002000000000000000A6 /* UpdateChecker.swift */,
 				0A00006000000000000000AB /* HotkeyManager.swift */,
+				0A00001000000000000000C1 /* TransportConnection.swift */,
+				0A00001000000000000000C2 /* BLEConstants.swift */,
+				0A00001000000000000000C3 /* BLETransportConnection.swift */,
+				0A00001000000000000000C4 /* BLETransportManager.swift */,
 			);
 			path = Manager;
 			sourceTree = "<group>";
@@ -344,6 +356,10 @@
 				076AB2282CE9D690004D45F0 /* NetworkDeviceManagementView.swift in Sources */,
 				076AB2292CE9D690004D45F0 /* OtherSettingsView.swift in Sources */,
 				076AB22A2CE9D690004D45F0 /* SettingsView.swift in Sources */,
+				0A00001000000000000000D1 /* TransportConnection.swift in Sources */,
+				0A00001000000000000000D2 /* BLEConstants.swift in Sources */,
+				0A00001000000000000000D3 /* BLETransportConnection.swift in Sources */,
+				0A00001000000000000000D4 /* BLETransportManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
