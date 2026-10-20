@@ -259,7 +259,7 @@ final class IncomingConnection {
         let peripherals = store.peripherals
         guard !peripherals.isEmpty else {
           self.queue.async {
-            self.sendString(DeviceCommand.operationSuccess.rawValue)
+            self.sendString(DeviceCommand.operationFailed.rawValue)
           }
           return
         }
