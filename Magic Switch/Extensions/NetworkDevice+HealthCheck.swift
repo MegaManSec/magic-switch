@@ -1,5 +1,4 @@
 import Foundation
-import Network
 
 /// Represents the result of a health check operation
 enum HealthCheckResult {
@@ -14,46 +13,19 @@ protocol HealthCheckable {
 }
 
 extension NetworkDevice: HealthCheckable {
+  /// Require an authenticated command reply before declaring the peer healthy.
+  /// A TCP-only probe closes before the handshake, producing a misleading
+  /// `Handshake failed: connectionClosed` error on the receiving Mac.
   func checkHealth(completion: @escaping (HealthCheckResult) -> Void) {
-    let connection = NWConnection(
-      host: NWEndpoint.Host(host),
-      port: NWEndpoint.Port(integerLiteral: UInt16(port)),
-      using: .tcp
-    )
-    let queue = DispatchQueue(label: "com.magicswitch.healthcheck")
-    var fired = false
-
-    // Serialised on `queue` (both the state handler and the timeout closure
-    // run there), so `fired` is the only gate needed.
-    func finish(_ result: HealthCheckResult) {
-      guard !fired else { return }
-      fired = true
-      connection.stateUpdateHandler = nil
-      connection.cancel()
-      completion(result)
-    }
-
-    connection.stateUpdateHandler = { state in
-      switch state {
-      case .ready:
-        finish(.success)
-      case .failed(let error):
-        finish(.failure(error.localizedDescription))
-      case .waiting(let error):
-        // Refused connections park in .waiting without ever failing; report
-        // them now instead of waiting out the 5s timeout.
-        if case .posix(let code) = error, code == .ECONNREFUSED {
-          finish(.failure(error.localizedDescription))
-        }
-      default:
-        break
+    NetworkDeviceStore.shared.executeCommand(.ping, on: self) { result in
+      switch result {
+      case .success:
+        completion(.success)
+      case .failure(.connectTimeout), .failure(.handshakeFailed(.handshakeTimeout)):
+        completion(.timeout)
+      case .failure(let error):
+        completion(.failure(error.userMessage))
       }
-    }
-
-    connection.start(queue: queue)
-
-    queue.asyncAfter(deadline: .now() + .seconds(5)) {
-      finish(.timeout)
     }
   }
 }

@@ -634,8 +634,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// Runs the switch handoff with `device`. Triggered by clicking a Mac row in
   /// the menu (`toggle`) and by the URL scheme's full-set `send` and `toggle`
   /// (full-set `take` goes through `takeAllPeripheralsIfAway` instead — see
-  /// `performFullSetCommand`). `checkHealth` confirms the peer's TCP port is
-  /// open before we touch any local Bluetooth state.
+  /// `performFullSetCommand`). `checkHealth` confirms the peer can accept an
+  /// authenticated command before we touch any local Bluetooth state.
   private func performSwitch(with device: NetworkDevice, direction: SwitchDirection = .toggle) {
     // Don't start a full-set switch while a per-peripheral pair/handoff is in
     // flight: it would issue a re-entrant connect/unregister on a peripheral
@@ -643,7 +643,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     // too; this guard closes the brief click-race before the row re-renders.
     guard !bluetoothStore.isAnyPeripheralTransitioning else { return }
     device.checkHealth { [weak self] result in
-      // `checkHealth` fires on its own queue. Hop to main before any UI or
+      // `checkHealth` can complete off-main. Hop to main before any UI or
       // store mutations, and before calling `checkActualConnectionStatusAsync`
       // (which expects to be invoked from main).
       DispatchQueue.main.async {
@@ -675,34 +675,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   ) {
     switch status {
     case .allConnected:
-      // Show "sending" immediately on the click — feedback before the
-      // secure-channel round trip. Preflight the secure channel BEFORE we
-      // touch local Bluetooth state. `checkHealth` earlier proved the TCP
-      // port is open, but not that the peer's app will accept commands —
-      // if the peer's app isn't actually running or the secure channel
-      // can't be established, we'd otherwise disconnect locally and then
-      // fail to hand peripherals over, leaving them paired nowhere.
+      // `checkHealth` already received an authenticated PING reply, so the
+      // handoff can release locally without a second preflight connection.
       beginTransfer(.sending)
-      networkStore.executeCommand(.ping, on: device) { [weak self] preflight in
-        // Fires on the outgoing-connection queue; hop to main before
-        // `endTransfer` touches the status-bar button / transfer state, and
-        // before `performHandoffToPeer` reads the published peripherals.
-        DispatchQueue.main.async {
-          guard let self = self else { return }
-          switch preflight {
-          case .failure(let err):
-            self.endTransfer()
-            NotificationManager.showNotification(
-              title: "Switch Cancelled",
-              body:
-                "Couldn't reach the other Mac (\(err.userMessage)) — peripherals stay on this Mac.",
-              identifier: "switch-preflight-failed"
-            )
-          case .success:
-            self.performHandoffToPeer(device: device)
-          }
-        }
-      }
+      performHandoffToPeer(device: device)
     case .allDisconnected:
       // An explicit `send` is idempotent: nothing on this Mac means nothing
       // to do — a repeated hotkey must not turn into a take.

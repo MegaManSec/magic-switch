@@ -936,10 +936,10 @@ enum DeviceCommand: String, Codable {
   /// using.
   case holdsOne = "HOLDS_ONE"
   /// Single-frame no-op the peer immediately acks. Used as a secure-channel
-  /// preflight: a TCP-open `checkHealth` doesn't prove the peer's app will
-  /// accept commands, but a PING that handshakes + receives OP_SUCCESS
-  /// does. Lets the switch action bail out before touching local Bluetooth
-  /// state if the peer can't actually take a command right now.
+  /// health check and preflight: a successful handshake and OP_SUCCESS reply
+  /// prove the peer's app can accept commands. Lets the switch action bail
+  /// out before touching local Bluetooth state if the peer can't actually
+  /// take a command right now.
   case ping = "PING"
   /// Two-frame: opcode then a comma-separated list of MAC addresses the
   /// *sender* just released as it goes to sleep. The receiver acks on receipt
