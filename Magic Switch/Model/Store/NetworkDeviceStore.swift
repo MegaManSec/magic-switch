@@ -174,7 +174,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         self.bluetoothPeers.removeAll()
         self.reachedOverBluetooth.removeAll()
         self.bluetoothProbeFailures.removeAll()
-        self.discoveredNetworkDevices.removeAll { $0.host.isEmpty }
+        self.discoveredNetworkDevices.removeAll { $0.networkRoute == nil }
         self.pollReachability()
       }
   }
@@ -388,10 +388,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// Just `device`'s TCP endpoint. For probes that must prove that endpoint
   /// specifically, where a Bluetooth fallback would prove nothing.
   private static func networkRoutes(to device: NetworkDevice) -> [PeerRoute] {
-    guard !device.host.isEmpty, let port = UInt16(exactly: device.port), port > 0 else {
-      return []
-    }
-    return [.network(host: device.host, port: port)]
+    device.networkRoute.map { [$0] } ?? []
   }
 
   /// The peripheral `device` proved itself on, while the transport is on.
@@ -402,14 +399,16 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     return [.bluetooth(peripheral)]
   }
 
-  /// Whether `device` is reached over Bluetooth: a registered Mac whose latest
-  /// probe only got through that way, or a found one with no network endpoint.
+  /// Whether `device` is reached over Bluetooth: a reachable registered Mac
+  /// whose latest probe only got through that way or that has no network
+  /// endpoint, or a found Mac with no network endpoint.
   func isReachedOverBluetooth(_ device: NetworkDevice) -> Bool {
     guard BLETransport.shared.isEnabled else { return false }
     if networkDevices.contains(where: { $0.id == device.id }) {
-      return isReachable(device.id) && reachedOverBluetooth.contains(device.id)
+      return isReachable(device.id)
+        && (reachedOverBluetooth.contains(device.id) || device.networkRoute == nil)
     }
-    return device.host.isEmpty
+    return device.networkRoute == nil
   }
 
   /// A Mac's Bonjour service name follows its computer name, and `id` *is*
@@ -933,7 +932,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         // long-dark peer doesn't re-arm the watcher every poll forever;
         // a recovery resets the streak and re-arms it for the next one.
         BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
-        if device.port != Int(ServicePublisher.defaultPort) {
+        if device.networkRoute != nil, device.port != Int(ServicePublisher.defaultPort) {
           probeDefaultPortFallback(of: device)
         }
       }

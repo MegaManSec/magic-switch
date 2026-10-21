@@ -77,6 +77,8 @@ enum PeerRoute: Hashable, CustomStringConvertible {
   case network(host: String, port: UInt16)
   case bluetooth(UUID)
 
+  /// `host:port`, with IPv6 bracketed so the address's own colons don't run
+  /// into the port number.
   var description: String {
     switch self {
     case .network(let host, let port):

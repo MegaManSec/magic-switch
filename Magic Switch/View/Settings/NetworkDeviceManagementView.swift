@@ -594,17 +594,10 @@ private struct NetworkDeviceListView: View {
         ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
         : "\(device.name) isn't reachable on the network right now."
     }
-    return networkStore.isReachedOverBluetooth(device)
-      ? "\(device.name) is answering over Bluetooth."
-      : "\(device.name) is answering at \(endpoint(for: device))."
-  }
-
-  /// `host:port`, with IPv6 bracketed so the address's own colons don't run
-  /// into the port number.
-  private func endpoint(for device: NetworkDevice) -> String {
-    device.host.contains(":")
-      ? "[\(device.host)]:\(device.port)"
-      : "\(device.host):\(device.port)"
+    guard let route = device.networkRoute, !networkStore.isReachedOverBluetooth(device) else {
+      return "\(device.name) is answering over Bluetooth."
+    }
+    return "\(device.name) is answering at \(route)."
   }
 
   var body: some View {
