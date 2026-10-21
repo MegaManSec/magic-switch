@@ -17,6 +17,10 @@ private enum Constants {
       "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them."
     static let noAvailableDevicesHint =
       "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
+    static let bluetoothHint =
+      "If your network won't let the Macs reach each other at all, turn on Bluetooth below."
+    static let bluetooth = "Bluetooth"
+    static let bluetoothToggle = "Connect over Bluetooth when the network can't"
     static let connectionLimitMessage =
       "Only one Mac can be connected at a time. Remove the existing one first."
     static let notify = "Ping"
@@ -117,6 +121,8 @@ struct NetworkDeviceManagementView: View {
         devices: networkStore.availableNetworkDevices,
         onDeviceRegister: handleDeviceRegistration
       )
+
+      BluetoothTransportSectionView()
     }
     // Clear stale Ping/Sync *results* whenever the user comes back to this
     // tab (or first opens it). Keeps "<device> responded." / failure lines
@@ -195,6 +201,8 @@ struct NetworkDeviceManagementView: View {
     static let trust =
       "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac."
     static let needsPairing = "Pair this Mac in the Pairing tab first."
+    static let bluetoothToggle =
+      "Reach your other Mac over Bluetooth when the network won't carry the connection — for example on a VPN that blocks local traffic, or Wi-Fi that keeps devices apart. Turn this on on both Macs; they only find each other when paired with the same code. Magic Switch goes back to the network as soon as it works again, and everything sent over Bluetooth is encrypted with your pairing key."
   }
 
   var body: some View {
@@ -302,6 +310,7 @@ private struct AvailableDevicesSectionView: View {
 
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
   @ObservedObject private var pairing = PairingStore.shared
+  @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   // MARK: - Properties
 
@@ -316,9 +325,13 @@ private struct AvailableDevicesSectionView: View {
         Text(Constants.Strings.connectionLimitMessage)
           .foregroundColor(.secondary)
       } else if devices.isEmpty {
-        Text(Constants.Strings.noAvailableDevicesHint)
-          .font(.callout)
-          .foregroundColor(.secondary)
+        Text(
+          bluetoothTransport.isEnabled
+            ? Constants.Strings.noAvailableDevicesHint
+            : Constants.Strings.noAvailableDevicesHint + " " + Constants.Strings.bluetoothHint
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
       } else {
         NetworkDeviceListView(
           devices: devices,
@@ -353,6 +366,53 @@ private struct AvailableDevicesSectionView: View {
         .help(NetworkDeviceManagementView.Help.refresh)
         .accessibilityLabel("Refresh available devices")
       }
+    }
+  }
+}
+
+private struct BluetoothTransportSectionView: View {
+  @ObservedObject private var bluetoothTransport = BLETransport.shared
+
+  var body: some View {
+    Section {
+      Toggle(
+        Constants.Strings.bluetoothToggle,
+        isOn: Binding(
+          get: { bluetoothTransport.isEnabled },
+          set: { bluetoothTransport.setEnabled($0) }
+        )
+      )
+      .help(NetworkDeviceManagementView.Help.bluetoothToggle)
+
+      if bluetoothTransport.isEnabled, let problem = radioProblem {
+        HStack(spacing: 8) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundColor(.yellow)
+            .accessibilityHidden(true)
+          Text(problem)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+    } header: {
+      Text(Constants.Strings.bluetooth)
+        .font(.headline)
+    }
+  }
+
+  /// Why the enabled transport can't run right now, if it can't.
+  private var radioProblem: String? {
+    switch bluetoothTransport.radioState {
+    case .poweredOff:
+      return "Bluetooth is off. Turn it on in Control Center to reach your other Mac this way."
+    case .unauthorized:
+      return
+        "Magic Switch isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth."
+    case .unsupported:
+      return "This Mac doesn't support Bluetooth Low Energy."
+    default:
+      return nil
     }
   }
 }
@@ -472,6 +532,7 @@ private struct NetworkDeviceListView: View {
 
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   init(
     devices: [NetworkDevice],
@@ -515,6 +576,9 @@ private struct NetworkDeviceListView: View {
         : "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Use Refresh to re-scan."
     }
     guard canTrust else {
+      if networkStore.isReachedOverBluetooth(device) {
+        return "\(device.name) was found nearby over Bluetooth."
+      }
       return device.isActive
         ? "\(device.name) is advertising itself on the network."
         : "\(device.name) has stopped advertising on the network."
@@ -525,9 +589,14 @@ private struct NetworkDeviceListView: View {
     // sleeping behind a Bonjour sleep proxy that answers for it — still looks
     // advertised indefinitely, and claiming "reachable" there would
     // contradict the greyed row in the menu.
-    return networkStore.isReachable(device.id)
-      ? "\(device.name) is answering at \(endpoint(for: device))."
-      : "\(device.name) isn't reachable on the network right now."
+    guard networkStore.isReachable(device.id) else {
+      return bluetoothTransport.isEnabled
+        ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
+        : "\(device.name) isn't reachable on the network right now."
+    }
+    return networkStore.isReachedOverBluetooth(device)
+      ? "\(device.name) is answering over Bluetooth."
+      : "\(device.name) is answering at \(endpoint(for: device))."
   }
 
   /// `host:port`, with IPv6 bracketed so the address's own colons don't run
@@ -554,6 +623,12 @@ private struct NetworkDeviceListView: View {
           // row's enablement, since a greyed button gives no clue why.
           Text(device.name)
             .help(nameHelp(for: device))
+          if networkStore.isReachedOverBluetooth(device) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+              .foregroundColor(.secondary)
+              .help(nameHelp(for: device))
+              .accessibilityLabel("Over Bluetooth")
+          }
           Spacer()
           Button(action: { action(device) }) {
             Text(buttonTitle)

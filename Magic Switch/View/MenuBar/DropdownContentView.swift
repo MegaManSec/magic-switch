@@ -299,17 +299,28 @@ final class DropdownContentView: NSView {
     content.distribution = .fill
     content.spacing = 8
     content.alignment = .centerY
+    let overBluetooth = reachable && networkStore.isReachedOverBluetooth(device)
     content.addArrangedSubview(symbolView("desktopcomputer", color: color))
     content.addArrangedSubview(textLabel(device.name, color: color))
     content.addArrangedSubview(spacer())
+    if overBluetooth {
+      content.addArrangedSubview(
+        symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
+    }
 
+    let unreachable =
+      BLETransport.shared.isEnabled
+      ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
+      : "\(device.name) isn't reachable on the network right now."
     row.toolTip =
       reachable
       ? (busy
         ? "Finish the peripheral that's currently switching before switching them all."
-        : "Switch peripherals between this Mac and \(device.name).")
-      : "\(device.name) isn't reachable on the network right now."
-    row.setAccessibilityLabel(device.name)
+        : overBluetooth
+          ? "Switch peripherals between this Mac and \(device.name) over Bluetooth."
+          : "Switch peripherals between this Mac and \(device.name).")
+      : unreachable
+    row.setAccessibilityLabel(overBluetooth ? "\(device.name), over Bluetooth" : device.name)
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }
