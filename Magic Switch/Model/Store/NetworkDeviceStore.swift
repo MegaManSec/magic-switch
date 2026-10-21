@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Network
 import SwiftUI
@@ -103,6 +104,22 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// would otherwise decay.
   private static let introducedDeviceTTL: TimeInterval = 2.5 * reachabilityInterval
 
+  /// The `BLETransport` peripheral each peer Mac proved itself on, by device
+  /// id. Runtime only: a Mac's Bluetooth address rotates, so the mapping is
+  /// relearned from each rescan rather than persisted. Main-only.
+  private var bluetoothPeers: [String: UUID] = [:]
+  /// Peripherals with an identifying INTRODUCE in flight, and when each one
+  /// that failed last did. Main-only.
+  private var pendingBluetoothProbes: Set<UUID> = []
+  private var bluetoothProbeFailures: [UUID: Date] = [:]
+  private static let maxBluetoothProbes = 2
+  private static let bluetoothProbeBackoff: TimeInterval = 2 * 60
+  /// Registered devices whose latest reachability probe only got through over
+  /// Bluetooth. Orders their routes (see `routes(for:networkFirst:)`) and
+  /// badges their rows.
+  @Published private(set) var reachedOverBluetooth: Set<String> = []
+  private var bluetoothSettingObserver: AnyCancellable?
+
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
   /// Macs tab and cleared when the op finishes; the view both disables the
   /// buttons and renders the "Pinging…/Syncing…" line off this, so they survive
@@ -119,12 +136,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // (renamed). The address we resolve for our own advertised service is
     // always one of this machine's interface addresses; a peer's never is.
     let localHosts = Self.localAddresses()
-    let localName = Host.current().localizedName ?? ""
     return discoveredNetworkDevices.filter { discovered in
-      let isNotSelf =
-        !localHosts.contains(Self.normalizeHost(discovered.host))
-        && (discovered.host.isEmpty
-          ? discovered.name.caseInsensitiveCompare(localName) != .orderedSame : true)
+      let isNotSelf = !localHosts.contains(Self.normalizeHost(discovered.host))
       let isNotRegistered = !networkDevices.contains(where: { $0.id == discovered.id })
       return isNotSelf && isNotRegistered
     }
@@ -148,6 +161,20 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private func startServices() {
     servicePublisher.startPublishing()
     serviceBrowser.startBrowsing()
+    BLETransport.shared.start(
+      localIdentity: { [weak self] in self?.servicePublisher.currentIdentity() },
+      onPeerDiscovered: { [weak self] in self?.identifyBluetoothPeer($0) })
+    bluetoothSettingObserver = BLETransport.shared.$isEnabled
+      .removeDuplicates()
+      .dropFirst()
+      .sink { [weak self] enabled in
+        guard let self = self, !enabled else { return }
+        self.bluetoothPeers.removeAll()
+        self.reachedOverBluetooth.removeAll()
+        self.bluetoothProbeFailures.removeAll()
+        self.discoveredNetworkDevices.removeAll { $0.host.isEmpty }
+        self.pollReachability()
+      }
   }
 
   private func stopServices() {
@@ -164,68 +191,15 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // "Macs Found on the Network" until the next Bonjour resolution.
     networkDevices.append(device)
     saveNetworkDevices()
+    if PairingStore.shared.isPaired, !isReachable(device.id) {
+      probeReachability(of: device)
+    }
   }
 
   func removeNetworkDevice(device: NetworkDevice) {
     networkDevices.removeAll { $0.id == device.id }
+    reachedOverBluetooth.remove(device.id)
     saveNetworkDevices()
-  }
-
-  /// Registers or associates a discovered Bluetooth LE peer Mac with existing records.
-  func registerDiscoveredBluetoothPeer(
-    identifier: UUID,
-    name: String,
-    fingerprint: String?
-  ) {
-    let localName = Host.current().localizedName ?? "Mac"
-    if name.caseInsensitiveCompare(localName) == .orderedSame {
-      return
-    }
-
-    // 1. If we already have a registered device with this name or fingerprint, associate it
-    if let index = networkDevices.firstIndex(where: {
-      $0.name.caseInsensitiveCompare(name) == .orderedSame
-        || ($0.fingerprint != nil && $0.fingerprint == fingerprint)
-        || networkDevices.count == 1
-    }) {
-      networkDevices[index].bluetoothID = identifier
-      if networkDevices[index].fingerprint == nil, let fp = fingerprint {
-        networkDevices[index].fingerprint = fp
-      }
-      deviceReachability[networkDevices[index].id] = true
-      saveNetworkDevices()
-      Log.network.notice(
-        "Associated Bluetooth peer '\(name)' (\(identifier)) with registered device '\(networkDevices[index].name)'"
-      )
-      return
-    }
-
-    // 2. If already in discovered devices, update it
-    if let index = discoveredNetworkDevices.firstIndex(where: {
-      $0.name.caseInsensitiveCompare(name) == .orderedSame
-        || ($0.fingerprint != nil && $0.fingerprint == fingerprint)
-    }) {
-      discoveredNetworkDevices[index].bluetoothID = identifier
-      if discoveredNetworkDevices[index].fingerprint == nil, let fp = fingerprint {
-        discoveredNetworkDevices[index].fingerprint = fp
-      }
-      discoveredNetworkDevices[index].isActive = true
-      return
-    }
-
-    // 3. Otherwise add as a newly discovered peer over Bluetooth
-    let newDevice = NetworkDevice(
-      id: name,
-      name: name,
-      host: "",
-      port: 0,
-      isActive: true,
-      fingerprint: fingerprint,
-      bluetoothID: identifier
-    )
-    discoveredNetworkDevices.append(newDevice)
-    deviceReachability[newDevice.id] = true
-    Log.network.notice("Discovered new peer '\(name)' over Bluetooth (\(identifier))")
   }
 
   func updateNetworkDevice(_ device: NetworkDevice) {
@@ -323,6 +297,119 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     resolvePendingFingerprint(provedByHandshake: provedFingerprint)
   }
 
+  /// Files an INTRODUCE reply by the route that carried it. A network reply
+  /// may relocate the peer's endpoint (`ingestIntroducedPeer`); a Bluetooth one
+  /// says nothing about where the peer listens, so it only records which
+  /// peripheral it answered on.
+  private func ingestIntroduction(
+    _ identity: IntroducedIdentity, provedFingerprint: String, over route: PeerRoute
+  ) {
+    switch route {
+    case .network(let host, _):
+      ingestIntroducedPeer(
+        name: identity.name, host: host, port: Int(identity.port),
+        provedFingerprint: provedFingerprint)
+    case .bluetooth(let peripheral):
+      ingestBluetoothPeer(
+        name: identity.name, peripheral: peripheral, provedFingerprint: provedFingerprint)
+    }
+  }
+
+  /// A peer proved the pairing key over `peripheral`. Route future commands to
+  /// that Mac through it, and list a Mac this one hasn't otherwise found —
+  /// with no endpoint, as one only reachable over Bluetooth.
+  private func ingestBluetoothPeer(name: String, peripheral: UUID, provedFingerprint: String) {
+    guard !isLocalName(name) else { return }
+    bluetoothPeers[name] = peripheral
+    if !networkDevices.contains(where: { $0.id == name }) {
+      if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == name }) {
+        let known = discoveredNetworkDevices[index]
+        discoveredNetworkDevices[index].update(
+          with: NetworkDevice(
+            id: name, name: name, host: known.host, port: known.port,
+            fingerprint: provedFingerprint))
+      } else {
+        discoveredNetworkDevices.append(
+          NetworkDevice(id: name, name: name, host: "", port: 0, fingerprint: provedFingerprint))
+      }
+    }
+    resolvePendingFingerprint(provedByHandshake: provedFingerprint)
+  }
+
+  /// `BLETransport` found a peripheral advertising this pairing's service.
+  /// Only a handshake can say which Mac it is, so INTRODUCE over it — unless
+  /// it's already identified as a Mac still listed here. Anything in range can
+  /// advertise the UUID, so identifications are capped and a peripheral that
+  /// failed one waits out `bluetoothProbeBackoff`.
+  private func identifyBluetoothPeer(_ peripheral: UUID) {
+    let listed = bluetoothPeers.contains { name, mapped in
+      mapped == peripheral
+        && (networkDevices.contains { $0.id == name }
+          || discoveredNetworkDevices.contains { $0.id == name })
+    }
+    let backedOff = bluetoothProbeFailures[peripheral].map {
+      Date().timeIntervalSince($0) < Self.bluetoothProbeBackoff
+    }
+    guard PairingStore.shared.isPaired, !listed, backedOff != true,
+      pendingBluetoothProbes.count < Self.maxBluetoothProbes,
+      pendingBluetoothProbes.insert(peripheral).inserted
+    else { return }
+    executeIntroduce(over: [.bluetooth(peripheral)], countsTowardRateLimit: false) {
+      [weak self] result in
+      DispatchQueue.main.async {
+        guard let self = self else { return }
+        self.pendingBluetoothProbes.remove(peripheral)
+        guard case .success(.peer(let identity, let proved, let route)) = result else {
+          self.bluetoothProbeFailures[peripheral] = Date()
+          return
+        }
+        self.bluetoothProbeFailures.removeValue(forKey: peripheral)
+        self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
+        if let device = self.networkDevices.first(where: { $0.id == identity.name }),
+          !self.isReachable(device.id)
+        {
+          self.probeReachability(of: device)
+        }
+      }
+    }
+  }
+
+  /// The routes to `device`, in dialing order: the network, then Bluetooth when
+  /// it's enabled and the peer has proved itself there. A device whose latest
+  /// probe only got through over Bluetooth is dialed that way first, sparing a
+  /// command the network's connect timeout — except with `networkFirst`, which
+  /// the reachability probe uses so it notices the network coming back.
+  private func routes(for device: NetworkDevice, networkFirst: Bool = false) -> [PeerRoute] {
+    var routes = Self.networkRoutes(to: device)
+    if BLETransport.shared.isEnabled, let peripheral = bluetoothPeers[device.id] {
+      if !networkFirst, reachedOverBluetooth.contains(device.id) {
+        routes.insert(.bluetooth(peripheral), at: 0)
+      } else {
+        routes.append(.bluetooth(peripheral))
+      }
+    }
+    return routes
+  }
+
+  /// Just `device`'s TCP endpoint. For probes that must prove that endpoint
+  /// specifically, where a Bluetooth fallback would prove nothing.
+  private static func networkRoutes(to device: NetworkDevice) -> [PeerRoute] {
+    guard !device.host.isEmpty, let port = UInt16(exactly: device.port), port > 0 else {
+      return []
+    }
+    return [.network(host: device.host, port: port)]
+  }
+
+  /// Whether `device` is reached over Bluetooth: a registered Mac whose latest
+  /// probe only got through that way, or a found one with no network endpoint.
+  func isReachedOverBluetooth(_ device: NetworkDevice) -> Bool {
+    guard BLETransport.shared.isEnabled else { return false }
+    if networkDevices.contains(where: { $0.id == device.id }) {
+      return isReachable(device.id) && reachedOverBluetooth.contains(device.id)
+    }
+    return device.host.isEmpty
+  }
+
   /// A Mac's Bonjour service name follows its computer name, and `id` *is*
   /// that name — so a renamed peer advertises as a brand-new identity while
   /// its registered record (under the old name) never hears another update and
@@ -361,12 +448,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     else { return }
 
     pendingMigrationProofs.insert(discovered.id)
-    // `on: discovered` aims at the newly *advertised* host/port, so a success
-    // proves whoever answers there holds the pairing key. Off the rate limiter
-    // for the same reason the reachability poll is: this is our own probe, not
-    // a user action. It only ever fires at an advertiser already echoing our
-    // exact fingerprint, so it can't spray pings at unrelated Macs.
-    executeCommand(.ping, on: discovered, countsTowardRateLimit: false) { [weak self] result in
+    // Aimed at the newly *advertised* host/port alone — never a Bluetooth
+    // fallback — so a success proves whoever answers there holds the pairing
+    // key. Off the rate limiter for the same reason the reachability poll is:
+    // this is our own probe, not a user action. It only ever fires at an
+    // advertiser already echoing our exact fingerprint, so it can't spray pings
+    // at unrelated Macs.
+    executeCommand(.ping, over: Self.networkRoutes(to: discovered), countsTowardRateLimit: false) {
+      [weak self] result in
       DispatchQueue.main.async {
         guard let self = self else { return }
         self.pendingMigrationProofs.remove(discovered.id)
@@ -447,7 +536,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private func verifyMovedEndpointIfNeeded(for discovered: NetworkDevice) {
     guard !pendingMigrationProofs.contains(discovered.id) else { return }
     pendingMigrationProofs.insert(discovered.id)
-    executeCommand(.ping, on: discovered, countsTowardRateLimit: false) { [weak self] result in
+    executeCommand(.ping, over: Self.networkRoutes(to: discovered), countsTowardRateLimit: false) {
+      [weak self] result in
       DispatchQueue.main.async {
         guard let self = self else { return }
         self.pendingMigrationProofs.remove(discovered.id)
@@ -554,32 +644,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
   }
 
-  /// Marks a peer Mac as reachable based on a successful authenticated handshake or command proof.
-  func markPeerReachable(provedFingerprint: String) {
-    var changed = false
-    for index in networkDevices.indices {
-      if networkDevices[index].fingerprint == provedFingerprint
-        || networkDevices[index].fingerprint == nil
-        || networkDevices.count == 1
-      {
-        if deviceReachability[networkDevices[index].id] != true {
-          deviceReachability[networkDevices[index].id] = true
-          changed = true
-        }
-        consecutivePollFailures[networkDevices[index].id] = 0
-      }
-    }
-    if changed {
-      objectWillChange.send()
-    }
-  }
-
   /// Tear down and re-start Bonjour browsing. Used by the "Refresh" button
   /// when the discovered list goes stale (network change, sleep/wake).
   func refreshDiscovery() {
     discoveredNetworkDevices = []
     serviceBrowser.refresh()
-    BLETransportManager.shared.refresh()
+    BLETransport.shared.rescan()
     // Introduced entries only repopulate via an exchange; kick one now.
     pollReachability()
   }
@@ -659,22 +729,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// would show an offline peer's row enabled on a cold start until the first
   /// probe lands. An online peer un-greys within ~1s: a Bonjour resolve writes
   /// `true`, and the first poll confirms it.
-  func isReachable(_ id: String) -> Bool {
-    if let reachable = deviceReachability[id], reachable {
-      return true
-    }
-    if let dev = networkDevices.first(where: { $0.id == id }) ?? discoveredNetworkDevices.first(where: { $0.id == id }) {
-      if dev.isBluetoothAvailable {
-        return true
-      }
-      if BLETransportManager.shared.isAvailable && dev.isActive {
-        if dev.bluetoothID != nil || dev.host.isEmpty || dev.port == 0 || BLETransportManager.shared.hasRecentPeerActivity {
-          return true
-        }
-      }
-    }
-    return false
-  }
+  func isReachable(_ id: String) -> Bool { deviceReachability[id] ?? false }
 
   /// A device is switchable when it's reachable *and* not parked behind a
   /// pending TOFU identity mismatch (which the user must Trust first). Drives
@@ -716,6 +771,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // secure channel" resolution could never actually fire.
     expireStaleIntroducedDevices()
     guard PairingStore.shared.isPaired else { return }
+    BLETransport.shared.rescan()
     let currentFingerprint = PairingStore.shared.fingerprint
     for device in networkDevices
     where device.pendingFingerprint == nil || device.pendingFingerprint == currentFingerprint {
@@ -745,14 +801,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       && device.pendingFingerprint == nil
       && !localHosts.contains(Self.normalizeHost(device.host))
     {
-      executeIntroduce(on: device, countsTowardRateLimit: false) { [weak self] result in
+      executeIntroduce(
+        over: routes(for: device, networkFirst: true), countsTowardRateLimit: false
+      ) { [weak self] result in
         DispatchQueue.main.async {
           guard let self = self,
-            case .success(.peer(let identity, let proved)) = result
+            case .success(.peer(let identity, let proved, let route)) = result
           else { return }
-          self.ingestIntroducedPeer(
-            name: identity.name, host: device.host, port: Int(identity.port),
-            provedFingerprint: proved)
+          self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
         }
       }
     }
@@ -768,9 +824,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     where discoveredNetworkDevices[index].isActive
       && discoveredNetworkDevices[index].lastUpdated < cutoff
       && !serviceBrowser.isCurrentlyBrowsed(discoveredNetworkDevices[index].id)
-      && (discoveredNetworkDevices[index].bluetoothID == nil
-        || !BLETransportManager.shared.isPeerAvailable(
-          identifier: discoveredNetworkDevices[index].bluetoothID!))
     {
       discoveredNetworkDevices[index].isActive = false
     }
@@ -787,13 +840,17 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// single device can be re-probed off-cycle — by the fast confirming recheck
   /// below, and by a Bonjour withdraw — without waiting out the 30s interval.
   private func probeReachability(of device: NetworkDevice) {
-    executeIntroduce(on: device, countsTowardRateLimit: false) { [weak self] result in
+    let routes = routes(for: device, networkFirst: true)
+    // A peer known only over Bluetooth has no route until a scan identifies
+    // it, which isn't a missed poll.
+    if routes.isEmpty, BLETransport.shared.mayReachPeers {
+      return
+    }
+    executeIntroduce(over: routes, countsTowardRateLimit: false) { [weak self] result in
       DispatchQueue.main.async {
         guard let self = self else { return }
-        if case .success(.peer(let identity, let proved)) = result {
-          self.ingestIntroducedPeer(
-            name: identity.name, host: device.host, port: Int(identity.port),
-            provedFingerprint: proved)
+        if case .success(.peer(let identity, let proved, let route)) = result {
+          self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
         }
         // `.legacy` still counts: the handshake completed.
         let reachable: Bool
@@ -802,6 +859,19 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         // objectWillChange every interval and needlessly re-render observers.
         if self.deviceReachability[device.id] != reachable {
           self.deviceReachability[device.id] = reachable
+        }
+        let overBluetooth: Bool
+        if case .success(.peer(_, _, .bluetooth)) = result {
+          overBluetooth = true
+        } else {
+          overBluetooth = false
+        }
+        if self.reachedOverBluetooth.contains(device.id) != overBluetooth {
+          if overBluetooth {
+            self.reachedOverBluetooth.insert(device.id)
+          } else {
+            self.reachedOverBluetooth.remove(device.id)
+          }
         }
         if reachable {
           self.consecutivePollFailures[device.id] = 0
@@ -849,14 +919,13 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       isActive: true,
       fingerprint: device.fingerprint
     )
-    executeIntroduce(on: candidate, countsTowardRateLimit: false) { [weak self] result in
+    executeIntroduce(over: Self.networkRoutes(to: candidate), countsTowardRateLimit: false) {
+      [weak self] result in
       DispatchQueue.main.async {
         guard let self = self,
-          case .success(.peer(let identity, let proved)) = result
+          case .success(.peer(let identity, let proved, let route)) = result
         else { return }
-        self.ingestIntroducedPeer(
-          name: identity.name, host: device.host, port: Int(identity.port),
-          provedFingerprint: proved)
+        self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
         self.deviceReachability[device.id] = true
         self.consecutivePollFailures[device.id] = 0
       }
@@ -1101,7 +1170,7 @@ struct IntroducedIdentity {
 
   init?(payload: String) {
     let parts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
-    guard parts.count == 2, let port = UInt16(parts[0]) else { return nil }
+    guard parts.count == 2, let port = UInt16(parts[0]), port > 0 else { return nil }
     let name = String(parts[1]).trimmingCharacters(in: .whitespaces)
     // 63 bytes is Bonjour's instance-name limit; introduced ids key the same
     // store entries as advertised ones.
@@ -1147,6 +1216,17 @@ extension NetworkDeviceStore {
     countsTowardRateLimit: Bool = true,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
+    executeCommand(
+      command, over: routes(for: device), countsTowardRateLimit: countsTowardRateLimit,
+      completion: completion)
+  }
+
+  private func executeCommand(
+    _ command: DeviceCommand,
+    over routes: [PeerRoute],
+    countsTowardRateLimit: Bool = true,
+    completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) {
     guard PairingStore.shared.isPaired else {
       completion(.failure(.notPaired))
       return
@@ -1159,7 +1239,7 @@ extension NetworkDeviceStore {
     default: bodyTimeout = 5
     }
     let outgoing = OutgoingConnection(
-      device: device,
+      routes: routes,
       countsTowardRateLimit: countsTowardRateLimit,
       bodyTimeout: bodyTimeout
     )
@@ -1182,14 +1262,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { [weak self] result in
-        if case .success = result {
-          DispatchQueue.main.async {
-            self?.deviceReachability[device.id] = true
-          }
-        }
-        completion(result)
-      }
+      completion: completion
     )
   }
 
@@ -1205,7 +1278,7 @@ extension NetworkDeviceStore {
       return
     }
 
-    let outgoing = OutgoingConnection(device: device)
+    let outgoing = OutgoingConnection(routes: routes(for: device))
     outgoing.run(
       body: { channel, done in
         channel.send(Data(DeviceCommand.notification.rawValue.utf8)) { err in
@@ -1238,14 +1311,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { [weak self] result in
-        if case .success = result {
-          DispatchQueue.main.async {
-            self?.deviceReachability[device.id] = true
-          }
-        }
-        completion(result)
-      }
+      completion: completion
     )
   }
 }
@@ -1275,7 +1341,7 @@ extension NetworkDeviceStore {
     }
 
     beginOperation(.sync(count: peripherals.count), for: device.id)
-    let outgoing = OutgoingConnection(device: device)
+    let outgoing = OutgoingConnection(routes: routes(for: device))
     outgoing.run(
       body: { channel, done in
         channel.send(Data(DeviceCommand.syncPeripherals.rawValue.utf8)) { err in
@@ -1350,14 +1416,7 @@ extension NetworkDeviceStore {
     // the limiter that gates real switches (mirrors the reachability poll).
     sendTwoFrameCommand(
       .holdsOne, payload: address, to: device, countsTowardRateLimit: false,
-      completion: { [weak self] result in
-        if case .success = result {
-          DispatchQueue.main.async {
-            self?.deviceReachability[device.id] = true
-          }
-        }
-        completion(result)
-      })
+      completion: completion)
   }
 
   /// Tells `device` to take the peripherals the sender just released on its way
@@ -1375,19 +1434,20 @@ extension NetworkDeviceStore {
       countsTowardRateLimit: false, completion: completion)
   }
 
-  /// The peer's answer to an INTRODUCE: its identity plus the fingerprint of
-  /// the key the channel proved, or `legacy` from a build that predates the
-  /// opcode (it replied OP_FAILED — still a completed handshake).
+  /// The peer's answer to an INTRODUCE: its identity, the fingerprint of the
+  /// key the channel proved, and the route that carried it — or `legacy` from
+  /// a build that predates the opcode (it replied OP_FAILED — still a completed
+  /// handshake).
   enum IntroduceReply {
-    case peer(IntroducedIdentity, provedFingerprint: String)
+    case peer(IntroducedIdentity, provedFingerprint: String, route: PeerRoute)
     case legacy
   }
 
-  /// Exchanges identities with `device` over the secure channel. Doubles as
-  /// the reachability probe: unlike `.ping`, each successful exchange also
-  /// refreshes routing on both ends, with or without Bonjour.
+  /// Exchanges identities with the peer at `routes` over the secure channel.
+  /// Doubles as the reachability probe: unlike `.ping`, each successful
+  /// exchange also refreshes routing on both ends, with or without Bonjour.
   func executeIntroduce(
-    on device: NetworkDevice,
+    over routes: [PeerRoute],
     countsTowardRateLimit: Bool = true,
     completion: @escaping (Result<IntroduceReply, OutgoingFailure>) -> Void
   ) {
@@ -1395,12 +1455,12 @@ extension NetworkDeviceStore {
       completion(.failure(.notPaired))
       return
     }
-    let local =
-      servicePublisher.currentIdentity()
-      ?? IntroducedIdentity(name: Host.current().localizedName ?? "Mac", port: 0)
+    guard let local = servicePublisher.currentIdentity() else {
+      completion(.failure(.connectionFailed("listener not ready")))
+      return
+    }
     let outgoing = OutgoingConnection(
-      device: device,
-      countsTowardRateLimit: countsTowardRateLimit)
+      routes: routes, countsTowardRateLimit: countsTowardRateLimit)
     var reply: IntroduceReply?
     outgoing.run(
       body: { channel, done in
@@ -1424,9 +1484,9 @@ extension NetworkDeviceStore {
               case .success(let data):
                 let response = String(data: data, encoding: .utf8) ?? ""
                 if let identity = IntroducedIdentity(payload: response),
-                  let proved = outgoing.provedFingerprint
+                  let proved = outgoing.provedFingerprint, let route = outgoing.route
                 {
-                  reply = .peer(identity, provedFingerprint: proved)
+                  reply = .peer(identity, provedFingerprint: proved, route: route)
                   done(.success(()))
                 } else if DeviceCommand(rawValue: response) == .operationFailed {
                   reply = .legacy
@@ -1464,8 +1524,7 @@ extension NetworkDeviceStore {
       completion(.failure(.listenerNotReady))
       return
     }
-    let target = NetworkDevice(id: host, name: host, host: host, port: Int(port))
-    executeIntroduce(on: target) { [weak self] result in
+    executeIntroduce(over: [.network(host: host, port: port)]) { [weak self] result in
       DispatchQueue.main.async {
         guard let self = self else { return }
         switch result {
@@ -1473,7 +1532,7 @@ extension NetworkDeviceStore {
           completion(.failure(.outgoing(failure)))
         case .success(.legacy):
           completion(.failure(.legacyPeer))
-        case .success(.peer(let identity, let proved)):
+        case .success(.peer(let identity, let proved, _)):
           // The handshake happily completes against our own listener (same
           // key, both roles), and `registerNetworkDevice` has no self-guard.
           guard !self.isLocalName(identity.name),
@@ -1506,9 +1565,9 @@ extension NetworkDeviceStore {
               isActive: true,
               fingerprint: proved
             )
-            self.registerNetworkDevice(device: proven)
             self.deviceReachability[identity.name] = true
             self.consecutivePollFailures[identity.name] = 0
+            self.registerNetworkDevice(device: proven)
             completion(.success(proven))
           }
         }
@@ -1538,7 +1597,7 @@ extension NetworkDeviceStore {
     default: bodyTimeout = 5
     }
     let outgoing = OutgoingConnection(
-      device: device,
+      routes: routes(for: device),
       countsTowardRateLimit: countsTowardRateLimit,
       bodyTimeout: bodyTimeout)
     outgoing.run(
@@ -1567,14 +1626,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { [weak self] result in
-        if case .success = result {
-          DispatchQueue.main.async {
-            self?.deviceReachability[device.id] = true
-          }
-        }
-        completion(result)
-      }
+      completion: completion
     )
   }
 }

@@ -1,6 +1,5 @@
 import CryptoKit
 import Foundation
-import Network
 
 /// Errors thrown by the secure channel layer.
 enum SecureChannelError: Error {
@@ -14,7 +13,7 @@ enum SecureChannelError: Error {
   case sendFailed(Error)
 }
 
-/// On-wire framing + ChaCha20-Poly1305 session for a single NWConnection.
+/// On-wire framing + ChaCha20-Poly1305 session over a single `TransportConnection`.
 /// Handshake:
 ///   * Each side sends a 32-byte random nonce (length-prefixed cleartext).
 ///   * Both derive HKDF(K, salt=N_C||N_S) -> [sk_c2s | sk_s2c | k_mac] (96 bytes).
@@ -65,15 +64,6 @@ final class SecureChannel {
     self.queue = queue
   }
 
-  convenience init(connection: NWConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
-    self.init(
-      transport: NWTransportConnection(connection: connection),
-      role: role,
-      psk: psk,
-      queue: queue
-    )
-  }
-
   // MARK: - Handshake
 
   /// Performs the handshake and verifies the peer's transcript MAC. On
@@ -83,7 +73,7 @@ final class SecureChannel {
     completion outerCompletion: @escaping (Result<Void, SecureChannelError>) -> Void
   ) {
     // Single-shot latch on the outer completion. The 5-second timeout fires
-    // `connection.cancel()`, which then propagates to any in-flight
+    // `transport.cancel()`, which then propagates to any in-flight
     // `sendRaw`/`receiveRaw` as a connection error and re-enters this
     // completion path with `.connectionClosed` *after* we've already
     // reported `.handshakeTimeout`. The race is by design — `cancel()` is
@@ -319,9 +309,6 @@ final class SecureChannel {
           self.lastReceivedCounter = counter
           completion(.success(plaintext))
         } catch {
-          Log.network.error(
-            "SecureChannel: decryption failed: \(error), frame len=\(frame.count), counter=\(counter), lastReceivedCounter=\(String(describing: self.lastReceivedCounter))"
-          )
           completion(.failure(.decryptionFailed))
         }
       }
@@ -335,7 +322,7 @@ final class SecureChannel {
     var frame = Data()
     withUnsafeBytes(of: &lengthBE) { frame.append(contentsOf: $0) }
     frame.append(payload)
-    transport.send(data: frame, completion: completion)
+    transport.send(frame, completion: completion)
   }
 
   private func receiveRaw(completion: @escaping (Result<Data, SecureChannelError>) -> Void) {
@@ -363,18 +350,7 @@ final class SecureChannel {
   private func receiveExact(
     byteCount: Int, completion: @escaping (Result<Data, SecureChannelError>) -> Void
   ) {
-    transport.receive(exactByteCount: byteCount) { result in
-      switch result {
-      case .failure:
-        completion(.failure(.connectionClosed))
-      case .success(let data):
-        guard data.count == byteCount else {
-          completion(.failure(.framingFailed))
-          return
-        }
-        completion(.success(data))
-      }
-    }
+    transport.receive(exactly: byteCount, completion: completion)
   }
 
   // MARK: - Helpers

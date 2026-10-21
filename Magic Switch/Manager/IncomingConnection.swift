@@ -31,8 +31,9 @@ extension Notification.Name {
     "magicSwitchPeripheralOutgoing")
 }
 
-/// Per-accept handler. Owns the NWConnection, its SecureChannel, idle/total
-/// timers, and the (per-connection) decoder state. Self-retained until the
+/// Per-accept handler. Owns the transport (a TCP connection or a Bluetooth
+/// session), its SecureChannel, idle/total timers, and the (per-connection)
+/// decoder state. Self-retained until the
 /// connection terminates so it doesn't get released mid-flight.
 final class IncomingConnection {
   // MARK: - Constants
@@ -54,9 +55,10 @@ final class IncomingConnection {
   // MARK: - Dependencies
 
   private let transport: TransportConnection
+  /// The TCP connection behind `transport`; nil for a Bluetooth session.
   private let connection: NWConnection?
   private let endpoint: NWEndpoint?
-  private let endpointDesc: String?
+  private let rateLimitBucket: String
   private let rateLimiter: RateLimiter
   private let pairingStore: PairingStore
   private let queue: DispatchQueue
@@ -81,24 +83,6 @@ final class IncomingConnection {
 
   // MARK: - Init
 
-  init(
-    transport: TransportConnection,
-    endpointDesc: String? = nil,
-    rateLimiter: RateLimiter,
-    pairingStore: PairingStore,
-    queue: DispatchQueue,
-    localIdentity: @escaping () -> IntroducedIdentity?
-  ) {
-    self.transport = transport
-    self.connection = nil
-    self.endpoint = nil
-    self.endpointDesc = endpointDesc
-    self.rateLimiter = rateLimiter
-    self.pairingStore = pairingStore
-    self.queue = queue
-    self.localIdentity = localIdentity
-  }
-
   convenience init(
     connection: NWConnection,
     endpoint: NWEndpoint?,
@@ -108,13 +92,42 @@ final class IncomingConnection {
     localIdentity: @escaping () -> IntroducedIdentity?
   ) {
     self.init(
-      transport: NWTransportConnection(connection: connection),
-      endpointDesc: endpoint?.debugDescription,
-      rateLimiter: rateLimiter,
-      pairingStore: pairingStore,
-      queue: queue,
-      localIdentity: localIdentity
-    )
+      transport: connection, connection: connection, endpoint: endpoint,
+      rateLimitBucket: RateLimiter.bucket(for: endpoint), rateLimiter: rateLimiter,
+      pairingStore: pairingStore, queue: queue, localIdentity: localIdentity)
+  }
+
+  convenience init(
+    session: BLESession,
+    rateLimiter: RateLimiter,
+    pairingStore: PairingStore,
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
+  ) {
+    self.init(
+      transport: session, connection: nil, endpoint: nil,
+      rateLimitBucket: "bluetooth:\(session.peer.uuidString)", rateLimiter: rateLimiter,
+      pairingStore: pairingStore, queue: queue, localIdentity: localIdentity)
+  }
+
+  private init(
+    transport: TransportConnection,
+    connection: NWConnection?,
+    endpoint: NWEndpoint?,
+    rateLimitBucket: String,
+    rateLimiter: RateLimiter,
+    pairingStore: PairingStore,
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
+  ) {
+    self.transport = transport
+    self.connection = connection
+    self.endpoint = endpoint
+    self.rateLimitBucket = rateLimitBucket
+    self.rateLimiter = rateLimiter
+    self.pairingStore = pairingStore
+    self.queue = queue
+    self.localIdentity = localIdentity
   }
 
   // MARK: - Lifecycle
@@ -122,7 +135,7 @@ final class IncomingConnection {
   func start() {
     selfRef = self
 
-    if let endpoint = endpoint, !rateLimiter.shouldAccept(endpoint: endpoint) {
+    guard rateLimiter.shouldAccept(bucket: rateLimitBucket) else {
       Log.network.error("Rejecting connection from blocked endpoint")
       transport.cancel()
       release()
@@ -136,32 +149,21 @@ final class IncomingConnection {
       return
     }
 
-    if let endpoint = endpoint {
-      guard rateLimiter.beginPending(endpoint: endpoint) else {
-        Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
-        transport.cancel()
-        release()
-        return
-      }
-      pendingCounted = true
+    guard rateLimiter.beginPending(bucket: rateLimitBucket) else {
+      Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
+      transport.cancel()
+      release()
+      return
     }
+    pendingCounted = true
 
     let channel = SecureChannel(
       transport: transport, role: .server, psk: psk, queue: queue
     )
     self.channel = channel
 
-    if let connection = connection {
-      connection.stateUpdateHandler = { [weak self] state in
-        guard let self = self else { return }
-        switch state {
-        case .failed, .cancelled:
-          self.teardown()
-        default:
-          break
-        }
-      }
-      connection.start(queue: queue)
+    transport.start(queue: queue) { [weak self] in
+      self?.teardown()
     }
 
     startTotalTimer()
@@ -190,8 +192,6 @@ final class IncomingConnection {
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
-          NetworkDeviceStore.shared.markPeerReachable(
-            provedFingerprint: provedFingerprint)
         }
         self.resetIdleTimer()
         self.readNext()
@@ -202,7 +202,7 @@ final class IncomingConnection {
         // count them we lock out the legitimate peer.
         switch error {
         case .decryptionFailed, .authFailed:
-          self.rateLimiter.recordFailure(endpoint: self.endpoint)
+          self.rateLimiter.recordFailure(bucket: self.rateLimitBucket)
         default:
           break
         }
@@ -253,11 +253,6 @@ final class IncomingConnection {
   // MARK: - Command Handling
 
   private func handleIncoming(data: Data) {
-    if let proved = provedFingerprint {
-      DispatchQueue.main.async {
-        NetworkDeviceStore.shared.markPeerReachable(provedFingerprint: proved)
-      }
-    }
     guard let message = String(data: data, encoding: .utf8) else {
       Log.network.error("Dropping non-UTF8 frame")
       return
@@ -493,8 +488,7 @@ final class IncomingConnection {
       } else {
         sendString(DeviceCommand.operationFailed.rawValue)
       }
-      if let proved = provedFingerprint {
-        let host = DialbackAddresses.hostString(from: endpoint) ?? ""
+      if let host = DialbackAddresses.hostString(from: endpoint), let proved = provedFingerprint {
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.ingestIntroducedPeer(
             name: identity.name, host: host, port: Int(identity.port),
@@ -546,7 +540,7 @@ final class IncomingConnection {
     timer.setEventHandler { [weak self] in
       guard let self = self else { return }
       if !self.authenticated {
-        self.rateLimiter.recordFailure(endpoint: self.endpoint)
+        self.rateLimiter.recordFailure(bucket: self.rateLimitBucket)
       }
       self.teardown()
     }
@@ -576,14 +570,13 @@ final class IncomingConnection {
     totalTimer = nil
     channel?.cancel()
     transport.cancel()
-    connection?.cancel()
     release()
   }
 
   private func endPendingIfNeeded() {
     guard pendingCounted else { return }
     pendingCounted = false
-    rateLimiter.endPending(endpoint: endpoint)
+    rateLimiter.endPending(bucket: rateLimitBucket)
   }
 
   private func release() {

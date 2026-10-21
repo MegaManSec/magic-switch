@@ -2,15 +2,20 @@ import Foundation
 import Network
 import QuartzCore
 
-/// Per-IP failure tracker. Five failures within a 60s window block the IP for
-/// 15 minutes; blocked endpoints are rejected before any handshake work.
+/// Per-peer failure tracker, bucketed by IP (or by Bluetooth identifier for
+/// sessions over `BLETransport`). Five failures within a 60s window block the
+/// bucket for 15 minutes; blocked peers are rejected before any handshake work.
 /// Blocks persist to UserDefaults so a process restart can't reset the counter.
+/// One instance serves both transports, since blocks persist under a single
+/// defaults key.
 ///
 /// Live tracking uses `CACurrentMediaTime()` (monotonic) so wall-clock
 /// manipulation can't shorten an active block or reset the failure window.
 /// Persistence still uses `Date` (necessary for cross-restart durability);
 /// converted at the boundary.
 final class RateLimiter {
+  static let shared = RateLimiter()
+
   // MARK: - Constants
 
   private static let windowSeconds: TimeInterval = 60
@@ -33,16 +38,15 @@ final class RateLimiter {
 
   // MARK: - Init
 
-  init() {
+  private init() {
     blocksByIP = Self.loadBlocks()
   }
 
   // MARK: - Public API
 
-  /// Returns whether the connection from `endpoint` should be accepted now.
-  func shouldAccept(endpoint: NWEndpoint?) -> Bool {
-    let key = Self.bucket(for: endpoint)
-    return queue.sync {
+  /// Returns whether a connection from `bucket` should be accepted now.
+  func shouldAccept(bucket key: String) -> Bool {
+    queue.sync {
       gc(key: key)
       if let until = blocksByIP[key], until > CACurrentMediaTime() {
         return false
@@ -52,9 +56,8 @@ final class RateLimiter {
   }
 
   /// Reserve a pre-auth connection slot; false if the per-IP or global cap is hit.
-  func beginPending(endpoint: NWEndpoint?) -> Bool {
-    let key = Self.bucket(for: endpoint)
-    return queue.sync {
+  func beginPending(bucket key: String) -> Bool {
+    queue.sync {
       guard pendingTotal < Self.maxPendingTotal,
         pendingByIP[key, default: 0] < Self.maxPendingPerIP
       else { return false }
@@ -65,8 +68,7 @@ final class RateLimiter {
   }
 
   /// Release a slot reserved by `beginPending`.
-  func endPending(endpoint: NWEndpoint?) {
-    let key = Self.bucket(for: endpoint)
+  func endPending(bucket key: String) {
     queue.sync {
       if let count = pendingByIP[key] {
         if count <= 1 { pendingByIP.removeValue(forKey: key) } else { pendingByIP[key] = count - 1 }
@@ -75,9 +77,8 @@ final class RateLimiter {
     }
   }
 
-  /// Record an authentication failure for `endpoint`.
-  func recordFailure(endpoint: NWEndpoint?) {
-    let key = Self.bucket(for: endpoint)
+  /// Record an authentication failure for `bucket`.
+  func recordFailure(bucket key: String) {
     queue.sync {
       let now = CACurrentMediaTime()
       var list = failuresByIP[key, default: []]
@@ -155,7 +156,7 @@ final class RateLimiter {
   /// addresses (`::ffff:1.2.3.4`) collapse to their IPv4 form so an attacker
   /// cannot get two failure budgets by alternating stacks. IPv6 scope
   /// suffixes (`%enX`) are stripped.
-  private static func bucket(for endpoint: NWEndpoint?) -> String {
+  static func bucket(for endpoint: NWEndpoint?) -> String {
     guard let endpoint = endpoint else { return "unknown" }
     guard case .hostPort(let host, _) = endpoint else { return "unknown" }
     switch host {

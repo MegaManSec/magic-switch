@@ -533,10 +533,7 @@ private struct NetworkDeviceListView: View {
   /// `host:port`, with IPv6 bracketed so the address's own colons don't run
   /// into the port number.
   private func endpoint(for device: NetworkDevice) -> String {
-    if device.isBluetoothAvailable && (device.host.isEmpty || device.port == 0) {
-      return "Bluetooth"
-    }
-    return device.host.contains(":")
+    device.host.contains(":")
       ? "[\(device.host)]:\(device.port)"
       : "\(device.host):\(device.port)"
   }

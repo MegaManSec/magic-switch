@@ -24,7 +24,7 @@ final class ServicePublisher: NSObject, NetworkNetworkServicePublishable {
 
   // MARK: - Dependencies
 
-  private let rateLimiter = RateLimiter()
+  private let rateLimiter = RateLimiter.shared
   private let pairingStore = PairingStore.shared
 
   // MARK: - Properties
