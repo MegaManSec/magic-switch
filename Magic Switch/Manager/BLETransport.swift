@@ -7,14 +7,12 @@ enum BLETransportError: LocalizedError {
   case unavailable
   case peerNotFound
   case linkFailed(Error?)
-  case tooManySessions
 
   var errorDescription: String? {
     switch self {
     case .unavailable: return "Bluetooth isn't available."
     case .peerNotFound: return "The other Mac isn't in Bluetooth range."
     case .linkFailed(let error): return error?.localizedDescription ?? "The Bluetooth link dropped."
-    case .tooManySessions: return "Too many sessions open to the other Mac."
     }
   }
 }
@@ -61,7 +59,8 @@ final class BLETransport: NSObject, ObservableObject {
   /// The service UUID is visible to anything in radio range, so cap how much
   /// of `RateLimiter`'s shared pre-auth budget inbound sessions can hold.
   private static let maxInboundSessions = 16
-  private static let maxInboundSessionsPerLink = 4
+  /// Enforced on both ends: the peer refuses more, and we queue the rest.
+  private static let maxSessionsPerLink = 4
   /// A peer may run ahead of our reads by a frame or so; more is abuse.
   fileprivate static let maxBufferedBytes = 2 * (Int(SecureChannel.maxFrameSize) + 4)
 
@@ -222,24 +221,24 @@ final class BLETransport: NSObject, ObservableObject {
         central.connect(peripheral)
       }
     }
-    guard let id = link.allocateSessionID() else { return fail(.tooManySessions) }
-    session.id = id
-    link.sessions[id] = session
     link.idleTimer?.cancel()
     link.idleTimer = nil
-    if link.isReady {
-      open(session, on: link, onOpen: onOpen)
-    } else {
-      link.pendingOpens.append((session, onOpen))
-    }
+    link.pendingOpens.append((session, onOpen))
+    openPending(on: link)
   }
 
-  private func open(
-    _ session: BLESession, on link: OutboundLink,
-    onOpen: @escaping (Result<BLESession, Error>) -> Void
-  ) {
-    enqueue(.open, session: session.id, on: link)
-    session.deliver { onOpen(.success(session)) }
+  /// Opens queued sessions while the link is up and has room.
+  private func openPending(on link: OutboundLink) {
+    guard link.isReady else { return }
+    while link.sessions.count < Self.maxSessionsPerLink, !link.pendingOpens.isEmpty,
+      let id = link.allocateSessionID()
+    {
+      let (session, onOpen) = link.pendingOpens.removeFirst()
+      session.id = id
+      link.sessions[id] = session
+      enqueue(.open, session: id, on: link)
+      session.deliver { onOpen(.success(session)) }
+    }
   }
 
   /// A session's owner cancelled it: tell the peer, and release the link
@@ -254,14 +253,16 @@ final class BLETransport: NSObject, ObservableObject {
       enqueue(.close, session: session.id, on: link)
       return
     }
-    guard let link = outboundLinks[session.peer], link.sessions[session.id] === session else {
-      return
-    }
-    link.sessions.removeValue(forKey: session.id)
-    link.pendingOpens.removeAll { $0.session === session }
-    link.packets.purge(session: session.id, error: SecureChannelError.connectionClosed)
-    if link.isReady {
+    guard let link = outboundLinks[session.peer] else { return }
+    if let index = link.pendingOpens.firstIndex(where: { $0.session === session }) {
+      link.pendingOpens.remove(at: index)
+    } else if link.sessions[session.id] === session {
+      link.sessions.removeValue(forKey: session.id)
+      link.packets.purge(session: session.id, error: SecureChannelError.connectionClosed)
       enqueue(.close, session: session.id, on: link)
+      openPending(on: link)
+    } else {
+      return
     }
     releaseIfIdle(link)
   }
@@ -328,23 +329,21 @@ final class BLETransport: NSObject, ObservableObject {
   private func linkBecameReady(_ link: OutboundLink) {
     link.isReady = true
     Log.network.notice("BLETransport: link to \(link.peripheral.identifier) ready")
-    let pending = link.pendingOpens
-    link.pendingOpens.removeAll()
-    for (session, onOpen) in pending {
-      open(session, on: link, onOpen: onOpen)
-    }
+    openPending(on: link)
     releaseIfIdle(link)
   }
 
   private func releaseIfIdle(_ link: OutboundLink) {
-    guard link.sessions.isEmpty else { return }
+    guard link.sessions.isEmpty, link.pendingOpens.isEmpty else { return }
     let peer = link.peripheral.identifier
     guard link.isReady else {
       dropOutboundLink(peer, error: .linkFailed(nil))
       return
     }
     let timer = DispatchWorkItem { [weak self] in
-      guard let self = self, self.outboundLinks[peer] === link, link.sessions.isEmpty else {
+      guard let self = self, self.outboundLinks[peer] === link, link.sessions.isEmpty,
+        link.pendingOpens.isEmpty
+      else {
         return
       }
       self.dropOutboundLink(peer, error: .linkFailed(nil))
@@ -358,6 +357,7 @@ final class BLETransport: NSObject, ObservableObject {
     guard let link = outboundLinks.removeValue(forKey: peer) else { return }
     link.idleTimer?.cancel()
     for (session, onOpen) in link.pendingOpens {
+      session.close()
       session.deliver { onOpen(.failure(error)) }
     }
     for session in link.sessions.values {
@@ -543,6 +543,7 @@ extension BLETransport: CBPeripheralDelegate {
     case .close:
       guard let session = link.sessions.removeValue(forKey: id) else { return }
       session.peerClosed()
+      openPending(on: link)
       releaseIfIdle(link)
     case .open:
       break
@@ -614,7 +615,7 @@ extension BLETransport: CBPeripheralManagerDelegate {
       case .open:
         link.sessions.removeValue(forKey: id)?.peerClosed()
         let inboundCount = inboundLinks.values.reduce(0) { $0 + $1.sessions.count }
-        guard link.sessions.count < Self.maxInboundSessionsPerLink,
+        guard link.sessions.count < Self.maxSessionsPerLink,
           inboundCount < Self.maxInboundSessions
         else {
           enqueue(.close, session: id, on: link)
@@ -662,6 +663,7 @@ private final class OutboundLink {
   /// Subscribed to the peer's outbox, so sessions can open.
   var isReady = false
   var sessions: [UInt8: BLESession] = [:]
+  /// Sessions waiting for the link to come up or for a free slot.
   var pendingOpens: [(session: BLESession, onOpen: (Result<BLESession, Error>) -> Void)] = []
   var packets = PacketQueue()
   var isDrainRetryScheduled = false
