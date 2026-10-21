@@ -55,8 +55,6 @@ final class BLETransport: NSObject, ObservableObject {
   /// Write-without-response readiness isn't always signalled, so a stalled
   /// queue is also retried on this interval.
   private static let writeRetryInterval: TimeInterval = 0.05
-  /// How long each `rescan` listens before the radio stops scanning.
-  private static let scanWindow: TimeInterval = 10
   private static let maxInboundSessions = 16
   /// Enforced on both ends: the peer refuses more, and we queue the rest.
   private static let maxSessionsPerLink = 4
@@ -88,7 +86,6 @@ final class BLETransport: NSObject, ObservableObject {
   /// reported yet, each with a token for its settle timeout. A new link to one
   /// connects only once that report lands.
   private var cancellingPeers: [UUID: UUID] = [:]
-  private var scanToken: UUID?
   private var localIdentity: () -> IntroducedIdentity? = { nil }
   private var onPeerDiscovered: (UUID) -> Void = { _ in }
 
@@ -126,7 +123,7 @@ final class BLETransport: NSObject, ObservableObject {
     reconfigure()
   }
 
-  /// Scans for `scanWindow`, reporting every peer still advertising to
+  /// Restarts the scan, so every peer still advertising is reported to
   /// `onPeerDiscovered` again — including one whose private address rotated.
   func rescan() {
     queue.async {
@@ -186,7 +183,6 @@ final class BLETransport: NSObject, ObservableObject {
     }
     discovered.removeAll()
     cancellingPeers.removeAll()
-    scanToken = nil
     central?.stopScan()
     peripheralManager?.stopAdvertising()
     peripheralManager?.removeAllServices()
@@ -417,15 +413,6 @@ final class BLETransport: NSObject, ObservableObject {
   private func startScanning() {
     guard let central = central, let uuid = serviceUUID else { return }
     central.scanForPeripherals(withServices: [uuid])
-    let token = UUID()
-    scanToken = token
-    queue.asyncAfter(deadline: .now() + Self.scanWindow) { [weak self] in
-      guard let self = self, self.scanToken == token else { return }
-      self.scanToken = nil
-      if let central = self.central, central.state == .poweredOn {
-        central.stopScan()
-      }
-    }
   }
 
   private func publishService() {
