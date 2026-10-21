@@ -466,8 +466,9 @@ extension BLETransport: CBCentralManagerDelegate {
   }
 
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-    guard central === self.central, let uuid = serviceUUID, outboundLink(for: peripheral) != nil
+    guard central === self.central, let uuid = serviceUUID, let link = outboundLink(for: peripheral)
     else { return }
+    link.isConnected = true
     peripheral.discoverServices([uuid])
   }
 
@@ -480,6 +481,13 @@ extension BLETransport: CBCentralManagerDelegate {
   func centralManager(
     _ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?
   ) {
+    // Before this link has connected, a disconnect is the late end of the
+    // link it replaced.
+    if cancellingPeers[peripheral.identifier] == nil,
+      outboundLink(for: peripheral)?.isConnected == false
+    {
+      return
+    }
     linkEnded(peripheral, on: central, error: error)
   }
 
@@ -657,6 +665,7 @@ private final class OutboundLink {
   let peripheral: CBPeripheral
   var inbox: CBCharacteristic?
   var outbox: CBCharacteristic?
+  var isConnected = false
   /// Subscribed to the peer's outbox, so sessions can open.
   var isReady = false
   var sessions: [UInt8: BLESession] = [:]
