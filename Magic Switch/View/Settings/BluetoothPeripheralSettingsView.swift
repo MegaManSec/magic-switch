@@ -283,11 +283,20 @@ private struct PeripheralRowView: View {
         }
       }
     } label: {
-      Image(systemName: resolvedType.symbolName)
-        .frame(width: 22)
+      Text("")
     }
     .menuStyle(.borderlessButton)
-    .fixedSize()
+    // Native menus ignore image-label frames. Keep the native arrow in a
+    // fixed-width menu and draw the icon separately so its center stays fixed.
+    .frame(width: 40)
+    .overlay(alignment: .leading) {
+      Image(systemName: resolvedType.symbolName)
+        .font(.system(size: 15))
+        .frame(width: 22)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    .accessibilityLabel("Set the icon for \(peripheral.name)")
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
