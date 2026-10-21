@@ -352,6 +352,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       Date().timeIntervalSince($0) < Self.bluetoothProbeBackoff
     }
     guard PairingStore.shared.isPaired, !listed, backedOff != true,
+      servicePublisher.currentIdentity() != nil,
       pendingBluetoothProbes.count < Self.maxBluetoothProbes,
       pendingBluetoothProbes.insert(peripheral).inserted
     else { return }
@@ -361,16 +362,20 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         guard let self = self else { return }
         self.pendingBluetoothProbes.remove(peripheral)
         guard BLETransport.shared.isEnabled else { return }
-        guard case .success(.peer(let identity, let proved, let route)) = result else {
+        switch result {
+        case .success(.peer(let identity, let proved, let route)):
+          self.bluetoothProbeFailures.removeValue(forKey: peripheral)
+          self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
+          if let device = self.networkDevices.first(where: { $0.id == identity.name }),
+            !self.isReachable(device.id)
+          {
+            self.probeReachability(of: device)
+          }
+        case .success(.legacy):
+          // The peer's listener isn't up, so it has no identity to give yet.
+          break
+        case .failure:
           self.bluetoothProbeFailures[peripheral] = Date()
-          return
-        }
-        self.bluetoothProbeFailures.removeValue(forKey: peripheral)
-        self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
-        if let device = self.networkDevices.first(where: { $0.id == identity.name }),
-          !self.isReachable(device.id)
-        {
-          self.probeReachability(of: device)
         }
       }
     }
