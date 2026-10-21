@@ -319,11 +319,20 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   /// A peer proved the pairing key over `peripheral`. Route future commands to
-  /// that Mac through it, and list a Mac this one hasn't otherwise found —
-  /// with no endpoint, as one only reachable over Bluetooth.
+  /// that Mac through it, follow a rename of the registered Mac, and list it —
+  /// with no endpoint when it hasn't otherwise been found.
   private func ingestBluetoothPeer(name: String, peripheral: UUID, provedFingerprint: String) {
     guard BLETransport.shared.isEnabled, !isLocalName(name) else { return }
     bluetoothPeers[name] = peripheral
+    if !networkDevices.contains(where: { $0.id == name }),
+      let candidateID = renameCandidateID(forFingerprint: provedFingerprint),
+      let index = networkDevices.firstIndex(where: { $0.id == candidateID })
+    {
+      let old = networkDevices[index]
+      commitRenameMigration(
+        at: index, to: NetworkDevice(id: name, name: name, host: old.host, port: old.port),
+        fingerprint: provedFingerprint)
+    }
     if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == name }) {
       let known = discoveredNetworkDevices[index]
       discoveredNetworkDevices[index].update(
@@ -519,6 +528,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // would leave the new row's buttons disabled for good.
     deviceReachability.removeValue(forKey: old.id)
     consecutivePollFailures.removeValue(forKey: old.id)
+    reachedOverBluetooth.remove(old.id)
+    if let peripheral = bluetoothPeers.removeValue(forKey: old.id),
+      bluetoothPeers[discovered.id] == nil
+    {
+      bluetoothPeers[discovered.id] = peripheral
+    }
     // Seeding reachable isn't the optimism the pessimistic default guards
     // against — the ping that authorised this migration *is* a live probe.
     deviceReachability[discovered.id] = true
@@ -901,8 +916,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     settleIfDone()
   }
 
-  /// Applies one probe's verdict to `device`'s reachability and failure streak.
+  /// Applies one probe's verdict to `device`'s reachability and failure streak,
+  /// unless the record was removed or renamed meanwhile.
   private func recordProbe(of device: NetworkDevice, reachable: Bool, overBluetooth: Bool) {
+    guard networkDevices.contains(where: { $0.id == device.id }) else { return }
     // Publish only on change — a steady-state poll would otherwise fire
     // objectWillChange every interval and needlessly re-render observers.
     if deviceReachability[device.id] != reachable {
