@@ -47,8 +47,7 @@ final class BLETransport: NSObject, ObservableObject {
   private static let outboxUUID = CBUUID(string: "6E1C0A52-4B7E-4D8A-9F3B-2C5D8E7A1B02")
   private static let serviceKeyInfo = Data("magicswitch-ble-service-v1".utf8)
   private static let packetHeaderLength = 2
-  /// Keeps a link up between sessions, so commands and the next reachability
-  /// poll (every 30s) reuse it instead of reconnecting.
+  /// How long an unused link stays up, longer than the 30s reachability poll.
   private static let linkIdleTimeout: TimeInterval = 45
   /// How long a new link to a peer waits for the disconnect from cancelling
   /// its previous one, in case that callback never comes.
@@ -58,12 +57,10 @@ final class BLETransport: NSObject, ObservableObject {
   private static let writeRetryInterval: TimeInterval = 0.05
   /// How long each `rescan` listens before the radio stops scanning.
   private static let scanWindow: TimeInterval = 10
-  /// The service UUID is visible to anything in radio range, so cap how much
-  /// of `RateLimiter`'s shared pre-auth budget inbound sessions can hold.
   private static let maxInboundSessions = 16
   /// Enforced on both ends: the peer refuses more, and we queue the rest.
   private static let maxSessionsPerLink = 4
-  /// A peer may run ahead of our reads by a frame or so; more is abuse.
+  /// At most a frame or so ahead of a session's reads.
   fileprivate static let maxBufferedBytes = 2 * (Int(SecureChannel.maxFrameSize) + 4)
 
   fileprivate enum PacketKind: UInt8 {
@@ -89,7 +86,7 @@ final class BLETransport: NSObject, ObservableObject {
   private var inboundLinks: [UUID: InboundLink] = [:]
   /// Peers whose connection we cancelled and whose disconnect hasn't been
   /// reported yet, each with a token for its settle timeout. A new link to one
-  /// connects only once that report lands, so it can't take the new link down.
+  /// connects only once that report lands.
   private var cancellingPeers: [UUID: UUID] = [:]
   private var scanToken: UUID?
   private var localIdentity: () -> IntroducedIdentity? = { nil }

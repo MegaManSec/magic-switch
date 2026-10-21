@@ -55,8 +55,7 @@ enum OutgoingFailure: Error {
   }
 
   /// Whether the attempt failed before the peer could have acted on the
-  /// request, so another route may still deliver it. A rejected key would be
-  /// rejected the same way on every route.
+  /// request, so another route may still deliver it.
   var permitsFallback: Bool {
     switch self {
     case .connectionFailed, .connectTimeout:
@@ -93,8 +92,7 @@ enum PeerRoute: Hashable, CustomStringConvertible {
 /// sending side: after `failureThreshold` failures inside `windowSeconds`,
 /// further attempts over that route fail fast until the window slides forward.
 /// A success clears the history immediately, so transient hiccups don't
-/// permanently inflate the counter. Keyed per route, so a network that's down
-/// can't throttle the Bluetooth fallback.
+/// permanently inflate the counter. Keyed per route.
 ///
 /// Lives as a singleton because `OutgoingConnection` instances are
 /// short-lived (one per command); we need the counter to survive across
@@ -148,8 +146,8 @@ final class OutgoingConnection {
   // MARK: - Constants
 
   private static let connectionTimeout: TimeInterval = 5
-  /// A Bluetooth route adds a GATT connect, service discovery, and a
-  /// subscription before the handshake can start.
+  /// Covers a GATT connect, service discovery, and subscription as well as the
+  /// handshake.
   private static let bluetoothConnectionTimeout: TimeInterval = 10
   /// Upper bound on `body` execution after the handshake completes.
   /// Receivers that don't respond (or peers that don't recognize a newer
@@ -257,8 +255,8 @@ final class OutgoingConnection {
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     attempt = index
-    // Only until the handshake lands: past that the request may have reached
-    // the peer, so a dropped transport surfaces through `body` instead.
+    // Only until the handshake lands; after that a dropped transport surfaces
+    // through `body`.
     let failed: (OutgoingFailure) -> Void = { [weak self] failure in
       guard let self = self, self.attempt == index, self.route == nil, !self.finished else {
         return

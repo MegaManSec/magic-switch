@@ -105,8 +105,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private static let introducedDeviceTTL: TimeInterval = 2.5 * reachabilityInterval
 
   /// The `BLETransport` peripheral each peer Mac proved itself on, by device
-  /// id. Runtime only: a Mac's Bluetooth address rotates, so the mapping is
-  /// relearned from each rescan rather than persisted. Main-only.
+  /// id. Runtime only, relearned from each rescan. Main-only.
   private var bluetoothPeers: [String: UUID] = [:]
   /// Peripherals with an identifying INTRODUCE in flight, and when each one
   /// that failed last did. Main-only.
@@ -302,8 +301,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// Files an INTRODUCE reply by the route that carried it. A network reply
   /// may relocate the peer's endpoint (`ingestIntroducedPeer`); a Bluetooth one
-  /// says nothing about where the peer listens, so it only records which
-  /// peripheral it answered on.
+  /// only records which peripheral it answered on.
   private func ingestIntroduction(
     _ identity: IntroducedIdentity, provedFingerprint: String, over route: PeerRoute
   ) {
@@ -348,9 +346,9 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// `BLETransport` found a peripheral advertising this pairing's service.
   /// Only a handshake can say which Mac it is, so INTRODUCE over it — unless
-  /// it's already identified as a Mac still listed here. Anything in range can
-  /// advertise the UUID, so identifications are capped and a peripheral that
-  /// failed one waits out `bluetoothProbeBackoff`.
+  /// it's already identified as a Mac still listed here. Identifications are
+  /// capped, and a peripheral that failed one waits out
+  /// `bluetoothProbeBackoff`.
   private func identifyBluetoothPeer(_ peripheral: UUID) {
     let listed = bluetoothPeers.contains { name, mapped in
       mapped == peripheral
@@ -400,7 +398,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   /// Just `device`'s TCP endpoint. For probes that must prove that endpoint
-  /// specifically, where a Bluetooth fallback would prove nothing.
+  /// specifically.
   private static func networkRoutes(to device: NetworkDevice) -> [PeerRoute] {
     device.networkRoute.map { [$0] } ?? []
   }
