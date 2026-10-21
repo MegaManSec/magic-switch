@@ -367,7 +367,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           self.bluetoothProbeFailures.removeValue(forKey: peripheral)
           self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
           if let device = self.networkDevices.first(where: { $0.id == identity.name }),
-            !self.isReachable(device.id)
+            self.isProbeEligible(device), !self.isReachable(device.id)
           {
             self.probeReachability(of: device)
           }
@@ -707,13 +707,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // unclaimed for ~a minute. Guard `isPaired` so the probe can't book a
     // spurious `.notPaired` failure into the streak.
     if !isActive, PairingStore.shared.isPaired,
-      let device = networkDevices.first(where: {
-        // Same probe-eligibility rule as `pollReachability`, including the
-        // parked-but-current self-heal exception.
-        $0.id == id
-          && ($0.pendingFingerprint == nil
-            || $0.pendingFingerprint == PairingStore.shared.fingerprint)
-      })
+      let device = networkDevices.first(where: { $0.id == id && isProbeEligible($0) })
     {
       probeReachability(of: device)
     }
@@ -778,12 +772,17 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     expireStaleIntroducedDevices()
     guard PairingStore.shared.isPaired else { return }
     BLETransport.shared.rescan()
-    let currentFingerprint = PairingStore.shared.fingerprint
-    for device in networkDevices
-    where device.pendingFingerprint == nil || device.pendingFingerprint == currentFingerprint {
+    for device in networkDevices where isProbeEligible(device) {
       probeReachability(of: device)
     }
     introduceToDiscoveredPeers()
+  }
+
+  /// The probe rule `pollReachability` explains: not parked behind an identity
+  /// mismatch, unless the pending fingerprint is this Mac's current key.
+  private func isProbeEligible(_ device: NetworkDevice) -> Bool {
+    device.pendingFingerprint == nil
+      || device.pendingFingerprint == PairingStore.shared.fingerprint
   }
 
   /// The one-sided self-heal: polling is driven by *registered* records, so
@@ -989,9 +988,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // key, the self-heal exception in `pollReachability`).
       guard PairingStore.shared.isPaired,
         let current = self.networkDevices.first(where: {
-          $0.id == device.id
-            && ($0.pendingFingerprint == nil
-              || $0.pendingFingerprint == PairingStore.shared.fingerprint)
+          $0.id == device.id && self.isProbeEligible($0)
         })
       else { return }
       self.probeReachability(of: current)
