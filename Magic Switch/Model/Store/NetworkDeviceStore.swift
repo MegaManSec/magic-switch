@@ -169,6 +169,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     bluetoothSettingObserver = BLETransport.shared.$isEnabled
       .removeDuplicates()
       .dropFirst()
+      .receive(on: DispatchQueue.main)
       .sink { [weak self] enabled in
         guard let self = self, !enabled else { return }
         self.bluetoothPeers.removeAll()
@@ -321,7 +322,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// that Mac through it, and list a Mac this one hasn't otherwise found —
   /// with no endpoint, as one only reachable over Bluetooth.
   private func ingestBluetoothPeer(name: String, peripheral: UUID, provedFingerprint: String) {
-    guard !isLocalName(name) else { return }
+    guard BLETransport.shared.isEnabled, !isLocalName(name) else { return }
     bluetoothPeers[name] = peripheral
     if !networkDevices.contains(where: { $0.id == name }) {
       if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == name }) {
@@ -361,6 +362,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       DispatchQueue.main.async {
         guard let self = self else { return }
         self.pendingBluetoothProbes.remove(peripheral)
+        guard BLETransport.shared.isEnabled else { return }
         guard case .success(.peer(let identity, let proved, let route)) = result else {
           self.bluetoothProbeFailures[peripheral] = Date()
           return
@@ -876,7 +878,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       guard !bluetoothStarted else { return }
       bluetoothStarted = true
       introduce(over: bluetooth) { reached in
-        overBluetooth = reached
+        overBluetooth = reached && BLETransport.shared.isEnabled
         settleIfDone()
       }
     }
