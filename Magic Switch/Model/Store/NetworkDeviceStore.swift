@@ -324,17 +324,15 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private func ingestBluetoothPeer(name: String, peripheral: UUID, provedFingerprint: String) {
     guard BLETransport.shared.isEnabled, !isLocalName(name) else { return }
     bluetoothPeers[name] = peripheral
-    if !networkDevices.contains(where: { $0.id == name }) {
-      if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == name }) {
-        let known = discoveredNetworkDevices[index]
-        discoveredNetworkDevices[index].update(
-          with: NetworkDevice(
-            id: name, name: name, host: known.host, port: known.port,
-            fingerprint: provedFingerprint))
-      } else {
-        discoveredNetworkDevices.append(
-          NetworkDevice(id: name, name: name, host: "", port: 0, fingerprint: provedFingerprint))
-      }
+    if let index = discoveredNetworkDevices.firstIndex(where: { $0.id == name }) {
+      let known = discoveredNetworkDevices[index]
+      discoveredNetworkDevices[index].update(
+        with: NetworkDevice(
+          id: name, name: name, host: known.host, port: known.port,
+          fingerprint: provedFingerprint))
+    } else {
+      discoveredNetworkDevices.append(
+        NetworkDevice(id: name, name: name, host: "", port: 0, fingerprint: provedFingerprint))
     }
     resolvePendingFingerprint(provedByHandshake: provedFingerprint)
   }
@@ -348,7 +346,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     let listed = bluetoothPeers.contains { name, mapped in
       mapped == peripheral
         && (networkDevices.contains { $0.id == name }
-          || discoveredNetworkDevices.contains { $0.id == name })
+          || discoveredNetworkDevices.contains { $0.id == name && $0.isActive })
     }
     let backedOff = bluetoothProbeFailures[peripheral].map {
       Date().timeIntervalSince($0) < Self.bluetoothProbeBackoff
@@ -651,6 +649,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// when the discovered list goes stale (network change, sleep/wake).
   func refreshDiscovery() {
     discoveredNetworkDevices = []
+    bluetoothProbeFailures.removeAll()
     serviceBrowser.refresh()
     // Introduced entries only repopulate via an exchange; kick one now.
     pollReachability()
