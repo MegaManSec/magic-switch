@@ -213,7 +213,7 @@ private struct GenerateCodeSheet: View {
         saveState = .saved
       case .failure:
         saveState = .failed
-        errorMessage = "Failed to save pairing key."
+        errorMessage = String(localized: "Failed to save pairing key.")
       }
     }
   }
@@ -320,7 +320,7 @@ private struct EnterCodeSheet: View {
   private func startPair() {
     let normalized = PairingStore.normalize(input)
     guard PairingStore.isValid(normalized) else {
-      errorMessage = "Code must be 12 characters from the pairing alphabet."
+      errorMessage = String(localized: "Code must be 12 characters from the pairing alphabet.")
       return
     }
     isPairing = true
@@ -333,11 +333,12 @@ private struct EnterCodeSheet: View {
       case .failure(let err):
         switch err {
         case .invalidCode:
-          errorMessage = "Invalid code."
+          errorMessage = String(localized: "Invalid code.")
         case .derivationFailed:
-          errorMessage = "Couldn't derive a key from that code."
+          errorMessage = String(localized: "Couldn't derive a key from that code.")
         case .keychainFailed(let status):
-          errorMessage = "Couldn't save the key to the keychain (error \(status))."
+          errorMessage = String(
+            localized: "Couldn't save the key to the keychain (error \(status)).")
         }
       }
     }

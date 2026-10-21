@@ -756,11 +756,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       clearIntentionalRelease(peripheral.id)
       Log.bluetooth.error(
         "Failed to release \(peripheral.name): closeConnection returned \(result)")
-      setPeripheralError("Couldn't release.", for: peripheral.id)
+      setPeripheralError(String(localized: "Couldn't release."), for: peripheral.id)
       NotificationManager.showNotification(
-        title: "Couldn't Release Peripheral",
+        title: String(localized: "Couldn't Release Peripheral"),
         body:
-          "Magic Switch couldn't release \(peripheral.name) from this Mac. Try Forget This Device in System Settings → Bluetooth.",
+          String(
+            localized:
+              "Magic Switch couldn't release \(peripheral.name) from this Mac. Try Forget This Device in System Settings → Bluetooth."
+          ),
         identifier: "unregister-failed-\(peripheral.id)"
       )
     }
@@ -811,8 +814,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // collapses a multi-peripheral command into one notification.
       guard canSwitch else {
         NotificationManager.showNotification(
-          title: "Can't Switch",
-          body: "The other Mac isn't reachable — keeping peripherals on this Mac.",
+          title: String(localized: "Can't Switch"),
+          body: String(
+            localized: "The other Mac isn't reachable — keeping peripherals on this Mac."),
           identifier: "switch-no-peer"
         )
         return
@@ -854,9 +858,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // Standing the watcher down leaves nothing to re-pair a bond this attempt
     // already removed, so that has to be said rather than retried.
     if consumeBondAwaitingRepair(id) {
-      setPeripheralError("Pairing reset.", for: id)
+      setPeripheralError(String(localized: "Pairing reset."), for: id)
       NotificationManager.showNotification(
-        title: "Pairing Was Reset",
+        title: String(localized: "Pairing Was Reset"),
         body: Self.bondResetBody(peripheral.name),
         identifier: "pair-failed-\(id)"
       )
@@ -935,11 +939,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // where the peer released but the ack was lost.
           self.setConnectionState(.disconnected, for: peripheral.id)
           self.armReconnect(peripheral.id)
-          self.setPeripheralError("Switch failed.", for: peripheral.id)
+          self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
-            title: "Couldn't Switch",
+            title: String(localized: "Couldn't Switch"),
             body:
-              "Couldn't ask \(device.name) to release \(peripheral.name): \(err.userMessage)",
+              String(
+                localized:
+                  "Couldn't ask \(device.name) to release \(peripheral.name): \(err.userMessage)"),
             identifier: "take-failed-\(peripheral.id)"
           )
         }
@@ -986,11 +992,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         case .failure(let err):
           // Peer unreachable — nothing released, peripheral stays on this Mac.
           self.setConnectionState(.connected, for: peripheral.id)
-          self.setPeripheralError("Other Mac unreachable.", for: peripheral.id)
+          self.setPeripheralError(String(localized: "Other Mac unreachable."), for: peripheral.id)
           NotificationManager.showNotification(
-            title: "Switch Cancelled",
+            title: String(localized: "Switch Cancelled"),
             body:
-              "Couldn't reach \(device.name) (\(err.userMessage)) — keeping \(peripheral.name) on this Mac.",
+              String(
+                localized:
+                  "Couldn't reach \(device.name) (\(err.userMessage)) — keeping \(peripheral.name) on this Mac."
+              ),
             identifier: "send-preflight-failed-\(peripheral.id)"
           )
         case .success:
@@ -1028,10 +1037,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // It never disconnected, so it's still on this Mac — drop back to
         // connected rather than leave it stuck "Releasing…".
         self.setConnectionState(.connected, for: peripheral.id)
-        self.setPeripheralError("Didn't disconnect.", for: peripheral.id)
+        self.setPeripheralError(String(localized: "Didn't disconnect."), for: peripheral.id)
         NotificationManager.showNotification(
-          title: "Couldn't Switch",
-          body: "\(peripheral.name) didn't disconnect from this Mac.",
+          title: String(localized: "Couldn't Switch"),
+          body: String(localized: "\(peripheral.name) didn't disconnect from this Mac."),
           identifier: "send-disconnect-failed-\(peripheral.id)"
         )
         return
@@ -1052,8 +1061,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.connectPeripheral(peripheral)
           self.armReconnect(peripheral.id)
           NotificationManager.showNotification(
-            title: "Couldn't Switch",
-            body: "Couldn't hand \(peripheral.name) to \(device.name); keeping it on this Mac.",
+            title: String(localized: "Couldn't Switch"),
+            body: String(
+              localized:
+                "Couldn't hand \(peripheral.name) to \(device.name); keeping it on this Mac."),
             identifier: "send-connect-failed-\(peripheral.id)"
           )
         case .failure(let err):
@@ -1066,11 +1077,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // where it ended up; clear the "Releasing…" row.
           self.setConnectionState(.disconnected, for: peripheral.id)
           self.armReconnect(peripheral.id)
-          self.setPeripheralError("Handoff failed.", for: peripheral.id)
+          self.setPeripheralError(String(localized: "Handoff failed."), for: peripheral.id)
           NotificationManager.showNotification(
-            title: "Couldn't Switch",
+            title: String(localized: "Couldn't Switch"),
             body:
-              "Couldn't hand \(peripheral.name) to \(device.name): \(err.userMessage)",
+              String(
+                localized: "Couldn't hand \(peripheral.name) to \(device.name): \(err.userMessage)"),
             identifier: "send-connect-failed-\(peripheral.id)"
           )
         }
@@ -1213,10 +1225,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         Log.bluetooth.error("\(peripheral.name) not found")
         self.failConnectAttempt(
           id: peripheral.id, name: peripheral.name,
-          inline: "Not found.",
-          notifyTitle: "Couldn't Connect",
+          inline: String(localized: "Not found."),
+          notifyTitle: String(localized: "Couldn't Connect"),
           notifyBody:
-            "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first.",
+            String(
+              localized:
+                "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first."
+            ),
           attempt: attempt
         )
         return
@@ -1229,7 +1244,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // out per row.
         self.failConnectAttempt(
           id: peripheral.id, name: peripheral.name,
-          inline: "Bluetooth is off.",
+          inline: String(localized: "Bluetooth is off."),
           notifyBody: "", notify: false,
           attempt: attempt
         )
@@ -1274,10 +1289,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // happened.
           self.failConnectAttempt(
             id: peripheral.id, name: peripheral.name,
-            inline: "Couldn't connect.",
-            notifyTitle: "Couldn't Connect",
+            inline: String(localized: "Couldn't connect."),
+            notifyTitle: String(localized: "Couldn't Connect"),
             notifyBody:
-              "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac.",
+              String(
+                localized:
+                  "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac."
+              ),
             attempt: attempt
           )
           return
@@ -1318,10 +1336,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       Log.bluetooth.notice("\(peripheral.name) is out of range or not responding")
       failConnectAttempt(
         id: peripheral.id, name: peripheral.name,
-        inline: "Not responding.",
-        notifyTitle: "Couldn't Connect",
+        inline: String(localized: "Not responding."),
+        notifyTitle: String(localized: "Couldn't Connect"),
         notifyBody:
-          "\(peripheral.name) isn't responding. It may be off, out of range, or connected to your other Mac.",
+          String(
+            localized:
+              "\(peripheral.name) isn't responding. It may be off, out of range, or connected to your other Mac."
+          ),
         attempt: attempt
       )
       return
@@ -1331,9 +1352,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       Log.bluetooth.error("Failed to initialize pairing for \(peripheral.name)")
       failConnectAttempt(
         id: peripheral.id, name: peripheral.name,
-        inline: "Pairing failed.",
+        inline: String(localized: "Pairing failed."),
         notifyBody:
-          "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again.",
+          String(
+            localized:
+              "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again."),
         attempt: attempt
       )
       return
@@ -1370,9 +1393,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
       failConnectAttempt(
         id: peripheral.id, name: peripheral.name,
-        inline: "Pairing failed.",
+        inline: String(localized: "Pairing failed."),
         notifyBody:
-          "Couldn't start pairing with \(peripheral.name) (error \(pairResult)). Turn it off and on, then try again.",
+          String(
+            localized:
+              "Couldn't start pairing with \(peripheral.name) (error \(pairResult)). Turn it off and on, then try again."
+          ),
         attempt: attempt
       )
     }
@@ -1649,8 +1675,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         let name = device.name ?? address
         self.failConnectAttempt(
           id: address, name: name,
-          inline: "Pairing failed.",
-          notifyBody: "Couldn't pair \(name). Turn it off and on, then try switching again.",
+          inline: String(localized: "Pairing failed."),
+          notifyBody: String(
+            localized: "Couldn't pair \(name). Turn it off and on, then try switching again."),
           attempt: attempt
         )
         return
@@ -1680,10 +1707,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           let name = device.name ?? address
           self.failConnectAttempt(
             id: address, name: name,
-            inline: "Couldn't connect.",
-            notifyTitle: "Couldn't Connect",
+            inline: String(localized: "Couldn't connect."),
+            notifyTitle: String(localized: "Couldn't Connect"),
             notifyBody:
-              "Paired \(name), but couldn't open a connection (error \(openResult)). Try turning it off and on.",
+              String(
+                localized:
+                  "Paired \(name), but couldn't open a connection (error \(openResult)). Try turning it off and on."
+              ),
             attempt: attempt
           )
         }
@@ -1853,7 +1883,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// the guard is a choice, not an accident).
   private func failConnectAttempt(
     id: String, name: String, inline: String,
-    notifyTitle: String = "Pairing Failed", notifyBody: String, notify: Bool = true,
+    notifyTitle: String = String(localized: "Pairing Failed"), notifyBody: String,
+    notify: Bool = true,
     attempt: UInt64?
   ) {
     DispatchQueue.main.async {
@@ -1872,7 +1903,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let bondWasReset = self.consumeBondAwaitingRepair(id)
       self.setConnectionState(.disconnected, for: id)
       guard announce || bondWasReset else { return }
-      self.setPeripheralError(bondWasReset ? "Pairing reset." : inline, for: id)
+      self.setPeripheralError(bondWasReset ? String(localized: "Pairing reset.") : inline, for: id)
       // An armed watcher means this failure isn't the end of the attempt:
       // the watcher keeps probing (a just-released Magic device routinely
       // misses the first RSSI probe and comes up on a retry seconds later),
@@ -1882,7 +1913,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // no retry pending stays loud.
       guard notify, bondWasReset || self.reconnectWatchlist[id] == nil else { return }
       NotificationManager.showNotification(
-        title: bondWasReset ? "Pairing Was Reset" : notifyTitle,
+        title: bondWasReset ? String(localized: "Pairing Was Reset") : notifyTitle,
         body: bondWasReset ? Self.bondResetBody(name) : notifyBody,
         identifier: "pair-failed-\(id)"
       )
@@ -1892,9 +1923,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Body for the one failure the user has to act on themselves: the local
   /// bond was torn down for a re-pair that then didn't happen.
   private static func bondResetBody(_ name: String) -> String {
-    "Magic Switch reset this Mac's pairing for \(name) and couldn't pair it again. "
-      + "Turn \(name) off and on — if it doesn't come back, pair it again in "
-      + "System Settings → Bluetooth."
+    String(
+      localized:
+        "Magic Switch reset this Mac's pairing for \(name) and couldn't pair it again. Turn \(name) off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+    )
   }
 
   /// Mints the token identifying one connect attempt and records it as `id`'s
@@ -2005,17 +2037,23 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // Inline first, like every other announced failure — the notification
     // below may be denied, and without this the row just quietly unsticks
     // after 60s as if nothing was ever tried.
-    setPeripheralError(bondWasReset ? "Pairing reset." : "Pairing timed out.", for: address)
+    setPeripheralError(
+      bondWasReset ? String(localized: "Pairing reset.") : String(localized: "Pairing timed out."),
+      for: address)
     // Same watcher-aware gate as `failConnectAttempt`: with silent retries
     // still pending, the timeout is an interim state, not the outcome — a
     // blind takeover pair against a device that's simply off would otherwise
     // ride the watchdog into a loud notification on every attempt.
     guard bondWasReset || reconnectWatchlist[address] == nil else { return }
     NotificationManager.showNotification(
-      title: bondWasReset ? "Pairing Was Reset" : "Pairing Timed Out",
+      title: bondWasReset
+        ? String(localized: "Pairing Was Reset") : String(localized: "Pairing Timed Out"),
       body: bondWasReset
         ? Self.bondResetBody(name)
-        : "Couldn't pair \(name). It may currently be connected to your other Mac — try the menu-bar switch action instead.",
+        : String(
+          localized:
+            "Couldn't pair \(name). It may currently be connected to your other Mac — try the menu-bar switch action instead."
+        ),
       identifier: bondWasReset ? "pair-failed-\(address)" : "pair-timeout-\(address)"
     )
   }

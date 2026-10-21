@@ -186,14 +186,14 @@ final class DropdownContentView: NSView {
 
     let macs = networkStore.networkDevices
     if !macs.isEmpty {
-      stack.addArrangedSubview(makeSectionHeader("Macs"))
+      stack.addArrangedSubview(makeSectionHeader(String(localized: "Macs")))
       for device in macs { stack.addArrangedSubview(makeMacRow(device)) }
       stack.addArrangedSubview(makeDivider())
     }
 
     let peripherals = bluetoothStore.peripherals
     if !peripherals.isEmpty {
-      stack.addArrangedSubview(makeSectionHeader("Peripherals"))
+      stack.addArrangedSubview(makeSectionHeader(String(localized: "Peripherals")))
       var previousRow: NSView?
       for peripheral in peripherals {
         let row = makePeripheralRow(peripheral)
@@ -217,14 +217,14 @@ final class DropdownContentView: NSView {
     if let last = stack.arrangedSubviews.last {
       stack.setCustomSpacing(stack.spacing + 1, after: last)
     }
-    let settingsRow = makeActionRow(title: "Settings…") { [weak self] in
+    let settingsRow = makeActionRow(title: String(localized: "Settings…")) { [weak self] in
       self?.dismissThen { self?.onOpenSettings() }
     }
     stack.addArrangedSubview(settingsRow)
     // Sit Quit flush against Settings, like consecutive peripheral rows.
     stack.setCustomSpacing(0, after: settingsRow)
     stack.addArrangedSubview(
-      makeActionRow(title: "Quit") { [weak self] in
+      makeActionRow(title: String(localized: "Quit")) { [weak self] in
         self?.dismissThen { self?.onQuit() }
       })
 
@@ -306,9 +306,10 @@ final class DropdownContentView: NSView {
     row.toolTip =
       reachable
       ? (busy
-        ? "Finish the peripheral that's currently switching before switching them all."
-        : "Switch peripherals between this Mac and \(device.name).")
-      : "\(device.name) isn't reachable on the network right now."
+        ? String(
+          localized: "Finish the peripheral that's currently switching before switching them all.")
+        : String(localized: "Switch peripherals between this Mac and \(device.name)."))
+      : String(localized: "\(device.name) isn't reachable on the network right now.")
     row.setAccessibilityLabel(device.name)
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
@@ -370,9 +371,9 @@ final class DropdownContentView: NSView {
       }
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
-      top.addArrangedSubview(caption("Pairing…", color: .secondaryLabelColor))
+      top.addArrangedSubview(caption(String(localized: "Pairing…"), color: .secondaryLabelColor))
     case .releasing:
-      top.addArrangedSubview(caption("Releasing…", color: .secondaryLabelColor))
+      top.addArrangedSubview(caption(String(localized: "Releasing…"), color: .secondaryLabelColor))
     case .disconnected:
       break
     }
@@ -397,31 +398,39 @@ final class DropdownContentView: NSView {
 
     switch state {
     case .connecting:
-      row.toolTip = "Pairing \(peripheral.name)… Click to cancel."
+      row.toolTip = String(localized: "Pairing \(peripheral.name)… Click to cancel.")
     case .releasing:
-      row.toolTip = "Releasing \(peripheral.name) to the other Mac…"
+      row.toolTip = String(localized: "Releasing \(peripheral.name) to the other Mac…")
     case .connected:
       row.toolTip =
         canSwitch
-        ? "On this Mac — click to hand \(peripheral.name) to the other Mac."
-        : "On this Mac. No other Mac is reachable to hand it to."
+        ? String(localized: "On this Mac — click to hand \(peripheral.name) to the other Mac.")
+        : String(localized: "On this Mac. No other Mac is reachable to hand it to.")
     case .disconnected:
       row.toolTip =
         canSwitch
-        ? "Click to bring \(peripheral.name) to this Mac."
-        : "Click to connect \(peripheral.name) to this Mac over Bluetooth."
+        ? String(localized: "Click to bring \(peripheral.name) to this Mac.")
+        : String(localized: "Click to connect \(peripheral.name) to this Mac over Bluetooth.")
     }
-    let stateSuffix: String
+    // Each variant is one whole localized sentence, so translators control
+    // the word order and punctuation instead of getting English fragments.
+    let stateLabel: String
     switch state {
-    case .connected: stateSuffix = ", on this Mac" + (battery.map { ", battery \($0)%" } ?? "")
-    case .connecting: stateSuffix = ", pairing"
-    case .releasing: stateSuffix = ", releasing"
-    case .disconnected: stateSuffix = ""
+    case .connected:
+      if let battery {
+        stateLabel = String(localized: "\(peripheral.name), on this Mac, battery \(battery)%")
+      } else {
+        stateLabel = String(localized: "\(peripheral.name), on this Mac")
+      }
+    case .connecting: stateLabel = String(localized: "\(peripheral.name), pairing")
+    case .releasing: stateLabel = String(localized: "\(peripheral.name), releasing")
+    case .disconnected: stateLabel = peripheral.name
     }
-    let errorSuffix =
-      bluetoothStore.peripheralOperationError[peripheral.id]
-      .map { ", error: \($0)" } ?? ""
-    row.setAccessibilityLabel(peripheral.name + stateSuffix + errorSuffix)
+    if let error = bluetoothStore.peripheralOperationError[peripheral.id] {
+      row.setAccessibilityLabel(String(localized: "\(stateLabel), error: \(error)"))
+    } else {
+      row.setAccessibilityLabel(stateLabel)
+    }
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: column)
   }
@@ -453,10 +462,12 @@ final class DropdownContentView: NSView {
     content.spacing = 8
     content.alignment = .centerY
     content.addArrangedSubview(symbolView("arrow.down.circle.fill", color: .controlAccentColor))
-    content.addArrangedSubview(textLabel("Update Available: v\(latest)", color: .labelColor))
+    content.addArrangedSubview(
+      textLabel(String(localized: "Update Available — v\(latest)"), color: .labelColor))
     content.addArrangedSubview(spacer())
-    row.toolTip = "A newer version of Magic Switch is available. Opens the release page."
-    row.setAccessibilityLabel("Update available: version \(latest)")
+    row.toolTip = String(
+      localized: "A newer version of Magic Switch is available. Opens the release page.")
+    row.setAccessibilityLabel(String(localized: "Update available: version \(latest)"))
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }

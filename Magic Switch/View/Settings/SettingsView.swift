@@ -7,10 +7,14 @@ struct SettingsView: View {
   /// Constants for tab items configuration
   private enum TabItem {
     /// Configuration for each tab
-    static let devices = (image: "keyboard", text: "Peripheral")
-    static let mac = (image: "desktopcomputer", text: "Macs")
-    static let pairing = (image: "lock.shield", text: "Pairing")
-    static let other = (image: "ellipsis.circle", text: "Other")
+    static let devices = (image: "keyboard", text: String(localized: "Peripherals"))
+    static let mac = (image: "desktopcomputer", text: String(localized: "Macs"))
+    static let pairing = (image: "lock.shield", text: String(localized: "Pairing"))
+    static let other = (
+      image: "ellipsis.circle",
+      text: String(
+        localized: "Other", comment: "Settings tab title: other settings (plural noun phrase)")
+    )
   }
 
   // MARK: - Properties

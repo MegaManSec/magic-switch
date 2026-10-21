@@ -47,7 +47,10 @@ final class AdvertisingDiagnostics: ObservableObject {
 
   func serviceSearchFailed() {
     reportSearch(
-      "This Mac couldn't search the network for other Macs. Use Add by Address if your other Mac doesn't appear."
+      String(
+        localized:
+          "This Mac couldn't search the network for other Macs. Use Add by Address if your other Mac doesn't appear."
+      )
     )
   }
 
@@ -107,12 +110,17 @@ final class AdvertisingDiagnostics: ObservableObject {
   }
 
   private static func notAdvertisingMessage() -> String {
-    let cause =
-      advertisingDisabledByPolicy()
-      ? "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements)"
-      : "This Mac's Bonjour advertisements aren't reaching the network"
-    return
-      "\(cause), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac."
+    // One whole sentence per cause, so translators never see a fragment.
+    if advertisingDisabledByPolicy() {
+      return String(
+        localized:
+          "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac."
+      )
+    }
+    return String(
+      localized:
+        "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac."
+    )
   }
 
   /// Best-effort: the sandbox usually denies this read, and the generic

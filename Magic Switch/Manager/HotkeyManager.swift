@@ -22,7 +22,18 @@ struct HotkeyShortcut: Codable, Equatable {
     if modifiers.contains(.option) { parts += "⌥" }
     if modifiers.contains(.shift) { parts += "⇧" }
     if modifiers.contains(.command) { parts += "⌘" }
-    return parts + keyDisplay
+    return parts + localizedKeyDisplay
+  }
+
+  /// `keyDisplay` is persisted as captured (English), so it is translated at
+  /// render time: only the named key "Space" and the "Key N" fallback for a
+  /// key with no glyph are words; the rest are glyphs, letters or "F5".
+  private var localizedKeyDisplay: String {
+    if keyDisplay == "Space" { return String(localized: "Space") }
+    if keyDisplay.hasPrefix("Key "), let code = Int(keyDisplay.dropFirst(4)) {
+      return String(localized: "Key \(code)")
+    }
+    return keyDisplay
   }
 
   /// The same modifiers in Carbon's bit layout, for `RegisterEventHotKey`.

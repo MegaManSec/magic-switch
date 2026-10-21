@@ -99,13 +99,15 @@ enum PeripheralType: String, Codable, CaseIterable {
   /// Title shown in the manual picker.
   var label: String {
     switch self {
-    case .keyboard: return "Keyboard"
-    case .mouse: return "Mouse"
-    case .trackpad: return "Trackpad"
-    case .headphones: return "Headphones"
+    case .keyboard: return String(localized: "Keyboard")
+    case .mouse: return String(localized: "Mouse")
+    case .trackpad: return String(localized: "Trackpad")
+    case .headphones: return String(localized: "Headphones")
     case .airpods: return "AirPods"
-    case .microphone: return "Microphone"
-    case .unknown: return "Other"
+    case .microphone: return String(localized: "Microphone")
+    case .unknown:
+      return String(
+        localized: "Other", comment: "Peripheral type: any other kind of peripheral (singular)")
     }
   }
 

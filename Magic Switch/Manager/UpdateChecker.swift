@@ -230,9 +230,11 @@ final class UpdateChecker: ObservableObject {
       UserDefaults.standard.string(forKey: Constants.notifiedVersionKey) != latest
     else { return }
     NotificationManager.showNotification(
-      title: "Update Available",
-      body:
-        "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the download page.",
+      title: String(localized: "Update Available"),
+      body: String(
+        localized:
+          "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the release page."
+      ),
       identifier: Constants.updateNotificationID
     ) { error in
       guard error == nil else { return }

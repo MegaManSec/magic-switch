@@ -54,21 +54,30 @@ struct OtherSettingsView: View {
       Section(header: Text("Keyboard shortcuts")) {
         ShortcutRecorderRow(
           direction: .send,
-          title: "Send peripherals to the other Mac",
+          title: String(localized: "Send peripherals to the other Mac"),
           help:
-            "Press anywhere in macOS to hand every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
+            String(
+              localized:
+                "Press anywhere in macOS to hand every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
+            )
         )
         ShortcutRecorderRow(
           direction: .take,
-          title: "Take peripherals to this Mac",
+          title: String(localized: "Take peripherals to this Mac"),
           help:
-            "Press anywhere in macOS to bring every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
+            String(
+              localized:
+                "Press anywhere in macOS to bring every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
+            )
         )
         ShortcutRecorderRow(
           direction: .toggle,
-          title: "Toggle peripherals between Macs",
+          title: String(localized: "Toggle peripherals between Macs"),
           help:
-            "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back."
+            String(
+              localized:
+                "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back."
+            )
         )
       }
       Section {
@@ -98,15 +107,18 @@ struct OtherSettingsView: View {
       }
       Section(header: Text("About")) {
         SettingsRowView(
-          title: "License Information",
-          help: "Open the project license in your browser.",
+          title: String(localized: "License Information"),
+          help: String(localized: "Open the project license in your browser."),
           action: showLicenseInfo
         )
         if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
           SettingsRowView(
-            title: "Update Available — v\(latest)",
+            title: String(localized: "Update Available — v\(latest)"),
             help:
-              "A newer version of Magic Switch is available. Opens the release page in your browser.",
+              String(
+                localized:
+                  "A newer version of Magic Switch is available. Opens the release page in your browser."
+              ),
             action: openLatestRelease
           )
         }
@@ -137,8 +149,10 @@ struct OtherSettingsView: View {
             updateStatus
           }
           SettingsRowView(
-            title: "Sponsor on GitHub",
-            help: "Support Magic Switch's development. Opens GitHub Sponsors in your browser.",
+            title: String(localized: "Sponsor on GitHub"),
+            help: String(
+              localized:
+                "Support Magic Switch's development. Opens GitHub Sponsors in your browser."),
             action: openSponsorPage
           )
         #endif
@@ -349,9 +363,11 @@ private struct ShortcutRecorderRow: View {
         .help(help)
         .accessibilityLabel(
           isRecording
-            ? "Recording shortcut for \(title)"
-            : shortcut.map { "Change shortcut for \(title), currently \($0.displayString)" }
-              ?? "Record shortcut for \(title)")
+            ? String(localized: "Recording shortcut for \(title)")
+            : shortcut.map {
+              String(localized: "Change shortcut for \(title), currently \($0.displayString)")
+            }
+              ?? String(localized: "Record shortcut for \(title)"))
       }
       if isRecording {
         Text("Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut.")

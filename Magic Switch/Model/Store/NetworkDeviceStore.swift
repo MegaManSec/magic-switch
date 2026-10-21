@@ -225,9 +225,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         prior != incoming
       {
         NotificationManager.showNotification(
-          title: "Identity Mismatch",
+          title: String(localized: "Identity Mismatch"),
           body:
-            "\(device.name) is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself.",
+            String(
+              localized:
+                "\(device.name) is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself."
+            ),
           identifier: "identity-mismatch-\(device.id)"
         )
       }
@@ -371,9 +374,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     Log.network.notice(
       "Migrated registered Mac \"\(old.name)\" -> \"\(discovered.name)\" (proved the pairing key)")
     NotificationManager.showNotification(
-      title: "Registered Mac Renamed",
+      title: String(localized: "Registered Mac Renamed"),
       body:
-        "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed.",
+        String(
+          localized:
+            "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed."
+        ),
       identifier: "peer-renamed-\(discovered.id)"
     )
   }
@@ -482,9 +488,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
       )
       NotificationManager.showNotification(
-        title: "Identity Mismatch Resolved",
+        title: String(localized: "Identity Mismatch Resolved"),
         body:
-          "\(networkDevices[index].name) proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code.",
+          String(
+            localized:
+              "\(networkDevices[index].name) proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code."
+          ),
         identifier: "identity-mismatch-\(networkDevices[index].id)"
       )
     }
@@ -798,11 +807,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
 
     beginOperation(.ping, for: device.id)
-    let senderName = Host.current().localizedName ?? "another Mac"
+    let senderName = Host.current().localizedName ?? String(localized: "another Mac")
     // Put the sender's name in the title so the receiver's Notification
     // Center entry is informative at a glance.
-    let title = "Notification from \(senderName)"
-    let body = "Sent via Magic Switch."
+    let title = String(localized: "Notification from \(senderName)")
+    let body = String(localized: "Sent via Magic Switch.")
     sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
       DispatchQueue.main.async {
         self?.endOperation(for: device.id)
@@ -890,14 +899,17 @@ enum ManualAddError: Error {
   var userMessage: String {
     switch self {
     case .selfDial:
-      return "That address is this Mac."
+      return String(localized: "That address is this Mac.")
     case .legacyPeer:
       return
-        "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
+        String(
+          localized:
+            "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
+        )
     case .anotherMacRegistered(let name):
-      return "Only one Mac can be connected at a time. Remove \(name) first."
+      return String(localized: "Only one Mac can be connected at a time. Remove \(name) first.")
     case .listenerNotReady:
-      return "This Mac isn't accepting connections yet. Try again in a moment."
+      return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -908,7 +920,10 @@ enum ManualAddError: Error {
       // is indistinguishable here from a firewall drop, a dead host, or a
       // different service answering on the port.
       return
-        "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port."
+        String(
+          localized:
+            "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port."
+        )
     case .outgoing(let failure):
       return failure.userMessage
     }

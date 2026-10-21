@@ -263,13 +263,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       }
     case .unauthorized:
       NotificationManager.showNotification(
-        title: "Bluetooth Permission Needed",
-        body: "Grant Bluetooth access in System Settings to use Magic Switch."
+        title: String(localized: "Bluetooth Permission Needed"),
+        body: String(localized: "Grant Bluetooth access in System Settings to use Magic Switch.")
       )
     case .unsupported:
       NotificationManager.showNotification(
-        title: "Bluetooth Unsupported",
-        body: "This Mac does not support the Bluetooth features Magic Switch needs."
+        title: String(localized: "Bluetooth Unsupported"),
+        body: String(
+          localized: "This Mac does not support the Bluetooth features Magic Switch needs.")
       )
     case .poweredOn:
       // The radio is back; retire a delivered "Bluetooth Off" alert.
@@ -330,8 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   private static func showBluetoothOffNotification() {
     NotificationManager.showNotification(
-      title: "Bluetooth Off",
-      body: "Magic Switch can't switch peripherals while Bluetooth is off.",
+      title: String(localized: "Bluetooth Off"),
+      body: String(localized: "Magic Switch can't switch peripherals while Bluetooth is off."),
       identifier: bluetoothOffNotificationID
     )
   }
@@ -365,11 +366,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     menu.addItem(item)
     if !DropdownContentView.hostsAppActions {
       let settingsItem = NSMenuItem(
-        title: "Settings…", action: #selector(openSettingsWindow(_:)), keyEquivalent: ",")
+        title: String(localized: "Settings…"), action: #selector(openSettingsWindow(_:)),
+        keyEquivalent: ",")
       settingsItem.target = self
       menu.addItem(settingsItem)
       let quitItem = NSMenuItem(
-        title: "Quit", action: #selector(quitFromStatusBar(_:)), keyEquivalent: "q")
+        title: String(localized: "Quit"), action: #selector(quitFromStatusBar(_:)),
+        keyEquivalent: "q")
       quitItem.target = self
       menu.addItem(quitItem)
     }
@@ -444,19 +447,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .sending:
       let img = NSImage(
         systemSymbolName: "arrow.up.right.circle.fill",
-        accessibilityDescription: "Sending peripherals to the other Mac")
+        accessibilityDescription: String(localized: "Sending peripherals to the other Mac"))
       img?.isTemplate = true
       button.image = img
-      button.toolTip = "Sending peripherals to the other Mac…"
+      button.toolTip = String(localized: "Sending peripherals to the other Mac…")
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
     case .receiving:
       let img = NSImage(
         systemSymbolName: "arrow.down.left.circle.fill",
-        accessibilityDescription: "Receiving peripherals from the other Mac")
+        accessibilityDescription: String(localized: "Receiving peripherals from the other Mac"))
       img?.isTemplate = true
       button.image = img
-      button.toolTip = "Receiving peripherals from the other Mac…"
+      button.toolTip = String(localized: "Receiving peripherals from the other Mac…")
       button.setAccessibilityLabel(button.toolTip ?? "")
       return
     case .idle:
@@ -467,7 +470,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     if needsAttention {
       let image = NSImage(
         systemSymbolName: "exclamationmark.triangle.fill",
-        accessibilityDescription: "Magic Switch needs attention")
+        accessibilityDescription: String(localized: "Magic Switch needs attention"))
       image?.isTemplate = true
       button.image = image
     } else if pingFlashTimer == nil {
@@ -571,23 +574,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   private func statusBarTooltip() -> String {
     if !PairingStore.shared.isPaired {
-      return "Magic Switch: not paired. Open Settings → Pairing."
+      return String(localized: "Magic Switch: not paired. Open Settings → Pairing.")
     }
     switch BluetoothManager.shared.state {
     case .poweredOff:
-      return "Magic Switch: Bluetooth is off."
+      return String(localized: "Magic Switch: Bluetooth is off.")
     case .unauthorized:
-      return "Magic Switch: Bluetooth permission denied."
+      return String(localized: "Magic Switch: Bluetooth permission denied.")
     case .unsupported:
-      return "Magic Switch: Bluetooth not supported on this Mac."
+      return String(localized: "Magic Switch: Bluetooth not supported on this Mac.")
     case .resetting:
-      return "Magic Switch: Bluetooth is resetting."
+      return String(localized: "Magic Switch: Bluetooth is resetting.")
     case .poweredOn, .unknown:
       switch bluetoothStore.peripheralPresence {
       case .connectedHere:
-        return "Magic Switch — peripherals connected to this Mac"
+        return String(localized: "Magic Switch: peripherals connected to this Mac")
       case .away:
-        return "Magic Switch — no peripherals connected to this Mac"
+        return String(localized: "Magic Switch: no peripherals connected to this Mac")
       case .none:
         return "Magic Switch"
       }
@@ -617,7 +620,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       // notification is the only feedback channel — same for resolution
       // failures below.
       NotificationManager.showNotification(
-        title: "Invalid Switch Command", body: error.message, identifier: "url-command-invalid")
+        title: String(localized: "Invalid Switch Command"), body: error.message,
+        identifier: "url-command-invalid")
       return
     }
     guard !command.selectors.isEmpty else {
@@ -629,7 +633,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       peripherals.forEach { bluetoothStore.switchPeripheral($0, direction: command.direction) }
     case .failure(let error):
       NotificationManager.showNotification(
-        title: "Invalid Switch Command", body: error.message, identifier: "url-command-invalid")
+        title: String(localized: "Invalid Switch Command"), body: error.message,
+        identifier: "url-command-invalid")
     }
   }
 
@@ -645,8 +650,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .send, .toggle:
       guard let device = networkStore.networkDevices.first else {
         NotificationManager.showNotification(
-          title: "Can't Switch",
-          body: "No Mac is registered — pick one in Settings → Macs.",
+          title: String(localized: "Can't Switch"),
+          body: String(localized: "No Mac is registered — pick one in Settings → Macs."),
           identifier: "url-command-no-device")
         return
       }
@@ -680,13 +685,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           }
         case .failure(let error):
           NotificationManager.showNotification(
-            title: "Error",
-            body: "Failed to communicate with device: \(error)"
+            title: String(localized: "Couldn't Reach Your Other Mac"),
+            body: String(localized: "Couldn't communicate with your other Mac: \(error)")
           )
         case .timeout:
           NotificationManager.showNotification(
-            title: "Error",
-            body: "No response from device. Please check if the app is running."
+            title: String(localized: "Couldn't Reach Your Other Mac"),
+            body: String(
+              localized: "Your other Mac didn't respond. Make sure Magic Switch is running on it.")
           )
         }
       }
@@ -711,9 +717,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       takeAllPeripherals(from: device)
     case .partial:
       NotificationManager.showNotification(
-        title: "Peripherals in mixed state",
-        body:
-          "Some peripherals are on this Mac, others aren't. Right-click the menu bar icon to switch each peripheral individually, then left-click to handle them all at once.",
+        title: String(localized: "Peripherals Split Between Macs"),
+        body: String(
+          localized:
+            "Some peripherals are on this Mac, others aren't. Right-click the menu bar icon to switch each peripheral individually, then left-click to handle them all at once."
+        ),
         identifier: "switch-mixed-state"
       )
     }
@@ -768,7 +776,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             self.bluetoothStore.armReconnectForTakeover(peripheral.id)
           }
           NotificationManager.showNotification(
-            title: "Switch Failed",
+            title: String(localized: "Switch Failed"),
             body: err.userMessage,
             identifier: "switch-disconnect-remote-failed"
           )
@@ -802,9 +810,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   private func handleTriggerDisplaysConnected(_ names: [String]) {
     takeAllPeripheralsIfAway {
       NotificationManager.showNotification(
-        title: "Display Connected",
-        body:
-          "\(names.joined(separator: ", ")) connected — switching your peripherals to this Mac.",
+        title: String(localized: "Display Connected"),
+        body: String(
+          localized:
+            "\(names.joined(separator: ", ")) connected — switching your peripherals to this Mac."),
         identifier: "display-trigger-switch"
       )
     }
@@ -883,8 +892,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         self.bluetoothStore.finishFullSetRelease(success: false)
         self.endTransfer()
         NotificationManager.showNotification(
-          title: "Switch Failed",
-          body: "Couldn't disconnect Bluetooth peripherals from this Mac.",
+          title: String(localized: "Switch Failed"),
+          body: String(localized: "Couldn't disconnect Bluetooth peripherals from this Mac."),
           identifier: "switch-disconnect-local-failed"
         )
         return
@@ -906,8 +915,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             }
             self.endTransfer()
             NotificationManager.showNotification(
-              title: "Switch Failed",
-              body: "\(err.userMessage) Peripherals reconnected to this Mac.",
+              title: String(localized: "Switch Failed"),
+              body: String(localized: "\(err.userMessage) Peripherals reconnected to this Mac."),
               identifier: "switch-connect-failed"
             )
           } else {
@@ -956,7 +965,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     guard transferState == .idle else { return }
     let flash = NSImage(
       systemSymbolName: "bell.badge.fill",
-      accessibilityDescription: "Received a ping from the other Mac"
+      accessibilityDescription: String(localized: "Received a ping from the other Mac")
     )
     flash?.isTemplate = true
     button.image = flash
@@ -1004,7 +1013,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       defer: false
     )
     window.center()
-    window.title = "Settings"
+    window.title = String(localized: "Settings")
     // Keep the window object around after the user closes it so re-opening
     // is just `makeKeyAndOrderFront`, not a full reconstruct.
     window.isReleasedWhenClosed = false
