@@ -114,9 +114,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private var bluetoothProbeFailures: [UUID: Date] = [:]
   private static let maxBluetoothProbes = 2
   private static let bluetoothProbeBackoff: TimeInterval = 2 * 60
+  /// How long a reachability probe waits on the network before also trying
+  /// Bluetooth.
+  private static let bluetoothProbeHeadStart: TimeInterval = 1
   /// Registered devices whose latest reachability probe only got through over
-  /// Bluetooth. Orders their routes (see `routes(for:networkFirst:)`) and
-  /// badges their rows.
+  /// Bluetooth. Orders their routes (see `routes(for:)`) and badges their rows.
   @Published private(set) var reachedOverBluetooth: Set<String> = []
   private var bluetoothSettingObserver: AnyCancellable?
 
@@ -376,19 +378,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// The routes to `device`, in dialing order: the network, then Bluetooth when
   /// it's enabled and the peer has proved itself there. A device whose latest
-  /// probe only got through over Bluetooth is dialed that way first, sparing a
-  /// command the network's connect timeout — except with `networkFirst`, which
-  /// the reachability probe uses so it notices the network coming back.
-  private func routes(for device: NetworkDevice, networkFirst: Bool = false) -> [PeerRoute] {
-    var routes = Self.networkRoutes(to: device)
-    if BLETransport.shared.isEnabled, let peripheral = bluetoothPeers[device.id] {
-      if !networkFirst, reachedOverBluetooth.contains(device.id) {
-        routes.insert(.bluetooth(peripheral), at: 0)
-      } else {
-        routes.append(.bluetooth(peripheral))
-      }
-    }
-    return routes
+  /// probe only got through over Bluetooth is dialed that way first.
+  private func routes(for device: NetworkDevice) -> [PeerRoute] {
+    let network = Self.networkRoutes(to: device)
+    let bluetooth = bluetoothRoutes(to: device)
+    return reachedOverBluetooth.contains(device.id) ? bluetooth + network : network + bluetooth
   }
 
   /// Just `device`'s TCP endpoint. For probes that must prove that endpoint
@@ -398,6 +392,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       return []
     }
     return [.network(host: device.host, port: port)]
+  }
+
+  /// The peripheral `device` proved itself on, while the transport is on.
+  private func bluetoothRoutes(to device: NetworkDevice) -> [PeerRoute] {
+    guard BLETransport.shared.isEnabled, let peripheral = bluetoothPeers[device.id] else {
+      return []
+    }
+    return [.bluetooth(peripheral)]
   }
 
   /// Whether `device` is reached over Bluetooth: a registered Mac whose latest
@@ -800,9 +802,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       && device.pendingFingerprint == nil
       && !localHosts.contains(Self.normalizeHost(device.host))
     {
-      executeIntroduce(
-        over: routes(for: device, networkFirst: true), countsTowardRateLimit: false
-      ) { [weak self] result in
+      executeIntroduce(over: routes(for: device), countsTowardRateLimit: false) {
+        [weak self] result in
         DispatchQueue.main.async {
           guard let self = self,
             case .success(.peer(let identity, let proved, let route)) = result
@@ -838,66 +839,102 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// tripping our own outbound limiter. Factored out of `pollReachability` so a
   /// single device can be re-probed off-cycle — by the fast confirming recheck
   /// below, and by a Bonjour withdraw — without waiting out the 30s interval.
+  /// Bluetooth is tried too once the network fails or has had
+  /// `bluetoothProbeHeadStart`, and counts only if the network fails. A peer
+  /// known only over Bluetooth isn't probed until a scan identifies it.
   private func probeReachability(of device: NetworkDevice) {
-    let routes = routes(for: device, networkFirst: true)
-    // A peer known only over Bluetooth has no route until a scan identifies
-    // it, which isn't a missed poll.
-    if routes.isEmpty, BLETransport.shared.mayReachPeers {
+    let network = Self.networkRoutes(to: device)
+    let bluetooth = bluetoothRoutes(to: device)
+    if network.isEmpty, bluetooth.isEmpty, BLETransport.shared.mayReachPeers {
       return
     }
-    executeIntroduce(over: routes, countsTowardRateLimit: false) { [weak self] result in
-      DispatchQueue.main.async {
-        guard let self = self else { return }
-        if case .success(.peer(let identity, let proved, let route)) = result {
-          self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
-        }
-        // `.legacy` still counts: the handshake completed.
-        let reachable: Bool
-        if case .success = result { reachable = true } else { reachable = false }
-        // Publish only on change — a steady-state poll would otherwise fire
-        // objectWillChange every interval and needlessly re-render observers.
-        if self.deviceReachability[device.id] != reachable {
-          self.deviceReachability[device.id] = reachable
-        }
-        let overBluetooth: Bool
-        if case .success(.peer(_, _, .bluetooth)) = result {
-          overBluetooth = true
-        } else {
-          overBluetooth = false
-        }
-        if self.reachedOverBluetooth.contains(device.id) != overBluetooth {
-          if overBluetooth {
-            self.reachedOverBluetooth.insert(device.id)
-          } else {
-            self.reachedOverBluetooth.remove(device.id)
+    var overNetwork: Bool? = network.isEmpty ? false : nil
+    var overBluetooth: Bool? = bluetooth.isEmpty ? false : nil
+    var bluetoothStarted = bluetooth.isEmpty
+    var settled = false
+
+    func settleIfDone() {
+      guard !settled, let overNetwork = overNetwork, overNetwork || overBluetooth != nil else {
+        return
+      }
+      settled = true
+      let viaBluetooth = !overNetwork && overBluetooth == true
+      recordProbe(of: device, reachable: overNetwork || viaBluetooth, overBluetooth: viaBluetooth)
+    }
+    func introduce(over routes: [PeerRoute], completion: @escaping (Bool) -> Void) {
+      executeIntroduce(over: routes, countsTowardRateLimit: false) { [weak self] result in
+        DispatchQueue.main.async {
+          guard let self = self else { return }
+          if case .success(.peer(let identity, let proved, let route)) = result {
+            self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
           }
+          // `.legacy` still counts: the handshake completed.
+          if case .success = result { completion(true) } else { completion(false) }
         }
-        if reachable {
-          self.consecutivePollFailures[device.id] = 0
-        } else {
-          let failures = (self.consecutivePollFailures[device.id] ?? 0) + 1
-          self.consecutivePollFailures[device.id] = failures
-          if failures == 1 {
-            // First miss of a new outage. The peer may have just left (slept,
-            // unplugged, quit); confirm with one quick re-probe rather than
-            // waiting a full ~30s interval for the next scheduled poll. A
-            // one-off dropped packet is cleared when the confirm succeeds and
-            // resets the streak. This is what makes a peer that vanishes *while
-            // this Mac is already awake* get its peripherals adopted within
-            // seconds instead of ~a minute — the wake path already covers the
-            // case where this Mac was itself asleep.
-            self.scheduleFastReachabilityRecheck(of: device)
-          } else if failures == 2 {
-            // Second consecutive miss: the peer has genuinely gone away, and
-            // whatever it was holding is stranded — let the adoption watcher
-            // pick it up. Exactly-two (not ≥) fires once per outage, so a
-            // long-dark peer doesn't re-arm the watcher every poll forever;
-            // a recovery resets the streak and re-arms it for the next one.
-            BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
-            if device.port != Int(ServicePublisher.defaultPort) {
-              self.probeDefaultPortFallback(of: device)
-            }
-          }
+      }
+    }
+    func startBluetooth() {
+      guard !bluetoothStarted else { return }
+      bluetoothStarted = true
+      introduce(over: bluetooth) { reached in
+        overBluetooth = reached
+        settleIfDone()
+      }
+    }
+
+    if network.isEmpty {
+      startBluetooth()
+    } else {
+      introduce(over: network) { reached in
+        overNetwork = reached
+        if !reached { startBluetooth() }
+        settleIfDone()
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + Self.bluetoothProbeHeadStart) {
+        if overNetwork == nil { startBluetooth() }
+      }
+    }
+    settleIfDone()
+  }
+
+  /// Applies one probe's verdict to `device`'s reachability and failure streak.
+  private func recordProbe(of device: NetworkDevice, reachable: Bool, overBluetooth: Bool) {
+    // Publish only on change — a steady-state poll would otherwise fire
+    // objectWillChange every interval and needlessly re-render observers.
+    if deviceReachability[device.id] != reachable {
+      deviceReachability[device.id] = reachable
+    }
+    if reachedOverBluetooth.contains(device.id) != overBluetooth {
+      if overBluetooth {
+        reachedOverBluetooth.insert(device.id)
+      } else {
+        reachedOverBluetooth.remove(device.id)
+      }
+    }
+    if reachable {
+      consecutivePollFailures[device.id] = 0
+    } else {
+      let failures = (consecutivePollFailures[device.id] ?? 0) + 1
+      consecutivePollFailures[device.id] = failures
+      if failures == 1 {
+        // First miss of a new outage. The peer may have just left (slept,
+        // unplugged, quit); confirm with one quick re-probe rather than
+        // waiting a full ~30s interval for the next scheduled poll. A
+        // one-off dropped packet is cleared when the confirm succeeds and
+        // resets the streak. This is what makes a peer that vanishes *while
+        // this Mac is already awake* get its peripherals adopted within
+        // seconds instead of ~a minute — the wake path already covers the
+        // case where this Mac was itself asleep.
+        scheduleFastReachabilityRecheck(of: device)
+      } else if failures == 2 {
+        // Second consecutive miss: the peer has genuinely gone away, and
+        // whatever it was holding is stranded — let the adoption watcher
+        // pick it up. Exactly-two (not ≥) fires once per outage, so a
+        // long-dark peer doesn't re-arm the watcher every poll forever;
+        // a recovery resets the streak and re-arms it for the next one.
+        BluetoothPeripheralStore.shared.armAdoptionOfUnheldPeripherals()
+        if device.port != Int(ServicePublisher.defaultPort) {
+          probeDefaultPortFallback(of: device)
         }
       }
     }
