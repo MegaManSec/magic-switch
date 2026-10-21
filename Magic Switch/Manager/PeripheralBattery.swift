@@ -22,24 +22,29 @@ enum PeripheralBattery {
     guard !addresses.isEmpty else { return [:] }
     let wanted = Dictionary(
       addresses.map { (normalize($0), $0) }, uniquingKeysWith: { first, _ in first })
-    var iterator = io_iterator_t()
-    // Port 0 = default master port; the named constant for it was renamed in
-    // macOS 12 (kIOMasterPortDefault → kIOMainPortDefault) and using either
-    // spelling trips a warning on the other side of the deployment range.
-    guard
-      IOServiceGetMatchingServices(
-        0, IOServiceMatching("AppleDeviceManagementHIDEventService"), &iterator) == KERN_SUCCESS
-    else { return [:] }
-    defer { IOObjectRelease(iterator) }
-
     var result: [String: Int] = [:]
-    while case let entry = IOIteratorNext(iterator), entry != 0 {
-      defer { IOObjectRelease(entry) }
-      guard let deviceAddress = property(entry, "DeviceAddress") as? String,
-        let original = wanted[normalize(deviceAddress)],
-        let percent = property(entry, "BatteryPercent") as? Int
+    // Magic Keyboard / Magic Mouse publish BatteryPercent on
+    // AppleDeviceManagementHIDEventService; Magic Trackpad 2 publishes it on
+    // BNBTrackpadDevice (same DeviceAddress / BatteryPercent properties).
+    for serviceClass in ["AppleDeviceManagementHIDEventService", "BNBTrackpadDevice"] {
+      var iterator = io_iterator_t()
+      // Port 0 = default master port; the named constant for it was renamed in
+      // macOS 12 (kIOMasterPortDefault → kIOMainPortDefault) and using either
+      // spelling trips a warning on the other side of the deployment range.
+      guard
+        IOServiceGetMatchingServices(0, IOServiceMatching(serviceClass), &iterator)
+          == KERN_SUCCESS
       else { continue }
-      result[original] = percent
+      defer { IOObjectRelease(iterator) }
+
+      while case let entry = IOIteratorNext(iterator), entry != 0 {
+        defer { IOObjectRelease(entry) }
+        guard let deviceAddress = property(entry, "DeviceAddress") as? String,
+          let original = wanted[normalize(deviceAddress)],
+          let percent = property(entry, "BatteryPercent") as? Int
+        else { continue }
+        result[original] = percent
+      }
     }
     return result
   }
