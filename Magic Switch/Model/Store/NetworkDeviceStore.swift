@@ -649,7 +649,6 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   func refreshDiscovery() {
     discoveredNetworkDevices = []
     serviceBrowser.refresh()
-    BLETransport.shared.rescan()
     // Introduced entries only repopulate via an exchange; kick one now.
     pollReachability()
   }
