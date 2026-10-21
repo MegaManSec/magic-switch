@@ -5,6 +5,8 @@ import QuartzCore
 /// Per-peer failure tracker, bucketed by IP (or by Bluetooth identifier for
 /// sessions over `BLETransport`). Five failures within a 60s window block the
 /// bucket for 15 minutes; blocked peers are rejected before any handshake work.
+/// Bluetooth buckets also share one budget: five failures among them in the
+/// window refuse every Bluetooth session until the window slides.
 /// Blocks persist to UserDefaults so a process restart can't reset the counter.
 /// One instance serves both transports, since blocks persist under a single
 /// defaults key.
@@ -24,6 +26,7 @@ final class RateLimiter {
   private static let blocksKey = "com.magicswitch.ratelimiter.blocks"
   private static let maxPendingPerIP = 8
   private static let maxPendingTotal = 64
+  private static let bluetoothBucketPrefix = "bluetooth:"
 
   // MARK: - State
 
@@ -35,6 +38,8 @@ final class RateLimiter {
   /// In-flight pre-auth connection counts, per IP and in total.
   private var pendingByIP: [String: Int] = [:]
   private var pendingTotal = 0
+  /// Monotonic timestamps of recent failures across every Bluetooth bucket.
+  private var bluetoothFailures: [CFTimeInterval] = []
 
   // MARK: - Init
 
@@ -48,8 +53,13 @@ final class RateLimiter {
   func shouldAccept(bucket key: String) -> Bool {
     queue.sync {
       gc(key: key)
-      if let until = blocksByIP[key], until > CACurrentMediaTime() {
+      let now = CACurrentMediaTime()
+      if let until = blocksByIP[key], until > now {
         return false
+      }
+      if key.hasPrefix(Self.bluetoothBucketPrefix) {
+        bluetoothFailures.removeAll { $0 <= now - Self.windowSeconds }
+        return bluetoothFailures.count < Self.failureThreshold
       }
       return true
     }
@@ -81,6 +91,9 @@ final class RateLimiter {
   func recordFailure(bucket key: String) {
     queue.sync {
       let now = CACurrentMediaTime()
+      if key.hasPrefix(Self.bluetoothBucketPrefix) {
+        bluetoothFailures.append(now)
+      }
       var list = failuresByIP[key, default: []]
       list.append(now)
       list = list.filter { $0 > now - Self.windowSeconds }
@@ -101,6 +114,7 @@ final class RateLimiter {
     queue.sync {
       failuresByIP.removeAll()
       blocksByIP.removeAll()
+      bluetoothFailures.removeAll()
       UserDefaults.standard.removeObject(forKey: Self.blocksKey)
     }
   }
@@ -150,6 +164,10 @@ final class RateLimiter {
         failuresByIP[key] = list
       }
     }
+  }
+
+  static func bucket(forBluetoothPeer peer: UUID) -> String {
+    bluetoothBucketPrefix + peer.uuidString
   }
 
   /// Canonicalizes an endpoint to a single per-IP key. IPv4-mapped IPv6

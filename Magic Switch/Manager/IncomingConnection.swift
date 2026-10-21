@@ -106,7 +106,7 @@ final class IncomingConnection {
   ) {
     self.init(
       transport: session, connection: nil, endpoint: nil,
-      rateLimitBucket: "bluetooth:\(session.peer.uuidString)", rateLimiter: rateLimiter,
+      rateLimitBucket: RateLimiter.bucket(forBluetoothPeer: session.peer), rateLimiter: rateLimiter,
       pairingStore: pairingStore, queue: queue, localIdentity: localIdentity)
   }
 
