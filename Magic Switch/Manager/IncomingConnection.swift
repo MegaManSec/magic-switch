@@ -372,8 +372,7 @@ final class IncomingConnection {
         sendString(DeviceCommand.operationSuccess.rawValue)
       } catch {
         Log.network.error("syncPeripherals decode failed: \(error)")
-        sendString(DeviceCommand.operationFailed.rawValue)
-        teardown()
+        sendString(DeviceCommand.operationFailed.rawValue) { self.teardown() }
         return
       }
     case .unregisterOne:
@@ -511,12 +510,13 @@ final class IncomingConnection {
 
   // MARK: - Sending
 
-  private func sendString(_ message: String) {
+  private func sendString(_ message: String, then completion: (() -> Void)? = nil) {
     guard let channel = channel else { return }
     channel.send(Data(message.utf8)) { error in
       if let error = error {
         Log.network.error("Sealed send failed: \(error)")
       }
+      completion?()
     }
   }
 
