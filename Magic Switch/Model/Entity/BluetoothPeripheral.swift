@@ -107,7 +107,8 @@ enum PeripheralType: String, Codable, CaseIterable {
     case .microphone: return String(localized: "Microphone")
     case .unknown:
       return String(
-        localized: "Other", comment: "Peripheral type: any other kind of peripheral (singular)")
+        localized: "peripheral.type.other", defaultValue: "Other",
+        comment: "Peripheral type: any other kind of peripheral (singular)")
     }
   }
 
