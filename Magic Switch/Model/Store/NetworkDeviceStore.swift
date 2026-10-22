@@ -417,8 +417,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           {
             self.probeReachability(of: device)
           }
-        case .success(.legacy):
-          // The peer's listener isn't up, so it has no identity to give yet.
+        case .success(.legacy), .success(.unavailable):
+          // Nothing to ingest, but the handshake completed.
           break
         case .failure:
           self.bluetoothProbeFailures[peripheral] = Date()
@@ -981,7 +981,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           if case .success(.peer(let identity, let proved, let route)) = result {
             self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
           }
-          // `.legacy` still counts: the handshake completed.
+          // `.legacy` and `.unavailable` still count: the handshake completed.
           if case .success = result { completion(true) } else { completion(false) }
         }
       }
@@ -1113,15 +1113,24 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
     beginOperation(.ping, for: device.id)
     let senderName = Host.current().localizedName ?? String(localized: "another Mac")
-    // Put the sender's name in the title so the receiver's Notification
-    // Center entry is informative at a glance.
-    let title = String(localized: "Ping from \(senderName)")
-    let body = String(localized: "Test message received. Both Macs can reach each other.")
-    sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
+    let finish: (Result<Void, OutgoingFailure>) -> Void = { [weak self] result in
       DispatchQueue.main.async {
         self?.endOperation(for: device.id)
         completion?(result)
       }
+    }
+    sendTwoFrameCommand(.pingNotification, payload: senderName, to: device) { [weak self] result in
+      guard let self = self, case .failure(.remoteOperationFailed) = result else {
+        finish(result)
+        return
+      }
+      // An older peer splits the legacy frame on its first `|`.
+      let legacyName = senderName.replacingOccurrences(of: "|", with: "/")
+      self.sendNotificationOverSecure(
+        to: device,
+        title: String(localized: "Ping from \(legacyName)"),
+        message: String(localized: "Test message received. Both Macs can reach each other."),
+        completion: finish)
     }
   }
 
@@ -1200,6 +1209,7 @@ enum ManualAddError: Error {
   case legacyPeer
   case anotherMacRegistered(String)
   case listenerNotReady
+  case peerNotReady
   case outgoing(OutgoingFailure)
 
   var userMessage: String {
@@ -1222,6 +1232,9 @@ enum ManualAddError: Error {
         localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
       return OutgoingFailure.listenerNotReady.userMessage
+    case .peerNotReady:
+      return String(
+        localized: "The other Mac isn't ready to be added yet. Try again in a moment.")
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -1282,6 +1295,14 @@ enum DeviceCommand: String, Codable {
   /// identity instead of OP_SUCCESS; legacy builds reply OP_FAILED, which
   /// still proves the handshake. Keeps endpoints fresh without Bonjour.
   case introduce = "INTRODUCE"
+  /// Reply to `INTRODUCE` from a current peer whose listener isn't bound yet,
+  /// so it has no identity to send. Distinct from the `OP_FAILED` an older
+  /// peer returns for the opcode it doesn't know.
+  case introduceUnavailable = "INTRODUCE_UNAVAILABLE"
+  /// Two-frame: opcode then the sender's computer name. The receiver composes
+  /// the ping notification itself, in its own language. Older peers answer
+  /// `OP_FAILED` and get the finished text as a `NOTIFICATION` instead.
+  case pingNotification = "PING_NOTIFICATION"
 }
 
 /// Decodes the standard OP_SUCCESS/OP_FAILED acknowledgement used by normal
@@ -1600,6 +1621,7 @@ extension NetworkDeviceStore {
   enum IntroduceReply {
     case peer(IntroducedIdentity, provedFingerprint: String, route: PeerRoute)
     case legacy
+    case unavailable
   }
 
   /// Exchanges identities with the peer at `routes` over the secure channel.
@@ -1650,6 +1672,9 @@ extension NetworkDeviceStore {
                 } else if DeviceCommand(rawValue: response) == .operationFailed {
                   reply = .legacy
                   done(.success(()))
+                } else if DeviceCommand(rawValue: response) == .introduceUnavailable {
+                  reply = .unavailable
+                  done(.success(()))
                 } else {
                   done(.failure(.invalidResponse))
                 }
@@ -1691,6 +1716,8 @@ extension NetworkDeviceStore {
           completion(.failure(.outgoing(failure)))
         case .success(.legacy):
           completion(.failure(.legacyPeer))
+        case .success(.unavailable):
+          completion(.failure(.peerNotReady))
         case .success(.peer(let identity, let proved, _)):
           // The handshake happily completes against our own listener (same
           // key, both roles), and `registerNetworkDevice` has no self-guard.
@@ -1709,11 +1736,18 @@ extension NetworkDeviceStore {
             provedFingerprint: proved)
           if let registered = self.networkDevices.first(where: { $0.id == identity.name }) {
             completion(.success(registered))
+          } else if let candidateID = self.renameCandidateID(forFingerprint: proved),
+            let index = self.networkDevices.firstIndex(where: { $0.id == candidateID })
+          {
+            // The handshake on this very connection is the proof the Bonjour
+            // path has to fetch with a ping first.
+            self.commitRenameMigration(
+              at: index,
+              to: NetworkDevice(
+                id: identity.name, name: identity.name, host: host, port: Int(identity.port)),
+              fingerprint: proved)
+            completion(.success(self.networkDevices[index]))
           } else if let other = self.networkDevices.first {
-            // `other` may be this same peer under a stale name: the ingest
-            // above already started the rename migration, whose proof ping
-            // outlives this completion. The list self-corrects moments after
-            // this error shows.
             completion(.failure(.anotherMacRegistered(other.name)))
           } else {
             // Register from the exchange itself, not the merged discovered
