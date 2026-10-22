@@ -195,12 +195,12 @@ private struct PeripheralRowView: View {
     store.peripheralType(for: peripheral)
   }
 
-  /// Whether a paired peer Mac is currently reachable to take a released
-  /// peripheral. Releasing with no active peer just disconnects the peripheral
-  /// from both Macs, so the Send button is disabled until a peer is present.
-  /// Matches the handoff gate used elsewhere (e.g. `prepareForSleep`).
-  private var hasActivePeer: Bool {
-    networkStore.networkDevices.contains { $0.isActive }
+  /// Whether the other Mac can take a released peripheral: the same gate as
+  /// the menu's peripheral rows, so Send is never offered where the menu
+  /// greys the row out. Sending with no reachable peer would just disconnect
+  /// the peripheral from both Macs.
+  private var canSend: Bool {
+    networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
   }
 
   /// The peer this Mac hands peripherals to, for the "Sending to …" line.
@@ -322,9 +322,9 @@ private struct PeripheralRowView: View {
         actionLabel(
           String(localized: "Send", comment: "Button: send this peripheral to the other Mac"))
       }
-      .disabled(!hasActivePeer)
+      .disabled(!canSend)
       .help(
-        hasActivePeer
+        canSend
           ? String(
             localized:
               "Send this peripheral to the other Mac, which takes it over automatically."
