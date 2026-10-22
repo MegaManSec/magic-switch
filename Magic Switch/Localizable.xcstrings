@@ -1036,6 +1036,9 @@
     "Wi-Fi" : {
 
     },
+    "You canceled while Magic Switch was pairing %@ again, so it's no longer paired with this Mac. Click it in the menu to pair it again." : {
+
+    },
     "Your Other Mac" : {
 
     },

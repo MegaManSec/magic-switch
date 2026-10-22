@@ -861,7 +861,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       setPeripheralError(String(localized: "Pairing reset."), for: id)
       NotificationManager.showNotification(
         title: String(localized: "Pairing Was Reset"),
-        body: Self.bondResetBody(peripheral.name),
+        body: String(
+          localized:
+            "You canceled while Magic Switch was pairing \(peripheral.name) again, so it's no longer paired with this Mac. Click it in the menu to pair it again."
+        ),
         identifier: "pair-failed-\(id)"
       )
     }
