@@ -134,30 +134,32 @@ struct OtherSettingsView: View {
         HStack {
           Text("Version")
           Spacer()
+          #if !APP_STORE
+            updateStatus
+          #endif
           Text(updateChecker.currentVersion)
             .foregroundColor(.secondary)
-        }
-        #if !APP_STORE
-          HStack {
+          #if !APP_STORE
             Button {
               updateChecker.checkNow()
             } label: {
-              if updateChecker.isChecking {
-                HStack(spacing: 6) {
+              Group {
+                if updateChecker.isChecking {
                   ProgressView()
                     .controlSize(.small)
-                  Text("Checking…")
+                } else {
+                  Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundColor(.secondary)
                 }
-              } else {
-                Text("Check for Updates")
               }
+              .frame(width: 16, height: 16)
             }
+            .buttonStyle(.borderless)
             .disabled(updateChecker.isChecking)
             .help("Check GitHub for a newer release right now.")
-            Spacer()
-            updateStatus
-          }
-        #endif
+            .accessibilityLabel("Check for Updates")
+          #endif
+        }
       }
     }
     .onAppear(perform: refreshOnAppear)
