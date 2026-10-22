@@ -20,7 +20,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Bluetooth is required to connect with nearby devices"
+            "value" : "Magic Switch uses Bluetooth to connect your keyboard, mouse, and trackpad to this Mac and to release them to your other Mac."
           }
         }
       }
@@ -32,7 +32,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Local network access is needed to discover devices"
+            "value" : "Magic Switch uses the local network to find your other Mac and switch peripherals with it."
           }
         }
       }
