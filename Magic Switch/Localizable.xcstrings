@@ -23,6 +23,17 @@
         }
       }
     },
+    "%@ Magic Switch keeps trying for up to %lld minutes." : {
+      "comment" : "Appended to a failure body while the reconnect watcher still retries; %1$@ is the failure sentence, %2$lld the retry window in minutes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Magic Switch keeps trying for up to %2$lld minutes."
+          }
+        }
+      }
+    },
     "%@ Reconnecting your peripherals to this Mac." : {
       "comment" : "%@ is a whole sentence saying why the switch failed"
     },
@@ -271,9 +282,6 @@
 
     },
     "Check for Updates" : {
-
-    },
-    "Checking…" : {
 
     },
     "Choose which Bluetooth peripherals Magic Switch manages." : {
@@ -562,6 +570,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Magic Switch reset this Mac's pairing for %1$@ and couldn't pair it again. Turn %2$@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+          }
+        }
+      }
+    },
+    "Magic Switch stopped trying to connect %@ after %lld minutes. Switch it off and on, then click it in the menu." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Magic Switch stopped trying to connect %1$@ after %2$lld minutes. Switch it off and on, then click it in the menu."
           }
         }
       }
@@ -1104,6 +1122,9 @@
     },
     "Update available: version %@" : {
 
+    },
+    "Update to version %@ available" : {
+      "comment" : "VoiceOver label for the red badge on the Version row; %@ is the newer version number"
     },
     "Version" : {
 

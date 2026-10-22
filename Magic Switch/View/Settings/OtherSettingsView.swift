@@ -127,43 +127,7 @@ struct OtherSettingsView: View {
           help: String(localized: "Open the project license in your browser."),
           action: showLicenseInfo
         )
-        if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
-          SettingsRowView(
-            title: String(localized: "Update Available — v\(latest)"),
-            help:
-              String(
-                localized:
-                  "A newer version of Magic Switch is available. Opens the release page in your browser."
-              ),
-            action: openLatestRelease
-          )
-        }
-        HStack {
-          Text("Version")
-          Spacer()
-          Text(updateChecker.currentVersion)
-            .foregroundColor(.secondary)
-        }
         #if !APP_STORE
-          HStack {
-            Button {
-              updateChecker.checkNow()
-            } label: {
-              if updateChecker.isChecking {
-                HStack(spacing: 6) {
-                  ProgressView()
-                    .controlSize(.small)
-                  Text("Checking…")
-                }
-              } else {
-                Text("Check for Updates")
-              }
-            }
-            .disabled(updateChecker.isChecking)
-            .help("Check GitHub for a newer release right now.")
-            Spacer()
-            updateStatus
-          }
           SettingsRowView(
             title: String(localized: "Sponsor on GitHub"),
             help: String(
@@ -172,6 +136,53 @@ struct OtherSettingsView: View {
             action: openSponsorPage
           )
         #endif
+        HStack {
+          Text("Version")
+          Spacer()
+          #if !APP_STORE
+            updateStatus
+          #endif
+          Text(updateChecker.currentVersion)
+            .foregroundColor(.secondary)
+          if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
+            Button(action: openLatestRelease) {
+              HStack(spacing: 5) {
+                Image(systemName: "arrow.up")
+                  .font(.system(size: 11, weight: .semibold))
+                Text(latest)
+              }
+              .padding(.horizontal, 11)
+              .padding(.vertical, 5)
+              .background(Capsule().fill(Color.secondary.opacity(0.22)))
+              .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help(
+              "A newer version of Magic Switch is available. Opens the release page in your browser."
+            )
+            .accessibilityLabel(String(localized: "Update to version \(latest) available"))
+          }
+          #if !APP_STORE
+            Button {
+              updateChecker.checkNow()
+            } label: {
+              Group {
+                if updateChecker.isChecking {
+                  ProgressView()
+                    .controlSize(.small)
+                } else {
+                  Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundColor(.secondary)
+                }
+              }
+              .frame(width: 16, height: 16)
+            }
+            .buttonStyle(.borderless)
+            .disabled(updateChecker.isChecking)
+            .help("Check GitHub for a newer release right now.")
+            .accessibilityLabel("Check for Updates")
+          #endif
+        }
       }
     }
     .onAppear(perform: refreshOnAppear)

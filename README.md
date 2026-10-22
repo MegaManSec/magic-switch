@@ -41,7 +41,7 @@ Magic Switch has four Settings tabs, and two of them use the word "pair" in diff
 
 In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Magic Switch doesn't create those first pairings for you. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it. (Once the first pairings are done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
 
-Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and right-click the menu-bar icon → **Settings**.
+Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and click the menu-bar icon → **Settings**.
 
 ### 2. Pairing tab — link the two Macs (required)
 
@@ -83,31 +83,31 @@ If the network won't let the Macs reach each other at all — a VPN that blocks 
   <em>Add a Mac by Address (the <strong>+</strong> button) — the sheet shows this Mac's address and port to enter on the other one.</em>
 </p>
 
-### 4. Peripheral tab — choose what to manage
+### 4. Peripherals tab — choose what to manage
 
-Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic. Rows show a live battery level while the peripheral is connected to this Mac.
+Under **Available Peripherals**, click **+** beside each Magic device you want Magic Switch to hand back and forth; it moves up to **Registered Peripherals**. Each registered row has a **Send** or **Take** button that moves just that peripheral, like clicking it in the menu. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic. Rows show a live battery level while the peripheral is connected to this Mac.
 
 <p align="center">
-  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab showing registered and available peripherals" width="600"><br>
-  <em>Peripheral tab — register the Magic devices you want to hand off. Each row's leading icon shows the detected device type.</em>
+  <img src="docs/assets/peripheral-tab.png" alt="Peripherals tab showing registered and available peripherals" width="600"><br>
+  <em>Peripherals tab — register the Magic devices you want to hand off. Each row's leading icon shows the detected device type.</em>
 </p>
 
 <p align="center">
-  <img src="docs/assets/peripheral-type-picker.png" alt="Peripheral tab with a row's type picker open" width="600"><br>
+  <img src="docs/assets/peripheral-type-picker.png" alt="Peripherals tab with a row's type picker open" width="600"><br>
   <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
 </p>
 
 ### 5. Sync your peripherals to the other Mac
 
-On the **Macs** tab, find the other Mac under **Your Other Mac** and click its **Sync** button (the circular arrows, beside **Ping**). A "Synced N peripherals to …" line confirms it. The button is greyed out while that Mac is offline.
+On the **Macs** tab, find the other Mac under **Your Other Mac** and click its **Sync** button (the circular arrows, beside **Ping**). A "Synced N peripherals to …" line confirms it. The button is greyed out while that Mac is offline, while the Macs aren't paired, or while nothing is registered yet — hover it for the reason.
 
 ### Other tab — preferences
 
-**Launch at Login**, recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take peripherals when a display connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
+**Open at Login**, **Connect over Bluetooth when the network can't** (see [step 3](#3-macs-tab--pick-the-other-mac)), recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take Peripherals When a Display Connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing all app preferences" width="600"><br>
-  <em>Other tab — Launch at Login, the peripheral-handling toggles, keyboard shortcut recorders, the display-connect list, version, and update check.</em>
+  <em>Other tab — Open at Login, the peripheral-handling toggles, keyboard shortcut recorders, the display-connect list, version, and update check.</em>
 </p>
 
 ## Usage
@@ -119,11 +119,11 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 | Menu → a peripheral | Switch just that one peripheral. Checkmark = currently on this Mac, with its battery level |
 | Menu → Settings | Open the Settings window |
 
-The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; **up/down arrows** flash briefly while peripherals are moving between Macs; when idle, the icon gains a **filled background** while peripherals are connected to this Mac (the dropdown is pictured at the top of this README).
+The menu-bar icon also signals state: a **warning triangle** means Magic Switch needs attention (not paired, or Bluetooth off/denied) — hover for the reason; an **arrow** replaces it while peripherals are moving between Macs (hover to see which way); a **bell** flashes briefly when the other Mac pings this one; when idle, the icon gains a **filled background** while peripherals are connected to this Mac (the dropdown is pictured at the top of this README).
 
 ### Trigger switches from anything (URL scheme)
 
-For the common cases — a hotkey that sends, takes, or toggles the whole set — you don't need any of this: record them under **Settings → Other → Keyboard shortcuts**. For anything fancier (per-peripheral switches, scripting), Magic Switch registers the `magicswitch://` URL scheme, so anything that can open a URL — a hotkey utility (Raycast, BetterTouchTool, skhd), a mouse-button macro, the Shortcuts app, a shell script — can trigger the same switches as the menu:
+For the common cases — a hotkey that sends, takes, or toggles the whole set — you don't need any of this: record them under **Settings → Other → Keyboard Shortcuts**. For anything fancier (per-peripheral switches, scripting), Magic Switch registers the `magicswitch://` URL scheme, so anything that can open a URL — a hotkey utility (Raycast, BetterTouchTool, skhd), a mouse-button macro, the Shortcuts app, a shell script — can trigger the same switches as the menu:
 
 ```bash
 open -g "magicswitch://switch"                                      # everything — same as clicking the other Mac in the menu
@@ -143,7 +143,7 @@ Run the command on the Mac that should act. `direction=take` works even while th
 
 If you installed from the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452), the App Store handles updates and none of this applies.
 
-Otherwise, Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the right-click menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
+Otherwise, Magic Switch tells you when there's a new version — it never updates itself. About once a day it makes a single anonymous request to GitHub's public releases API for [this repo](https://github.com/MegaManSec/magic-switch/releases) and compares your installed version with the latest published release; no account, sign-in, or telemetry is involved. When a newer version exists, an **Update Available** notice (with the new version number) appears at the top of the menu and in **Settings → Other** — clicking it opens the release page so you can download and install it yourself. The first automatic check that spots a given version also posts a single system notification — click it to open the download page. It's posted once per version, so it won't nag (and only if notifications are allowed, see [Troubleshooting](#troubleshooting)). A failed check (offline, rate-limited, etc.) is retried about hourly; otherwise checks happen at most once every 24 hours. Your installed version is always shown in **Settings → Other**.
 
 ## Troubleshooting
 
@@ -151,14 +151,14 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 - Devices powered on; Bluetooth enabled.
 - Same network; TCP port 41952 not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
-- A **greyed-out device** — in the Macs tab or the right-click menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
+- A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
 - **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
-- **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Pairing and Macs tabs also show their errors inline, so actions taken *there* still report failures either way.)
+- **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Peripherals, Macs and Pairing tabs also show their errors inline, so actions taken *there* still report failures either way.)
 - On the **Macs** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
 - **Closing or sleeping one Mac hands its peripherals to the other.** When this Mac sleeps (or you close its lid), it hands the peripherals it holds to your other Mac — or, if that Mac isn't reachable yet, frees them so it can pick them up the moment it wakes. That's why you can close one Mac and find the keyboard and mouse already on the other. This is on by default; you can turn it off under **Settings → Other → "Release peripherals when this Mac sleeps."**
 - **A peripheral didn't come back after sleep or a lid-close.** Apple's Magic devices sometimes get stuck once the Bluetooth radio sleeps and won't reconnect — even a manual reconnect fails until you switch the peripheral **off and on** with its power switch. Magic Switch keeps watching for anything that was on this Mac before it slept: the moment the device reappears (which a power-cycle triggers), it reconnects automatically — as long as your other Mac isn't actively using it. This is on by default; you can turn it off under **Settings → Other → "Reconnect peripherals if they drop."**
 - **Both Macs slept, and now a peripheral connects to neither.** When this Mac sleeps, it frees its peripherals for your other Mac to take (see above). If the other Mac never takes them — it was asleep too, or off the network the whole time — they end up attached to no Mac at all, and a Magic device in that state stops listening for connections after a short while; no Mac can reach it until it's woken up. When this Mac wakes it immediately tries to grab everything it freed, so a round trip usually recovers on its own — clicking or pressing a key on the peripheral within the first minute after opening the lid helps it get caught. If a peripheral still won't respond, this is the one situation where you have to help: flick its power switch **off and on**, and Magic Switch reconnects it the moment it comes back up. If that trade-off doesn't suit how you use your Macs, turn off **Settings → Other → "Release peripherals when this Mac sleeps"** — peripherals then stay bonded to this Mac across sleep (and reconnect instantly on wake), at the cost of the other Mac needing the same power-cycle help if you switch desks while this Mac sleeps.
-- **Docking to a marked display switches peripherals automatically.** Under **Settings → Other → "Take peripherals when a display connects,"** every external display connected to this Mac gets a toggle. Mark your desk's display and, whenever it connects to this Mac — plugging in the cable, or opening the lid of a MacBook that was docked while it slept — Magic Switch switches your peripherals to this Mac, taking them from your other Mac if needed. Displays are recognized individually, so two identical monitors aren't confused; waking while already docked doesn't count as docking; and if a marked display is already connected when Magic Switch starts, it switches your peripherals over just as if you had docked. This is off until you mark a display.
+- **Docking to a marked display switches peripherals automatically.** Under **Settings → Other → "Take Peripherals When a Display Connects,"** every external display connected to this Mac gets a toggle. Mark your desk's display and, whenever it connects to this Mac — plugging in the cable, or opening the lid of a MacBook that was docked while it slept — Magic Switch switches your peripherals to this Mac, taking them from your other Mac if needed. Displays are recognized individually, so two identical monitors aren't confused; waking while already docked doesn't count as docking; and if a marked display is already connected when Magic Switch starts, it switches your peripherals over just as if you had docked. This is off until you mark a display.
 
 ## Developer notes
 
@@ -215,7 +215,7 @@ The LAN channel uses a shared symmetric key derived from the twelve-character pa
 Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, switching *to* that peer is paused and the Macs tab asks you to explicitly **Trust** the new identity — so a key change is surfaced rather than silently accepted. The fingerprint is a hash of the *shared* pairing key, not a per-machine identity, so a peer that completes the authenticated handshake has proved strictly more than the advertisement claims: if it proves it holds this Mac's current key while the pending fingerprint is exactly that key's, the warning resolves itself (the state a mutual re-pair leaves behind). A peer that cannot complete the handshake is rejected outright, whatever it advertises.
 
 Known limits:
-- On some systems an ad-hoc-signed build can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Pairing and Macs tabs surface their errors inline as a fallback.
+- On some systems an ad-hoc-signed build can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
 - Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
 ## Support
