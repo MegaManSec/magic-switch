@@ -40,7 +40,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Magic Switch uses Bluetooth to connect your keyboard, mouse, and trackpad to this Mac and to release them to your other Mac.</string>
+	<string>Magic Switch uses Bluetooth to connect your peripherals to this Mac and to release them to your other Mac.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_magicswitch._tcp</string>
