@@ -1083,7 +1083,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // where it ended up; clear the "Sending…" row.
           self.setConnectionState(.disconnected, for: peripheral.id)
           self.armReconnect(peripheral.id)
-          self.setPeripheralError(String(localized: "Handoff failed."), for: peripheral.id)
+          self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
             body:

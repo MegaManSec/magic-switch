@@ -776,7 +776,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             self.bluetoothStore.armReconnectForTakeover(peripheral.id)
           }
           NotificationManager.showNotification(
-            title: String(localized: "Switch Failed"),
+            title: String(localized: "Couldn't Switch"),
             body: err.userMessage,
             identifier: "switch-disconnect-remote-failed"
           )
@@ -893,7 +893,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         self.bluetoothStore.finishFullSetRelease(success: false)
         self.endTransfer()
         NotificationManager.showNotification(
-          title: String(localized: "Switch Failed"),
+          title: String(localized: "Couldn't Switch"),
           body: String(localized: "Couldn't disconnect Bluetooth peripherals from this Mac."),
           identifier: "switch-disconnect-local-failed"
         )
@@ -916,7 +916,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             }
             self.endTransfer()
             NotificationManager.showNotification(
-              title: String(localized: "Switch Failed"),
+              title: String(localized: "Couldn't Switch"),
               body: String(localized: "\(err.userMessage) Peripherals reconnected to this Mac."),
               identifier: "switch-connect-failed"
             )

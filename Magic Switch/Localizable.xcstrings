@@ -427,9 +427,6 @@
     "Grant Bluetooth access in System Settings to use Magic Switch." : {
 
     },
-    "Handoff failed." : {
-
-    },
     "Headphones" : {
 
     },
@@ -852,9 +849,6 @@
 
     },
     "Switch Canceled" : {
-
-    },
-    "Switch Failed" : {
 
     },
     "Switch failed." : {
