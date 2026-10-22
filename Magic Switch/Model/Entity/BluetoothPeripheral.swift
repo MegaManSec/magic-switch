@@ -80,7 +80,7 @@ struct BluetoothPeripheral: Identifiable, Codable, Equatable {
 }
 
 /// Logical category of a peripheral. Drives the row glyph in the menu-bar
-/// dropdown and the Peripheral settings tab, and the choices in the manual type
+/// dropdown and the Peripherals tab, and the choices in the manual type
 /// picker. The resolved type is `user override ?? auto-detected`;
 /// `BluetoothPeripheralStore` owns both halves (`typeOverrides`, `deviceClasses`).
 enum PeripheralType: String, Codable, CaseIterable {

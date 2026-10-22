@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 /// The addresses a peer can dial this Mac back at, for the UI spots where
-/// the user must carry them to the other Mac (the Add by Address sheet and
+/// the user must carry them to the other Mac (the Add a Mac by Address sheet and
 /// the not-advertising advisory). Two tiers: the local address an
 /// authenticated connection actually ran over (proven — the peer dialed it,
 /// or will see it as our source), else the addresses of the viable

@@ -536,8 +536,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     pollReachability()
   }
 
-  /// The port this Mac accepts peer connections on. Shown in Add by Address
-  /// so the value can be read off this screen when setting up the other Mac.
+  /// The port this Mac accepts peer connections on. Shown in the Add a Mac by
+  /// Address sheet so the value can be read off this screen when setting up the other Mac.
   var localListeningPort: UInt16? { servicePublisher.currentIdentity()?.port }
 
   /// Both names this Mac answers to: its device name and (when mDNS renamed
@@ -721,7 +721,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   /// One reachability probe against `device`: updates `deviceReachability`
-  /// (which greys the menu/Device-tab rows) and advances the
+  /// (which greys the menu/Macs-tab rows) and advances the
   /// `consecutivePollFailures` streak that triggers peer-vanished adoption.
   /// The probe is an INTRODUCE, so every successful poll also refreshes the
   /// peer's endpoint on both ends — the app's only routing source when
@@ -857,7 +857,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   // MARK: - In-Flight Operation Tracking
 
-  /// Marks a Device-tab operation as running for `deviceID`. Main-thread only.
+  /// Marks a Macs-tab operation as running for `deviceID`. Main-thread only.
   private func beginOperation(_ op: DeviceOperation, for deviceID: String) {
     inFlightOperations[deviceID] = op
   }

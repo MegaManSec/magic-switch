@@ -73,7 +73,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// hour would just burn wakeups on a device that's genuinely gone (off, out
     /// of range, carried away). A fresh drop or wake re-arms it.
     static let reconnectMaxWindow: TimeInterval = 600
-    /// How long after a deliberate release (handoff / sleep / "Remove") the
+    /// How long after a deliberate release (handoff / sleep) the
     /// matching IOBluetooth disconnect is expected to arrive. A disconnect
     /// seen within this window is treated as that release and doesn't re-arm
     /// the watcher; a disconnect seen later is treated as a genuine drop. This
@@ -174,7 +174,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   @Published private(set) var connectionStates: [String: PeripheralConnectionState] = [:]
 
   /// Battery percentage per connected peripheral id, refreshed by each
-  /// `fetchConnectedPeripherals` snapshot (the Peripheral tab polls that on
+  /// `fetchConnectedPeripherals` snapshot (the Peripherals tab polls that on
   /// a 2s timer). Published state rather than a read-at-render registry
   /// lookup because a just-connected device surfaces `BatteryPercent` a
   /// beat *after* its `.connected` state change — a view that reads the
@@ -238,7 +238,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Global IOBluetooth connect observer. Fires for *any* device the OS
   /// pairs/connects, including ones the user connects via the system
-  /// Bluetooth menu (not via Magic Switch). Used to keep the Peripheral tab
+  /// Bluetooth menu (not via Magic Switch). Used to keep the Peripherals tab
   /// live without polling.
   private var globalConnectObserver: IOBluetoothUserNotification?
 
@@ -561,7 +561,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     // Connection states are stale across sleep — a peripheral we left bonded
     // still reads `.connected`. Refresh from live IOBluetooth so the watcher
-    // (and the Peripheral tab) see reality before we act on it.
+    // (and the Peripherals tab) see reality before we act on it.
     fetchConnectedPeripherals()
 
     DispatchQueue.main.asyncAfter(deadline: .now() + Constants.wakeReclaimDelay) {
@@ -664,7 +664,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Register for every Bluetooth connect the OS sees, so the Peripheral
+  /// Register for every Bluetooth connect the OS sees, so the Peripherals
   /// tab updates immediately when the user pairs/connects a device via the
   /// system Bluetooth menu instead of via Magic Switch. The handler just
   /// re-snapshots state; that's cheap and avoids us trying to keep our
@@ -882,7 +882,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Asks the peer to release just this peripheral, then pairs it
   /// locally. Used by the Peripherals tab's "Take" button and by
-  /// the right-click menu's per-peripheral switch. Apple's Magic devices
+  /// the menu's per-peripheral switch. Apple's Magic devices
   /// only honor one host at a time, so `IOBluetoothDevicePair.start()`
   /// would hang otherwise.
   ///
@@ -968,7 +968,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// The inverse direction: release the peripheral locally, wait for the
   /// IOBluetooth-level disconnect to land, then ask the peer to take it.
   /// Used by the Peripherals tab's "Send" button and by the
-  /// right-click menu's per-peripheral switch when the peripheral is
+  /// menu's per-peripheral switch when the peripheral is
   /// currently on this Mac.
   ///
   /// Preflights the peer with a `.ping` *before* releasing anything: `isActive`
@@ -1264,7 +1264,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // key, so macOS reconnects it on its own. Running
       // `IOBluetoothDevicePair.start()` on a bonded device re-runs bonding and
       // forces a disconnect/reconnect cycle that fights that reconnect (and
-      // strands the UI at "(Pairing…)" — the pair callback never fires for an
+      // strands the UI at "Pairing…" — the pair callback never fires for an
       // already-connected device, and `fetchConnectedPeripherals` won't
       // overwrite the in-flight `.connecting`). So adopt the live connection,
       // or just open one — never re-pair up front. The bonded open is the
@@ -1524,7 +1524,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// - Parameter overrideTransient: when `true`, a live read replaces even an
   ///   in-flight `.connecting`/`.releasing` state. `false` (the usual path)
-  ///   protects those transients from a stale snapshot (the Peripheral tab
+  ///   protects those transients from a stale snapshot (the Peripherals tab
   ///   polls this on a timer); `finishFullSetRelease(success:)` passes `true`
   ///   to restore the real state after an aborted handoff.
   private func fetchConnectedPeripherals(overrideTransient: Bool) {
@@ -1569,7 +1569,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // registered ones at read time. Filtering here instead would mean
           // unregistering a peripheral can't immediately surface it under
           // "Available" until the next fetch (e.g. tab switch).
-          // Assign only on change. The Peripheral tab polls this on a timer, so
+          // Assign only on change. The Peripherals tab polls this on a timer, so
           // an unconditional reassign would fire `objectWillChange` every tick
           // (needless re-renders, and it could dismiss an open type picker).
           if self.discoveredPeripherals != paired { self.discoveredPeripherals = paired }

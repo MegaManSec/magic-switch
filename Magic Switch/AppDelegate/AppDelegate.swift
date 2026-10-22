@@ -108,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     setupDisplayTrigger()
     setupHotkey()
     // Best-effort, silent, throttled to once per 24h. Drives the "Update
-    // Available" affordances in the right-click menu and Settings → Other.
+    // Available" affordances in the menu-bar menu and Settings → Other.
     UpdateChecker.shared.checkIfNeeded()
   }
 
@@ -796,8 +796,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   }
 
   /// Wire the display trigger: when a display the user marked in Settings →
-  /// Other connects, switch the peripherals to this Mac as if its Mac row
-  /// had been clicked in the menu.
+  /// Other connects, take the full set onto this Mac via
+  /// `takeAllPeripheralsIfAway` — never a send, and it works while the other
+  /// Mac sleeps.
   private func setupDisplayTrigger() {
     displayMonitor.onTriggerDisplaysConnected = { [weak self] names in
       self?.handleTriggerDisplaysConnected(names)
@@ -943,8 +944,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   // MARK: - Settings Management
 
-  /// Opens the newest release in the default browser. Wired to the "Update
-  /// Available" row in the dropdown (see `DropdownContentView`).
+  /// Opens the newest release in the default browser. The click target of
+  /// the update notification; the dropdown's row opens the URL itself.
   @objc func openLatestReleasePage(_ sender: Any?) {
     guard let url = UpdateChecker.shared.releasePageURL else { return }
     NSWorkspace.shared.open(url)
@@ -1053,16 +1054,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   }
 
   /// Drops the app back to `.accessory` (no Dock icon) once the last normal
-  /// window closes. SwiftUI's `Settings` scene typically reuses one window,
-  /// but the loop is defensive against any other normal-level window we
-  /// might open in the future.
+  /// window closes. Settings is one hand-built window, but the loop is
+  /// defensive against any other normal-level window we might open in the
+  /// future.
   private func setupActivationPolicyTracking() {
     windowCloseObserver = NotificationCenter.default.addObserver(
       forName: NSWindow.willCloseNotification,
       object: nil,
       queue: .main
     ) { [weak self] notification in
-      // Only react when a normal-level window closes. The right-click
+      // Only react when a normal-level window closes. The status-item
       // NSMenu fires willClose as soon as the user picks Settings —
       // reacting to that races against the Settings window actually
       // appearing (we'd flip back to .accessory before SwiftUI has put
