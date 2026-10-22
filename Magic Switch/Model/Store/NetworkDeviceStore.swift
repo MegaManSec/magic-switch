@@ -462,6 +462,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // un-grey the menu row.
     deviceReachability[deviceID] = true
     saveNetworkDevices()
+    NotificationManager.removeNotification(identifier: "identity-mismatch-\(deviceID)")
   }
 
   /// A peer just completed a secure-channel handshake, proving it holds the
