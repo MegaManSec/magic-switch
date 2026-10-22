@@ -117,7 +117,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// Bluetooth, unless the network answered the last probe.
   private static let bluetoothProbeHeadStart: TimeInterval = 1
   /// Registered devices whose latest reachability probe only got through over
-  /// Bluetooth. Orders their routes (see `routes(for:)`) and badges their rows.
+  /// Bluetooth, or whose latest command did. Orders their routes (see
+  /// `routes(for:)`) and badges their rows.
   @Published private(set) var reachedOverBluetooth: Set<String> = []
   private var bluetoothSettingObserver: AnyCancellable?
 
@@ -395,6 +396,34 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     let network = Self.networkRoutes(to: device)
     let bluetooth = bluetoothRoutes(to: device)
     return reachedOverBluetooth.contains(device.id) ? bluetooth + network : network + bluetooth
+  }
+
+  /// `completion`, after ordering the next dial to `device` by the route
+  /// `outgoing` got through on. Passes `completion` through when `device` is nil.
+  private func orderingRoutes(
+    of device: NetworkDevice?, by outgoing: OutgoingConnection,
+    then completion: @escaping (Result<Void, OutgoingFailure>) -> Void
+  ) -> (Result<Void, OutgoingFailure>) -> Void {
+    guard let device = device else { return completion }
+    return { [weak self, weak outgoing] result in
+      if let route = outgoing?.route {
+        DispatchQueue.main.async {
+          guard let self = self, self.networkDevices.contains(where: { $0.id == device.id })
+          else { return }
+          self.setReachedOverBluetooth(route.isBluetooth, for: device.id)
+        }
+      }
+      completion(result)
+    }
+  }
+
+  private func setReachedOverBluetooth(_ overBluetooth: Bool, for id: String) {
+    guard reachedOverBluetooth.contains(id) != overBluetooth else { return }
+    if overBluetooth {
+      reachedOverBluetooth.insert(id)
+    } else {
+      reachedOverBluetooth.remove(id)
+    }
   }
 
   /// Just `device`'s TCP endpoint. For probes that must prove that endpoint
@@ -927,13 +956,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     if deviceReachability[device.id] != reachable {
       deviceReachability[device.id] = reachable
     }
-    if reachedOverBluetooth.contains(device.id) != overBluetooth {
-      if overBluetooth {
-        reachedOverBluetooth.insert(device.id)
-      } else {
-        reachedOverBluetooth.remove(device.id)
-      }
-    }
+    setReachedOverBluetooth(overBluetooth, for: device.id)
     if reachable {
       consecutivePollFailures[device.id] = 0
     } else {
@@ -1274,13 +1297,14 @@ extension NetworkDeviceStore {
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
     executeCommand(
-      command, over: routes(for: device), countsTowardRateLimit: countsTowardRateLimit,
-      completion: completion)
+      command, over: routes(for: device), to: device,
+      countsTowardRateLimit: countsTowardRateLimit, completion: completion)
   }
 
   private func executeCommand(
     _ command: DeviceCommand,
     over routes: [PeerRoute],
+    to device: NetworkDevice? = nil,
     countsTowardRateLimit: Bool = true,
     completion: @escaping (Result<Void, OutgoingFailure>) -> Void
   ) {
@@ -1319,7 +1343,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: orderingRoutes(of: device, by: outgoing, then: completion)
     )
   }
 
@@ -1368,7 +1392,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: orderingRoutes(of: device, by: outgoing, then: completion)
     )
   }
 }
@@ -1428,7 +1452,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: { [weak self] result in
+      completion: orderingRoutes(of: device, by: outgoing) { [weak self] result in
         DispatchQueue.main.async {
           self?.endOperation(for: device.id)
           completion?(result)
@@ -1683,7 +1707,7 @@ extension NetworkDeviceStore {
           }
         }
       },
-      completion: completion
+      completion: orderingRoutes(of: device, by: outgoing, then: completion)
     )
   }
 }

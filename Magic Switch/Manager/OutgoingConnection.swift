@@ -86,6 +86,11 @@ enum PeerRoute: Hashable, CustomStringConvertible {
       return "Bluetooth \(peripheral.uuidString)"
     }
   }
+
+  var isBluetooth: Bool {
+    if case .bluetooth = self { return true }
+    return false
+  }
 }
 
 /// Per-route outbound failure tracker. The mirror of `RateLimiter` for the
