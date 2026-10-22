@@ -34,7 +34,7 @@ struct PairingSettingsView: View {
       Alert(
         title: Text("Unpair this Mac?"),
         message: Text(
-          "Magic Switch will stop accepting commands from your other Mac until you pair again."
+          "You won't be able to switch peripherals with your other Mac until you pair again."
         ),
         primaryButton: .destructive(Text("Unpair")) {
           unpairFailed = false
@@ -52,7 +52,7 @@ struct PairingSettingsView: View {
       Text("Not paired")
         .font(.title2)
         .bold()
-      Text("Pair this Mac with another Magic Switch install to enable secure switching.")
+      Text("Pair this Mac with your other Mac to start switching peripherals.")
         .foregroundColor(.secondary)
       HStack {
         Button("Generate Code") {
@@ -94,13 +94,16 @@ struct PairingSettingsView: View {
             .font(.system(.title3, design: .monospaced))
         }
       }
-      Text("Compare with the fingerprint shown on your other Mac — they should match.")
-        .foregroundColor(.secondary)
+      Text(
+        "Compare with the fingerprint shown on your other Mac — they should match. If they don't, pair both Macs again with the same code."
+      )
+      .foregroundColor(.secondary)
       Button("Unpair") {
         showUnpairAlert = true
       }
       .foregroundColor(.red)
-      .help("Remove the saved pairing key. This Mac will stop accepting commands.")
+      .help(
+        "Remove the saved pairing key. Switching with your other Mac stops until you pair again.")
       if unpairFailed {
         Text("Couldn't remove the pairing key from this Mac.")
           .foregroundColor(.red)
@@ -159,7 +162,7 @@ private struct GenerateCodeSheet: View {
         .accessibilityLabel("Copy pairing code")
       }
       Text(
-        "Enter this code on your other Mac. Order doesn't matter — both Macs derive the same key from the same code."
+        "Enter this code on your other Mac. It doesn't matter which Mac generates the code."
       )
       .foregroundColor(.secondary)
       .font(.caption)

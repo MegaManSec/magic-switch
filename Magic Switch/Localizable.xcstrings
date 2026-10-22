@@ -261,7 +261,7 @@
     "Close. The pairing key stays saved on this Mac." : {
 
     },
-    "Compare with the fingerprint shown on your other Mac — they should match." : {
+    "Compare with the fingerprint shown on your other Mac — they should match. If they don't, pair both Macs again with the same code." : {
 
     },
     "Confirmed: the most recent secure connection between the two Macs used this address." : {
@@ -395,7 +395,7 @@
     "Enter all %lld characters of the code." : {
 
     },
-    "Enter this code on your other Mac. Order doesn't matter — both Macs derive the same key from the same code." : {
+    "Enter this code on your other Mac. It doesn't matter which Mac generates the code." : {
 
     },
     "Ethernet" : {
@@ -510,9 +510,6 @@
         }
       }
     },
-    "Magic Switch will stop accepting commands from your other Mac until you pair again." : {
-
-    },
     "Magic Switch works with one other Mac at a time. Remove %@ first." : {
 
     },
@@ -625,7 +622,7 @@
     "Pair this Mac in the Pairing tab first." : {
 
     },
-    "Pair this Mac with another Magic Switch install to enable secure switching." : {
+    "Pair this Mac with your other Mac to start switching peripherals." : {
 
     },
     "Paired" : {
@@ -775,7 +772,7 @@
     "Remove the saved key from this Mac and close." : {
 
     },
-    "Remove the saved pairing key. This Mac will stop accepting commands." : {
+    "Remove the saved pairing key. Switching with your other Mac stops until you pair again." : {
 
     },
     "Remove this Mac from Magic Switch." : {
@@ -1034,6 +1031,9 @@
 
     },
     "You canceled while Magic Switch was pairing %@ again, so it's no longer paired with this Mac. Click it in the menu to pair it again." : {
+
+    },
+    "You won't be able to switch peripherals with your other Mac until you pair again." : {
 
     },
     "Your Other Mac" : {
