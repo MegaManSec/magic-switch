@@ -374,7 +374,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     Log.network.notice(
       "Migrated registered Mac \"\(old.name)\" -> \"\(discovered.name)\" (proved the pairing key)")
     NotificationManager.showNotification(
-      title: String(localized: "Registered Mac Renamed"),
+      title: String(localized: "Other Mac Renamed"),
       body:
         String(
           localized:
@@ -907,7 +907,8 @@ enum ManualAddError: Error {
             "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
         )
     case .anotherMacRegistered(let name):
-      return String(localized: "Only one Mac can be connected at a time. Remove \(name) first.")
+      return String(
+        localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
       return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),

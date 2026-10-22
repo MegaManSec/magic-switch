@@ -651,7 +651,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       guard let device = networkStore.networkDevices.first else {
         NotificationManager.showNotification(
           title: String(localized: "Can't Switch"),
-          body: String(localized: "No Mac is registered — pick one in Settings → Macs."),
+          body: String(localized: "No other Mac is set up — add one in Settings → Macs."),
           identifier: "url-command-no-device")
         return
       }

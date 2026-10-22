@@ -24,7 +24,8 @@ private enum Constants {
           "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
       )
     static let connectionLimitMessage =
-      String(localized: "Only one Mac can be connected at a time. Remove the existing one first.")
+      String(
+        localized: "Magic Switch works with one other Mac at a time. Remove the current one first.")
     static let notify = String(localized: "Ping")
     static let add = String(localized: "Add")
   }
@@ -141,7 +142,7 @@ struct NetworkDeviceManagementView: View {
         return Alert(
           title: Text("Remove \(device.name)?"),
           message: Text(
-            "It will be removed from your registered list. You can add it again from \"Macs Found on the Network\"."
+            "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"."
           ),
           primaryButton: .destructive(Text("Remove")) {
             networkStore.removeNetworkDevice(device: device)
@@ -199,10 +200,10 @@ struct NetworkDeviceManagementView: View {
       String(
         localized:
           "Send a test message over the secure channel — confirms both Macs can reach each other.")
-    static let add = String(localized: "Add this Mac to your registered list.")
+    static let add = String(localized: "Add this Mac as your other Mac.")
     static let sync = String(
       localized: "Send your peripheral list to this Mac so it knows about them.")
-    static let remove = String(localized: "Remove this Mac from the registered list.")
+    static let remove = String(localized: "Remove this Mac from Magic Switch.")
     static let refresh = String(
       localized: "Re-scan the network for other Macs running Magic Switch.")
     static let addByAddress =
