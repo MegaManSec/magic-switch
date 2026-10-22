@@ -181,16 +181,32 @@ private struct GenerateCodeSheet: View {
             .foregroundColor(.secondary)
         }
         Spacer()
-        Button("Discard") {
-          discard()
+        if saveState == .failed {
+          Button("Close") {
+            isPresented = false
+          }
+          .keyboardShortcut(.cancelAction)
+          .help("Close. Nothing was saved.")
+          Button("Try Again") {
+            generateAndSave()
+          }
+          .keyboardShortcut(.defaultAction)
+          .help("Generate a new code and try saving the key again.")
+        } else {
+          Button("Discard") {
+            discard()
+          }
+          .help("Remove the saved key from this Mac and close.")
+          Button("Done") {
+            isPresented = false
+          }
+          .keyboardShortcut(.defaultAction)
+          .disabled(saveState != .saved)
+          .help(
+            saveState == .saved
+              ? String(localized: "Close. The pairing key stays saved on this Mac.")
+              : String(localized: "Wait for the pairing key to finish saving."))
         }
-        .help("Remove the saved key from this Mac and close.")
-        Button("Done") {
-          isPresented = false
-        }
-        .keyboardShortcut(.defaultAction)
-        .disabled(saveState != .saved)
-        .help("Close. The pairing key stays saved on this Mac.")
       }
     }
     .padding(24)

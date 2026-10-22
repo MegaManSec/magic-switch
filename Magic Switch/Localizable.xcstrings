@@ -273,10 +273,16 @@
     "Click to take %@ to this Mac." : {
 
     },
+    "Close" : {
+
+    },
     "Close without adding." : {
 
     },
     "Close without pairing." : {
+
+    },
+    "Close. Nothing was saved." : {
 
     },
     "Close. The pairing key stays saved on this Mac." : {
@@ -435,6 +441,9 @@
 
     },
     "Generate Code" : {
+
+    },
+    "Generate a new code and try saving the key again." : {
 
     },
     "Headphones" : {
@@ -1003,6 +1012,9 @@
     "Trust new pairing key for %@?" : {
 
     },
+    "Try Again" : {
+
+    },
     "Unknown Device" : {
 
     },
@@ -1031,6 +1043,9 @@
 
     },
     "Version" : {
+
+    },
+    "Wait for the pairing key to finish saving." : {
 
     },
     "Wait for the peripheral that's switching to finish, then try again." : {
