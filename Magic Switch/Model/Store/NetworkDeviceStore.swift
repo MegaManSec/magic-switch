@@ -934,6 +934,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 /// Address sheet.
 enum ManualAddError: Error {
   case selfDial
+  case sameName(String)
   case legacyPeer
   case anotherMacRegistered(String)
   case listenerNotReady
@@ -943,6 +944,11 @@ enum ManualAddError: Error {
     switch self {
     case .selfDial:
       return String(localized: "That address is this Mac.")
+    case .sameName(let name):
+      return String(
+        localized:
+          "That Mac has the same name as this one (\(name)). Rename one of them in System Settings → General → About, then try again."
+      )
     case .legacyPeer:
       return
         String(
@@ -1416,10 +1422,14 @@ extension NetworkDeviceStore {
         case .success(.peer(let identity, let proved)):
           // The handshake happily completes against our own listener (same
           // key, both roles), and `registerNetworkDevice` has no self-guard.
-          guard !self.isLocalName(identity.name),
-            !Self.localAddresses().contains(Self.normalizeHost(host))
-          else {
+          guard !Self.localAddresses().contains(Self.normalizeHost(host)) else {
             completion(.failure(.selfDial))
+            return
+          }
+          // Records are keyed by name, so a peer with this Mac's own name
+          // would fight it over one entry (see `ingestIntroducedPeer`).
+          guard !self.isLocalName(identity.name) else {
+            completion(.failure(.sameName(identity.name)))
             return
           }
           self.ingestIntroducedPeer(

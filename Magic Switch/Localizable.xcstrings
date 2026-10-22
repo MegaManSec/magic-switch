@@ -967,6 +967,9 @@
     "Test message received. Both Macs can reach each other." : {
 
     },
+    "That Mac has the same name as this one (%@). Rename one of them in System Settings → General → About, then try again." : {
+
+    },
     "That address is this Mac." : {
 
     },
