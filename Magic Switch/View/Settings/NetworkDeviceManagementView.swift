@@ -438,15 +438,9 @@ private struct BluetoothTransportSectionView: View {
       .help(NetworkDeviceManagementView.Help.bluetoothToggle)
 
       if bluetoothTransport.isEnabled, let problem = radioProblem {
-        HStack(spacing: 8) {
-          Image(systemName: "exclamationmark.triangle.fill")
-            .foregroundColor(.yellow)
-            .accessibilityHidden(true)
-          Text(problem)
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        }
+        Label(problem, systemImage: "exclamationmark.triangle.fill")
+          .font(.callout)
+          .foregroundColor(.secondary)
       }
     } header: {
       Text(Constants.Strings.bluetooth)
