@@ -68,7 +68,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ se ha conectado: pasando tus periféricos a este Mac."
+            "value" : "Conexión detectada (%@): pasando tus periféricos a este Mac."
           }
         }
       }
@@ -1859,7 +1859,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No conectado"
+            "value" : "No conectada"
           }
         }
       }
@@ -2906,6 +2906,12 @@
                   "state" : "translated",
                   "value" : "Se sincronizaron %lld periféricos con %@."
                 }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se sincronizaron %lld periféricos con %@."
+                }
               }
             }
           }
@@ -2942,6 +2948,12 @@
                 }
               },
               "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sincronizando %lld periféricos con %@…"
+                }
+              },
+              "many" : {
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "Sincronizando %lld periféricos con %@…"
@@ -3330,7 +3342,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Actualización disponible — v%@"
+            "value" : "Nueva versión: v%@"
           }
         }
       }
