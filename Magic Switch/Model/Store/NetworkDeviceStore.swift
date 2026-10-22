@@ -959,7 +959,7 @@ enum ManualAddError: Error {
       return String(
         localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
-      return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
+      return OutgoingFailure.listenerNotReady.userMessage
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -1222,7 +1222,7 @@ extension NetworkDeviceStore {
       let jsonString = String(data: data, encoding: .utf8)
     else {
       Log.network.error("sendPeripheralSync: failed to encode peripherals")
-      completion?(.failure(.connectionFailed("encode failed")))
+      completion?(.failure(.encodingFailed))
       return
     }
 
@@ -1341,7 +1341,7 @@ extension NetworkDeviceStore {
       return
     }
     guard let local = servicePublisher.currentIdentity() else {
-      completion(.failure(.connectionFailed("listener not ready")))
+      completion(.failure(.listenerNotReady))
       return
     }
     let outgoing = OutgoingConnection(

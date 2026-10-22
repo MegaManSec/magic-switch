@@ -354,6 +354,9 @@
     "Couldn't pair %@. Turn it off and on, then try again." : {
 
     },
+    "Couldn't prepare the request on this Mac." : {
+
+    },
     "Couldn't reach the other Mac on the network." : {
 
     },
