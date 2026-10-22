@@ -292,7 +292,7 @@ private struct PeripheralRowView: View {
         }
       }
     } label: {
-      Text("")
+      Text(verbatim: "")
     }
     .menuStyle(.borderlessButton)
     // Native menus ignore image-label frames. Keep the native arrow in a
