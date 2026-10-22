@@ -308,12 +308,12 @@
     "Couldn't pair %@. Turn it off and on, then try switching again." : {
 
     },
-    "Couldn't reach %@ (%@) — keeping %@ on this Mac." : {
+    "Couldn't reach %@ — keeping %@ on this Mac. %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Couldn't reach %1$@ (%2$@) — keeping %3$@ on this Mac."
+            "value" : "Couldn't reach %1$@ — keeping %2$@ on this Mac. %3$@"
           }
         }
       }

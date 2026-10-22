@@ -998,7 +998,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             body:
               String(
                 localized:
-                  "Couldn't reach \(device.name) (\(err.userMessage)) — keeping \(peripheral.name) on this Mac."
+                  "Couldn't reach \(device.name) — keeping \(peripheral.name) on this Mac. \(err.userMessage)"
               ),
             identifier: "send-preflight-failed-\(peripheral.id)"
           )
