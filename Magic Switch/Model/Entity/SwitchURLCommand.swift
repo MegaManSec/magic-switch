@@ -22,6 +22,13 @@ enum URLCommandError: Error {
         localized: "Unknown parameter '\(name)'. Supported: 'peripheral' and 'direction'.",
         comment: "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names")
     case .invalidDirection(let value):
+      if value.isEmpty {
+        return String(
+          localized: "'direction' needs a value: 'take', 'send', or 'toggle'.",
+          comment:
+            "Keep 'direction', 'take', 'send' and 'toggle' as is; they are literal URL parameter name and values"
+        )
+      }
       return String(
         localized: "Invalid direction '\(value)'. Use 'take', 'send', or 'toggle'.",
         comment: "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values")
