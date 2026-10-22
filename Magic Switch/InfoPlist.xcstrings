@@ -11,7 +11,8 @@
             "value" : "Magic Switch"
           }
         }
-      }
+      },
+      "shouldTranslate" : false
     },
     "NSBluetoothAlwaysUsageDescription" : {
       "comment" : "Privacy - Bluetooth Always Usage Description",
