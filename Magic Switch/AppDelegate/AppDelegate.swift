@@ -264,7 +264,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .unauthorized:
       NotificationManager.showNotification(
         title: String(localized: "Bluetooth Permission Needed"),
-        body: String(localized: "Grant Bluetooth access in System Settings to use Magic Switch.")
+        body: String(
+          localized: "Allow Magic Switch in System Settings → Privacy & Security → Bluetooth.",
+          comment: "System Settings → Privacy & Security → Bluetooth is a macOS UI path")
       )
     case .unsupported:
       NotificationManager.showNotification(
