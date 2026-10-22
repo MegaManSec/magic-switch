@@ -149,6 +149,9 @@
     "%@, sending" : {
 
     },
+    "%@, waiting for the other Mac" : {
+
+    },
     "'direction' needs a value: 'take', 'send', or 'toggle'." : {
       "comment" : "Keep 'direction', 'take', 'send' and 'toggle' as is; they are literal URL parameter name and values"
     },
@@ -1031,6 +1034,9 @@
 
     },
     "Wait for the peripheral that's switching to finish, then try again." : {
+
+    },
+    "Waiting for the other Mac…" : {
 
     },
     "Wi-Fi" : {

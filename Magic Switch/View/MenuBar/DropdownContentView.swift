@@ -374,7 +374,11 @@ final class DropdownContentView: NSView {
       }
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
-      top.addArrangedSubview(caption(String(localized: "Pairing…"), color: .secondaryLabelColor))
+      top.addArrangedSubview(
+        caption(
+          canCancel
+            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…"),
+          color: .secondaryLabelColor))
     case .releasing:
       top.addArrangedSubview(caption(String(localized: "Sending…"), color: .secondaryLabelColor))
     case .disconnected:
@@ -431,7 +435,11 @@ final class DropdownContentView: NSView {
       } else {
         stateLabel = String(localized: "\(peripheral.name), on this Mac")
       }
-    case .connecting: stateLabel = String(localized: "\(peripheral.name), pairing")
+    case .connecting:
+      stateLabel =
+        canCancel
+        ? String(localized: "\(peripheral.name), pairing")
+        : String(localized: "\(peripheral.name), waiting for the other Mac")
     case .releasing: stateLabel = String(localized: "\(peripheral.name), sending")
     case .disconnected: stateLabel = peripheral.name
     }

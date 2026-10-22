@@ -251,9 +251,12 @@ private struct PeripheralRowView: View {
       }
 
       if connectionState == .connecting {
-        Text("Pairing…")
-          .font(.caption)
-          .foregroundColor(.secondary)
+        Text(
+          store.canCancelConnect(peripheral.id)
+            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
+        )
+        .font(.caption)
+        .foregroundColor(.secondary)
       }
 
       // Name the destination Mac while a handoff is in flight — the button
