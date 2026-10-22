@@ -813,7 +813,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         title: String(localized: "Display Connected"),
         body: String(
           localized:
-            "\(names.joined(separator: ", ")) connected — switching your peripherals to this Mac."),
+            "\(ListFormatter.localizedString(byJoining: names)) connected — switching your peripherals to this Mac."
+        ),
         identifier: "display-trigger-switch"
       )
     }
