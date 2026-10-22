@@ -189,7 +189,7 @@
     "Bluetooth is off." : {
 
     },
-    "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac." : {
+    "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
 
     },
     "Can't Switch" : {
@@ -955,7 +955,7 @@
     "This Mac accepts connections on port %@." : {
 
     },
-    "This Mac couldn't search the network for other Macs. Use Add by Address if your other Mac doesn't appear." : {
+    "This Mac couldn't search the network for other Macs. If your other Mac doesn't appear, use the + button to add it by address." : {
 
     },
     "This Mac does not support the Bluetooth features Magic Switch needs." : {
@@ -967,7 +967,7 @@
     "This Mac isn't paired yet. Open the Pairing tab in Settings." : {
 
     },
-    "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac." : {
+    "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
 
     },
     "Toggle peripherals between Macs" : {

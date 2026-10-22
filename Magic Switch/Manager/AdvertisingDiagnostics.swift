@@ -49,7 +49,7 @@ final class AdvertisingDiagnostics: ObservableObject {
     reportSearch(
       String(
         localized:
-          "This Mac couldn't search the network for other Macs. Use Add by Address if your other Mac doesn't appear."
+          "This Mac couldn't search the network for other Macs. If your other Mac doesn't appear, use the + button to add it by address."
       )
     )
   }
@@ -114,12 +114,12 @@ final class AdvertisingDiagnostics: ObservableObject {
     if advertisingDisabledByPolicy() {
       return String(
         localized:
-          "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac."
+          "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address."
       )
     }
     return String(
       localized:
-        "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use Add by Address on the other Mac."
+        "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address."
     )
   }
 
