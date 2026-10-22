@@ -276,8 +276,8 @@ final class IncomingConnection {
   private func handleCommand(_ command: DeviceCommand) {
     lastReceivedCommand = command
     switch command {
-    case .notification, .syncPeripherals, .unregisterOne, .connectOne, .holdsOne, .adoptReleased,
-      .introduce:
+    case .notification, .pingNotification, .syncPeripherals, .unregisterOne, .connectOne,
+      .holdsOne, .adoptReleased, .introduce:
       // Two-frame commands; data frame handled in `handleCommandData`.
       break
     case .connectAll:
@@ -340,24 +340,22 @@ final class IncomingConnection {
   private func handleCommandData(_ message: String, for command: DeviceCommand) {
     switch command {
     case .notification:
+      // Older peers send the finished title and body, split on the first `|`.
       let components = message.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
       if components.count == 2 {
-        NotificationManager.showNotification(
-          title: String(components[0]),
-          body: String(components[1])
-        )
-        // Even if `UNUserNotificationCenter` silently drops the alert (it
-        // does on ad-hoc-signed sandboxed builds), the menu-bar flash
-        // observed in AppDelegate gives the user *some* visible signal.
-        DispatchQueue.main.async {
-          NotificationCenter.default.post(name: .magicSwitchReceivedPing, object: nil)
-        }
-        // Ack before the sender tears down the connection. Without this,
-        // `NWConnection.cancel()` on the sender side can drop the in-flight
-        // payload before TCP delivers it.
-        sendString(DeviceCommand.operationSuccess.rawValue)
+        showPing(title: String(components[0]), body: String(components[1]))
       } else {
         Log.network.error("Invalid notification format received")
+        sendString(DeviceCommand.operationFailed.rawValue)
+      }
+    case .pingNotification:
+      let sender = message.trimmingCharacters(in: .whitespaces)
+      if !sender.isEmpty, sender.rangeOfCharacter(from: .controlCharacters) == nil {
+        showPing(
+          title: String(localized: "Ping from \(sender)"),
+          body: String(localized: "Test message received. Both Macs can reach each other."))
+      } else {
+        Log.network.error("Invalid ping sender name received")
         sendString(DeviceCommand.operationFailed.rawValue)
       }
     case .syncPeripherals:
@@ -507,6 +505,20 @@ final class IncomingConnection {
   private static func isValidMACAddress(_ value: String) -> Bool {
     let pattern = "^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$"
     return value.range(of: pattern, options: .regularExpression) != nil
+  }
+
+  private func showPing(title: String, body: String) {
+    NotificationManager.showNotification(title: title, body: body)
+    // Even if `UNUserNotificationCenter` silently drops the alert (it
+    // does on ad-hoc-signed sandboxed builds), the menu-bar flash
+    // observed in AppDelegate gives the user *some* visible signal.
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(name: .magicSwitchReceivedPing, object: nil)
+    }
+    // Ack before the sender tears down the connection. Without this,
+    // `NWConnection.cancel()` on the sender side can drop the in-flight
+    // payload before TCP delivers it.
+    sendString(DeviceCommand.operationSuccess.rawValue)
   }
 
   // MARK: - Sending

@@ -1113,15 +1113,24 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
     beginOperation(.ping, for: device.id)
     let senderName = Host.current().localizedName ?? String(localized: "another Mac")
-    // Put the sender's name in the title so the receiver's Notification
-    // Center entry is informative at a glance.
-    let title = String(localized: "Ping from \(senderName)")
-    let body = String(localized: "Test message received. Both Macs can reach each other.")
-    sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
+    let finish: (Result<Void, OutgoingFailure>) -> Void = { [weak self] result in
       DispatchQueue.main.async {
         self?.endOperation(for: device.id)
         completion?(result)
       }
+    }
+    sendTwoFrameCommand(.pingNotification, payload: senderName, to: device) { [weak self] result in
+      guard let self = self, case .failure(.remoteOperationFailed) = result else {
+        finish(result)
+        return
+      }
+      // An older peer splits the legacy frame on its first `|`.
+      let legacyName = senderName.replacingOccurrences(of: "|", with: "/")
+      self.sendNotificationOverSecure(
+        to: device,
+        title: String(localized: "Ping from \(legacyName)"),
+        message: String(localized: "Test message received. Both Macs can reach each other."),
+        completion: finish)
     }
   }
 
@@ -1290,6 +1299,10 @@ enum DeviceCommand: String, Codable {
   /// so it has no identity to send. Distinct from the `OP_FAILED` an older
   /// peer returns for the opcode it doesn't know.
   case introduceUnavailable = "INTRODUCE_UNAVAILABLE"
+  /// Two-frame: opcode then the sender's computer name. The receiver composes
+  /// the ping notification itself, in its own language. Older peers answer
+  /// `OP_FAILED` and get the finished text as a `NOTIFICATION` instead.
+  case pingNotification = "PING_NOTIFICATION"
 }
 
 /// Decodes the standard OP_SUCCESS/OP_FAILED acknowledgement used by normal
