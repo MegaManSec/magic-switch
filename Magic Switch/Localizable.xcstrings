@@ -258,9 +258,6 @@
     "Check for Updates" : {
 
     },
-    "Checking…" : {
-
-    },
     "Choose which Bluetooth peripherals Magic Switch manages." : {
 
     },
@@ -1062,6 +1059,9 @@
     },
     "Update available: version %@" : {
 
+    },
+    "Update to version %@ available" : {
+      "comment" : "VoiceOver label for the red badge on the Version row; %@ is the newer version number"
     },
     "Version" : {
 

@@ -215,70 +215,99 @@ private struct PeripheralRowView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        typeMenu
+    HStack {
+      typeMenu
+      HStack(alignment: .firstTextBaseline, spacing: 5) {
         Text(peripheral.name)
-        Spacer()
-        // Published store state, not a direct registry read: the level often
-        // appears in the registry a beat after `.connected`, and only a
-        // `@Published` change re-renders this row when that happens. The
-        // tab's 2s snapshot timer keeps it fresh from there.
-        if showConnectionStatus, connectionState == .connected,
-          let battery = store.batteryLevels[peripheral.id]
-        {
-          Text(battery.formatted(.percent))
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .help("Battery level of \(peripheral.name).")
-        }
-        if showConnectionStatus {
-          connectionButton
-          Button(action: { secondaryAction?() }) {
-            Image(systemName: "minus.circle")
-              .foregroundColor(.red)
-          }
-          .help("Remove this peripheral from Magic Switch's list.")
-          .accessibilityLabel("Remove \(peripheral.name) from list")
-        } else {
-          Button(action: primaryAction) {
-            Image(systemName: "plus.circle")
-              .foregroundColor(.blue)
-          }
-          .help("Add this peripheral to Magic Switch's list.")
-          .accessibilityLabel("Add \(peripheral.name) to list")
-        }
+        statusLine
       }
-
-      if connectionState == .connecting {
-        Text(
-          store.canCancelConnect(peripheral.id)
-            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
-        )
-        .font(.caption)
-        .foregroundColor(.secondary)
-      }
-
-      // Name the destination Mac while a handoff is in flight — the button
-      // only shows "Sending…", which doesn't say where it's going.
-      if connectionState == .releasing {
-        Text(
-          peerName.map { String(localized: "Sending to \($0)…") }
-            ?? String(localized: "Sending…")
-        )
-        .font(.caption)
-        .foregroundColor(.secondary)
-      }
-
-      // Mirrors the dropdown's inline failure line. The store auto-fades the
-      // message after 5s (and clears it on a fresh attempt), so this appears
-      // and disappears on its own — no extra state to manage here.
-      if let error = store.peripheralOperationError[peripheral.id] {
-        Text(error)
+      Spacer()
+      // Published store state, not a direct registry read: the level often
+      // appears in the registry a beat after `.connected`, and only a
+      // `@Published` change re-renders this row when that happens. The
+      // tab's 2s snapshot timer keeps it fresh from there.
+      if showConnectionStatus, connectionState == .connected,
+        let battery = store.batteryLevels[peripheral.id]
+      {
+        Text(battery.formatted(.percent))
           .font(.caption)
-          .foregroundColor(.red)
+          .foregroundColor(.secondary)
+          .help("Battery level of \(peripheral.name).")
+      }
+      if showConnectionStatus {
+        connectionButton
+        Button(action: { secondaryAction?() }) {
+          Image(systemName: "minus.circle")
+            .foregroundColor(.red)
+        }
+        .help("Remove this peripheral from Magic Switch's list.")
+        .accessibilityLabel("Remove \(peripheral.name) from list")
+      } else {
+        Button(action: primaryAction) {
+          Image(systemName: "plus.circle")
+            .foregroundColor(.blue)
+        }
+        .help("Add this peripheral to Magic Switch's list.")
+        .accessibilityLabel("Add \(peripheral.name) to list")
       }
     }
+  }
+
+  /// In-flight state and the inline failure line, beside the name so the row
+  /// keeps one height whatever the peripheral is doing.
+  @ViewBuilder private var statusLine: some View {
+    if connectionState == .connecting {
+      Text(
+        store.canCancelConnect(peripheral.id)
+          ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
+      )
+      .font(.system(size: 9))
+      .foregroundColor(.secondary)
+      .lineLimit(1)
+    }
+
+    // Name the destination Mac while a handoff is in flight — the button
+    // only shows "Sending…", which doesn't say where it's going.
+    if connectionState == .releasing {
+      Text(
+        peerName.map { String(localized: "Sending to \($0)…") }
+          ?? String(localized: "Sending…")
+      )
+      .font(.system(size: 9))
+      .foregroundColor(.secondary)
+      .lineLimit(1)
+    }
+
+    // Mirrors the dropdown's inline failure line. The store auto-fades the
+    // message after 5s (and clears it on a fresh attempt), so this appears
+    // and disappears on its own — no extra state to manage here.
+    if let error = store.peripheralOperationError[peripheral.id] {
+      Text(error)
+        .font(.system(size: 9))
+        .foregroundColor(.red)
+        .lineLimit(1)
+    }
+  }
+
+  /// The type glyph centered on a fixed canvas. Native menus flatten their
+  /// label to one image and ignore SwiftUI frames inside it, so this is what
+  /// keeps every row's icon center, and the arrow beside it, in one column.
+  private var typeIcon: NSImage {
+    let symbolName = resolvedType.symbolName
+    let image = NSImage(size: NSSize(width: 24, height: 18), flipped: false) { rect in
+      guard
+        let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+          .withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+      else { return false }
+      let size = symbol.size
+      symbol.draw(
+        in: NSRect(
+          x: (rect.width - size.width) / 2, y: (rect.height - size.height) / 2,
+          width: size.width, height: size.height))
+      return true
+    }
+    image.isTemplate = true
+    return image
   }
 
   /// Leading icon that doubles as a type picker. Shows the resolved glyph;
@@ -301,33 +330,18 @@ private struct PeripheralRowView: View {
         }
       }
     } label: {
-      Text(verbatim: "")
+      Image(nsImage: typeIcon)
     }
     .menuStyle(.borderlessButton)
-    // Native menus ignore image-label frames. Keep the native arrow in a
-    // fixed-width menu and draw the icon separately so its center stays fixed.
-    .frame(width: 40)
-    .overlay(alignment: .leading) {
-      Image(systemName: resolvedType.symbolName)
-        .font(.system(size: 15))
-        .frame(width: 22)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
+    .fixedSize()
+    .frame(width: 44, alignment: .leading)
     .accessibilityLabel("Set the icon for \(peripheral.name)")
     .accessibilityValue(resolvedType.label)
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
-  /// Shared fixed-width label so the pill is the same size across its
-  /// clickable states ("Send" 31pt, "Take" 28pt, "Cancel" 42pt at the 13pt
-  /// control font) instead of hugging each title, so rows align and a flip
-  /// between them doesn't nudge. Only the disabled "Sending…" (60pt) grows
-  /// past the floor; sizing the floor to it would leave the resting titles
-  /// swimming in dead space, and the brief growth during a send reads as
-  /// activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
-    Text(title).frame(minWidth: 54)
+    Text(title)
   }
 
   @ViewBuilder
