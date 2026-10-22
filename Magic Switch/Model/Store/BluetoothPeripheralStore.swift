@@ -255,6 +255,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// the first is still resolving. Main-only.
   private var reconnectInFlight: Set<String> = []
 
+  /// Ids the user asked to take (menu, Settings, hotkey, URL) that the
+  /// watcher is still chasing; giving up on one of these is reported, giving
+  /// up on a routine drop or adoption is not. Main-only.
+  private var takeArmed: Set<String> = []
+
   /// Per-id bookkeeping for adoption arms; see `adoptionProgress`.
   private struct AdoptionProgress {
     /// Consecutive `HOLDS_ONE` probes that ended peer-absent (unreachable at
@@ -942,7 +947,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // a power-cycle) keeps retrying instead of leaving it on neither Mac.
           // It self-disarms once we're connected.
           self.connectPeripheralFromPeer(peripheral)
-          self.armReconnect(peripheral.id)
+          self.armTakeReconnect(peripheral.id)
         case .failure(.connectionFailed), .failure(.connectTimeout):
           // We never got a TCP connection up, so the peer's machine is
           // unreachable (asleep, off the network, app not running) and isn't
@@ -953,7 +958,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // post-connect failures (next case): if the connection opened, the
           // peer's machine is awake and may still actively hold the peripheral.
           self.connectPeripheralFromPeer(peripheral)
-          self.armReconnect(peripheral.id)
+          self.armTakeReconnect(peripheral.id)
         case .failure(let err):
           // Reachable peer but the release errored, so we can't be sure it let
           // go. Don't grab it outright (that could yank it from a peer that did
@@ -961,7 +966,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // once the peer confirms it isn't holding it — and recovers the case
           // where the peer released but the ack was lost.
           self.setConnectionState(.disconnected, for: peripheral.id)
-          self.armReconnect(peripheral.id)
+          self.armTakeReconnect(peripheral.id)
           self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
@@ -1851,6 +1856,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       if state != .disconnected { self.clearPeripheralError(id) }
       if state == .connected {
         self.bondsAwaitingRepair.remove(id)
+        NotificationManager.removeNotification(identifier: "pair-failed-\(id)")
+        NotificationManager.removeNotification(identifier: "pair-timeout-\(id)")
         self.completeConnectResultWaiters(for: id, success: true)
       } else if state == .disconnected {
         self.completeConnectResultWaiters(for: id, success: false)
@@ -1933,17 +1940,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       self.setConnectionState(.disconnected, for: id)
       guard announce || bondWasReset else { return }
       self.setPeripheralError(bondWasReset ? String(localized: "Pairing reset.") : inline, for: id)
-      // An armed watcher means this failure isn't the end of the attempt:
-      // the watcher keeps probing (a just-released Magic device routinely
-      // misses the first RSSI probe and comes up on a retry seconds later),
-      // and its eventual success is silent — so a "failed" notification now
-      // would be premature noise on the takeover/adoption paths that arm it.
-      // The inline row error above still records the miss; a failure with
-      // no retry pending stays loud.
-      guard notify, bondWasReset || self.reconnectWatchlist[id] == nil else { return }
+      guard notify else { return }
       NotificationManager.showNotification(
         title: bondWasReset ? String(localized: "Pairing Was Reset") : notifyTitle,
-        body: bondWasReset ? Self.bondResetBody(name) : notifyBody,
+        body: bondWasReset ? Self.bondResetBody(name) : self.retryNote(notifyBody, for: id),
         identifier: "pair-failed-\(id)"
       )
     }
@@ -2070,20 +2070,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     setPeripheralError(
       bondWasReset ? String(localized: "Pairing reset.") : String(localized: "Pairing timed out."),
       for: address)
-    // Same watcher-aware gate as `failConnectAttempt`: with silent retries
-    // still pending, the timeout is an interim state, not the outcome — a
-    // blind takeover pair against a device that's simply off would otherwise
-    // ride the watchdog into a loud notification on every attempt.
-    guard bondWasReset || reconnectWatchlist[address] == nil else { return }
     NotificationManager.showNotification(
       title: bondWasReset
         ? String(localized: "Pairing Was Reset") : String(localized: "Pairing Timed Out"),
       body: bondWasReset
         ? Self.bondResetBody(name)
-        : String(
-          localized:
-            "Couldn't pair \(name) in time. It may be off, out of range, or connected to your other Mac."
-        ),
+        : retryNote(
+          String(
+            localized:
+              "Couldn't pair \(name) in time. It may be off, out of range, or connected to your other Mac."
+          ), for: address),
       identifier: bondWasReset ? "pair-failed-\(address)" : "pair-timeout-\(address)"
     )
   }
@@ -2154,7 +2150,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// `reconnectMaxWindow`, so a device stuck in the bonded-but-not-connected
   /// state comes back the moment the user power-cycles it.
   func armReconnectForTakeover(_ id: String) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.armReconnectForTakeover(id) }
+      return
+    }
+    armTakeReconnect(id)
+  }
+
+  /// `armReconnect` for an attempt the user started; see `takeArmed`.
+  private func armTakeReconnect(_ id: String) {
     armReconnect(id)
+    if reconnectWatchlist[id] != nil { takeArmed.insert(id) }
+  }
+
+  private static var retryMinutes: Int { Int(Constants.reconnectMaxWindow / 60) }
+
+  /// Tells the user a failure isn't final while the watcher still has `id`.
+  private func retryNote(_ body: String, for id: String) -> String {
+    guard reconnectWatchlist[id] != nil else { return body }
+    return String(
+      localized: "\(body) Magic Switch keeps trying for up to \(Self.retryMinutes) minutes.")
   }
 
   /// Stop watching `id` — it connected, moved to the peer, was removed, or
@@ -2167,6 +2182,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
     reconnectInFlight.remove(id)
     adoptionProgress.removeValue(forKey: id)
+    takeArmed.remove(id)
     guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
     if reconnectWatchlist.isEmpty { stopReconnectTimer() }
   }
@@ -2247,6 +2263,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
       if now.timeIntervalSince(armedAt) > Constants.reconnectMaxWindow {
         Log.bluetooth.notice("Auto-reconnect: giving up on \(peripheral.name)")
+        if takeArmed.contains(id) {
+          NotificationManager.showNotification(
+            title: String(localized: "Couldn't Connect"),
+            body: String(
+              localized:
+                "Magic Switch stopped trying to connect \(peripheral.name) after \(Self.retryMinutes) minutes. Switch it off and on, then click it in the menu."
+            ),
+            identifier: "pair-failed-\(id)"
+          )
+        }
         disarmReconnect(id)
         continue
       }
