@@ -810,8 +810,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     let senderName = Host.current().localizedName ?? String(localized: "another Mac")
     // Put the sender's name in the title so the receiver's Notification
     // Center entry is informative at a glance.
-    let title = String(localized: "Notification from \(senderName)")
-    let body = String(localized: "Sent via Magic Switch.")
+    let title = String(localized: "Ping from \(senderName)")
+    let body = String(localized: "Test message received. Both Macs can reach each other.")
     sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
       DispatchQueue.main.async {
         self?.endOperation(for: device.id)
