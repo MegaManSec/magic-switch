@@ -532,7 +532,6 @@ private struct NetworkDeviceListView: View {
 
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
-  /// Observed so rows redraw when the transport is toggled.
   @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   init(

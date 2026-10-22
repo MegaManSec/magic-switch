@@ -490,8 +490,6 @@ extension BLETransport: CBCentralManagerDelegate {
   func centralManager(
     _ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?
   ) {
-    // Before this link has connected, a disconnect is the late end of the
-    // link it replaced.
     if cancellingPeers[peripheral.identifier] == nil,
       outboundLink(for: peripheral)?.isConnected == false
     {
