@@ -318,7 +318,7 @@
     "Couldn't establish a secure connection (possible tampering)." : {
 
     },
-    "Couldn't establish a secure connection." : {
+    "Couldn't establish a secure connection. Make sure your other Mac is paired with the same code (Settings → Pairing)." : {
 
     },
     "Couldn't pair %@. It may currently be connected to your other Mac — try the menu-bar switch action instead." : {
@@ -927,25 +927,22 @@
     "That address is this Mac." : {
 
     },
-    "The connection dropped mid-message." : {
-
-    },
     "The new fingerprint should match the one shown in Settings → Pairing on %@." : {
 
     },
+    "The other Mac couldn't complete the request. If its peripheral list is out of date, click Sync in Settings → Macs." : {
+
+    },
     "The other Mac didn't respond in time." : {
-
-    },
-    "The other Mac didn't respond to the secure handshake." : {
-
-    },
-    "The other Mac reported that it couldn't complete the operation." : {
 
     },
     "The other Mac returned an invalid response." : {
 
     },
     "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first." : {
+
+    },
+    "The other Mac stopped responding before it finished." : {
 
     },
     "The other Mac you switch peripherals with." : {
@@ -963,7 +960,7 @@
     "This Mac isn't accepting connections yet. Try again in a moment." : {
 
     },
-    "This Mac isn't paired yet. Open the Pairing tab in Settings." : {
+    "This Mac isn't paired with your other Mac. Open Settings → Pairing." : {
 
     },
     "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
@@ -972,7 +969,7 @@
     "Toggle peripherals between Macs" : {
 
     },
-    "Too many recent failures reaching the other Mac — backing off. Try again in a minute." : {
+    "Too many failed attempts to reach the other Mac. Try again in a minute." : {
 
     },
     "Trackpad" : {
