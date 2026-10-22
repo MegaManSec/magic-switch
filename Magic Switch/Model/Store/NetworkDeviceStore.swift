@@ -19,7 +19,31 @@ protocol NetworkDeviceManageable {
   func updateNetworkDevice(_ device: NetworkDevice)
 }
 
-/// A user-initiated Device-tab operation currently in flight to a peer.
+/// Why no switch can run right now; `userMessage` is the sentence shown for it.
+enum SwitchBlocker {
+  case noOtherMac
+  case notPaired
+  case pendingTrust(NetworkDevice)
+  case unreachable(NetworkDevice)
+
+  var userMessage: String {
+    switch self {
+    case .noOtherMac:
+      return String(localized: "No other Mac is set up — add one in Settings → Macs.")
+    case .notPaired:
+      return OutgoingFailure.notPaired.userMessage
+    case .pendingTrust(let device):
+      return String(
+        localized:
+          "\(device.name) has a new pairing key. Switching is paused until you choose Trust in Settings → Macs."
+      )
+    case .unreachable(let device):
+      return String(localized: "\(device.name) isn't reachable on the network right now.")
+    }
+  }
+}
+
+/// A user-initiated Macs-tab operation currently in flight to a peer.
 /// Tracked in `NetworkDeviceStore` (not the view) so the row can disable its
 /// buttons and keep rendering progress across Settings tab switches — the
 /// view's local `@State` is reset when the tab is left and re-entered.
@@ -588,11 +612,21 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// `true`, and the first poll confirms it.
   func isReachable(_ id: String) -> Bool { deviceReachability[id] ?? false }
 
-  /// A device is switchable when it's reachable *and* not parked behind a
-  /// pending TOFU identity mismatch (which the user must Trust first). Drives
-  /// the menu's Mac-row enablement and tooltip.
+  /// Why no switch can run right now, or nil when one can. The menu, the
+  /// Peripherals tab and the switch guards all explain a refusal from this,
+  /// so one state is never described two ways. Main-only.
+  func switchBlocker() -> SwitchBlocker? {
+    guard let device = networkDevices.first else { return .noOtherMac }
+    guard PairingStore.shared.isPaired else { return .notPaired }
+    if device.pendingFingerprint != nil { return .pendingTrust(device) }
+    return isReachable(device.id) ? nil : .unreachable(device)
+  }
+
+  /// A device is switchable when both Macs are paired, it's reachable, and
+  /// it isn't parked behind a pending TOFU identity mismatch (which the user
+  /// must Trust first). Drives the menu's Mac-row enablement and tooltip.
   func isSwitchable(_ device: NetworkDevice) -> Bool {
-    device.pendingFingerprint == nil && isReachable(device.id)
+    PairingStore.shared.isPaired && device.pendingFingerprint == nil && isReachable(device.id)
   }
 
   /// Repeating background probe — runs every `reachabilityInterval` for the

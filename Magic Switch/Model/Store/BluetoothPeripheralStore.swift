@@ -804,7 +804,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// from.
   func switchPeripheral(_ peripheral: BluetoothPeripheral, direction: SwitchDirection) {
     let networkStore = NetworkDeviceStore.shared
-    let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
+    let blocker = networkStore.switchBlocker()
+    let canSwitch = blocker == nil
     switch connectionState(for: peripheral.id) {
     case .connected:
       guard direction != .take else { return }
@@ -813,11 +814,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // hand to, `sendPeripheralToPeer` falls back to a plain local release,
       // stranding the peripheral on neither Mac. The fixed identifier
       // collapses a multi-peripheral command into one notification.
-      guard canSwitch else {
+      if let blocker {
         NotificationManager.showNotification(
           title: String(localized: "Can't Switch"),
-          body: String(
-            localized: "The other Mac isn't reachable — keeping peripherals on this Mac."),
+          body: blocker.userMessage,
           identifier: "switch-no-peer"
         )
         return

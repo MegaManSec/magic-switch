@@ -186,6 +186,7 @@ private struct PeripheralRowView: View {
 
   @ObservedObject private var store = BluetoothPeripheralStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var pairing = PairingStore.shared
 
   private var connectionState: PeripheralConnectionState {
     store.connectionState(for: peripheral.id)
@@ -195,13 +196,11 @@ private struct PeripheralRowView: View {
     store.peripheralType(for: peripheral)
   }
 
-  /// Whether the other Mac can take a released peripheral: the same gate as
-  /// the menu's peripheral rows, so Send is never offered where the menu
-  /// greys the row out. Sending with no reachable peer would just disconnect
-  /// the peripheral from both Macs.
-  private var canSend: Bool {
-    networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
-  }
+  /// Why the other Mac can't take a released peripheral right now — the same
+  /// gate as the menu's peripheral rows, so Send is never offered where the
+  /// menu greys the row out. Sending with no reachable peer would just
+  /// disconnect the peripheral from both Macs.
+  private var sendBlocker: SwitchBlocker? { networkStore.switchBlocker() }
 
   /// The peer this Mac hands peripherals to, for the "Sending to …" line.
   private var peerName: String? {
@@ -328,17 +327,11 @@ private struct PeripheralRowView: View {
         actionLabel(
           String(localized: "Send", comment: "Button: send this peripheral to the other Mac"))
       }
-      .disabled(!canSend)
+      .disabled(sendBlocker != nil)
       .help(
-        canSend
-          ? String(
-            localized:
-              "Send this peripheral to the other Mac, which takes it over automatically."
-          )
-          : String(
-            localized:
-              "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs."
-          )
+        sendBlocker?.userMessage
+          ?? String(
+            localized: "Send this peripheral to the other Mac, which takes it over automatically.")
       )
     case .connecting:
       Button(action: { store.cancelConnect(peripheral) }) {

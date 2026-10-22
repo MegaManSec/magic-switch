@@ -42,6 +42,9 @@
     "%@ didn't disconnect from this Mac." : {
 
     },
+    "%@ has a new pairing key. Switching is paused until you choose Trust in Settings → Macs." : {
+
+    },
     "%@ has stopped advertising on the network." : {
 
     },
@@ -411,9 +414,6 @@
     "External Display" : {
 
     },
-    "Finish the peripheral that's currently switching before switching them all." : {
-
-    },
     "For networks that block Bonjour. Pair both Macs with the same code first, then enter the other Mac's IP address." : {
 
     },
@@ -588,8 +588,8 @@
     "On this Mac — click to send %@ to the other Mac." : {
 
     },
-    "On this Mac. No other Mac is reachable to send it to." : {
-
+    "On this Mac. %@" : {
+      "comment" : "Two sentences: where the peripheral is, then why it can't be sent"
     },
     "On your other Mac, add this Mac as %@, port %@." : {
       "localizations" : {
@@ -945,12 +945,6 @@
     "The other Mac didn't respond to the secure handshake." : {
 
     },
-    "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs." : {
-
-    },
-    "The other Mac isn't reachable — keeping peripherals on this Mac." : {
-
-    },
     "The other Mac reported that it couldn't complete the operation." : {
 
     },
@@ -1027,6 +1021,9 @@
 
     },
     "Version" : {
+
+    },
+    "Wait for the peripheral that's switching to finish, then try again." : {
 
     },
     "When %@ connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: %@." : {

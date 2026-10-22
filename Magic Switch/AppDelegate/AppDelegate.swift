@@ -648,13 +648,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .take:
       takeAllPeripheralsIfAway()
     case .send, .toggle:
-      guard let device = networkStore.networkDevices.first else {
+      // Reachability is left to the live health check in `performSwitch`,
+      // not the last poll; the other refusals mirror the menu's greyed row.
+      switch networkStore.switchBlocker() {
+      case nil, .unreachable(_)?:
+        break
+      case let blocker?:
         NotificationManager.showNotification(
           title: String(localized: "Can't Switch"),
-          body: String(localized: "No other Mac is set up — add one in Settings → Macs."),
+          body: blocker.userMessage,
           identifier: "url-command-no-device")
         return
       }
+      guard let device = networkStore.networkDevices.first else { return }
       performSwitch(with: device, direction: direction)
     }
   }

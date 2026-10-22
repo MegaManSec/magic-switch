@@ -152,6 +152,8 @@ final class DropdownContentView: NSView {
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
     updateChecker.objectWillChange
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
+    PairingStore.shared.objectWillChange
+      .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
   }
 
   @available(*, unavailable)
@@ -306,10 +308,9 @@ final class DropdownContentView: NSView {
     row.toolTip =
       reachable
       ? (busy
-        ? String(
-          localized: "Finish the peripheral that's currently switching before switching them all.")
+        ? String(localized: "Wait for the peripheral that's switching to finish, then try again.")
         : String(localized: "Switch peripherals between this Mac and \(device.name)."))
-      : String(localized: "\(device.name) isn't reachable on the network right now.")
+      : (networkStore.switchBlocker() ?? .unreachable(device)).userMessage
     row.setAccessibilityLabel(device.name)
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
@@ -317,7 +318,8 @@ final class DropdownContentView: NSView {
 
   private func makePeripheralRow(_ peripheral: BluetoothPeripheral) -> NSView {
     let state = bluetoothStore.connectionState(for: peripheral.id)
-    let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
+    let blocker = networkStore.switchBlocker()
+    let canSwitch = blocker == nil
     let row = MenuRowControl { [weak self] in
       guard let self = self else { return }
       // A click can race the rebuild that follows a state flip — act only on
@@ -406,10 +408,14 @@ final class DropdownContentView: NSView {
     case .releasing:
       row.toolTip = String(localized: "Sending \(peripheral.name) to the other Mac…")
     case .connected:
-      row.toolTip =
-        canSwitch
-        ? String(localized: "On this Mac — click to send \(peripheral.name) to the other Mac.")
-        : String(localized: "On this Mac. No other Mac is reachable to send it to.")
+      if let blocker {
+        row.toolTip = String(
+          localized: "On this Mac. \(blocker.userMessage)",
+          comment: "Two sentences: where the peripheral is, then why it can't be sent")
+      } else {
+        row.toolTip = String(
+          localized: "On this Mac — click to send \(peripheral.name) to the other Mac.")
+      }
     case .disconnected:
       row.toolTip =
         canSwitch
