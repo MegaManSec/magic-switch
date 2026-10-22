@@ -539,6 +539,18 @@ private struct NetworkDeviceListView: View {
     requiresPairing && !pairing.isPaired
   }
 
+  /// The same verdict the name's hover text gives: the probe for registered
+  /// rows (only they are polled), Bonjour presence for discovered ones.
+  private func isOnline(_ device: NetworkDevice) -> Bool {
+    onTrustPending != nil ? networkStore.isReachable(device.id) : device.isActive
+  }
+
+  private func offlineHelp(for device: NetworkDevice) -> String {
+    onTrustPending != nil
+      ? String(localized: "\(device.name) isn't reachable on the network right now.")
+      : String(localized: "\(device.name) is no longer visible on the network.")
+  }
+
   /// Hover text for the row's name. Only the registered section has a Trust
   /// affordance and a reachability signal — `pollReachability` probes
   /// `networkDevices` alone — so discovered rows get the weaker claim their
@@ -593,6 +605,7 @@ private struct NetworkDeviceListView: View {
       // A Ping/Sync in flight disables both buttons (they share one secure
       // channel and one status line) and drives the progress line below.
       let inFlight = networkStore.inFlightOperations[device.id]
+      let online = isOnline(device)
       VStack(alignment: .leading, spacing: 6) {
         HStack {
           // The buttons each explain themselves, but the name — most of the
@@ -604,16 +617,18 @@ private struct NetworkDeviceListView: View {
           Button(action: { action(device) }) {
             Text(buttonTitle)
           }
-          .disabled(!device.isActive || blockedByPairing || inFlight != nil)
+          .disabled(!online || blockedByPairing || inFlight != nil)
           .help(
-            blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp(device))
+            blockedByPairing
+              ? NetworkDeviceManagementView.Help.needsPairing
+              : online ? actionHelp(device) : offlineHelp(for: device))
 
           if let onSync = onSyncPeripherals {
             // An explicit foregroundColor overrides the automatic disabled
             // dimming, so pick the colour from the same condition that
             // disables the button — otherwise an unreachable Mac's sync
             // icon stays bright blue while silently ignoring clicks.
-            let syncEnabled = device.isActive && !blockedByPairing && inFlight == nil
+            let syncEnabled = online && !blockedByPairing && inFlight == nil
             // Not `square.and.arrow.up` — that's the system Share glyph, which
             // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
@@ -624,7 +639,8 @@ private struct NetworkDeviceListView: View {
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
-                : NetworkDeviceManagementView.Help.sync(device.name)
+                : online
+                  ? NetworkDeviceManagementView.Help.sync(device.name) : offlineHelp(for: device)
             )
             .accessibilityLabel("Sync peripheral list to \(device.name)")
           }
