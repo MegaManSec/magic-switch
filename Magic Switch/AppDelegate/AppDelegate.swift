@@ -588,9 +588,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     case .poweredOn, .unknown:
       switch bluetoothStore.peripheralPresence {
       case .connectedHere:
-        return String(localized: "Magic Switch: peripherals connected to this Mac")
+        return String(localized: "Magic Switch: peripherals connected to this Mac.")
       case .away:
-        return String(localized: "Magic Switch: no peripherals connected to this Mac")
+        return String(localized: "Magic Switch: no peripherals connected to this Mac.")
       case .none:
         return "Magic Switch"
       }
@@ -686,7 +686,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         case .failure(let error):
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Reach Your Other Mac"),
-            body: String(localized: "Couldn't communicate with your other Mac: \(error)")
+            body: error
           )
         case .timeout:
           NotificationManager.showNotification(

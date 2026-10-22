@@ -994,7 +994,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.setConnectionState(.connected, for: peripheral.id)
           self.setPeripheralError(String(localized: "Other Mac unreachable."), for: peripheral.id)
           NotificationManager.showNotification(
-            title: String(localized: "Switch Cancelled"),
+            title: String(localized: "Switch Canceled"),
             body:
               String(
                 localized:
