@@ -215,69 +215,77 @@ private struct PeripheralRowView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack {
-        typeMenu
+    HStack {
+      typeMenu
+      HStack(alignment: .firstTextBaseline, spacing: 5) {
         Text(peripheral.name)
-        Spacer()
-        // Published store state, not a direct registry read: the level often
-        // appears in the registry a beat after `.connected`, and only a
-        // `@Published` change re-renders this row when that happens. The
-        // tab's 2s snapshot timer keeps it fresh from there.
-        if showConnectionStatus, connectionState == .connected,
-          let battery = store.batteryLevels[peripheral.id]
-        {
-          Text(battery.formatted(.percent))
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .help("Battery level of \(peripheral.name).")
-        }
-        if showConnectionStatus {
-          connectionButton
-          Button(action: { secondaryAction?() }) {
-            Image(systemName: "minus.circle")
-              .foregroundColor(.red)
-          }
-          .help("Remove this peripheral from Magic Switch's list.")
-          .accessibilityLabel("Remove \(peripheral.name) from list")
-        } else {
-          Button(action: primaryAction) {
-            Image(systemName: "plus.circle")
-              .foregroundColor(.blue)
-          }
-          .help("Add this peripheral to Magic Switch's list.")
-          .accessibilityLabel("Add \(peripheral.name) to list")
-        }
+        statusLine
       }
-
-      if connectionState == .connecting {
-        Text(
-          store.canCancelConnect(peripheral.id)
-            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
-        )
-        .font(.caption)
-        .foregroundColor(.secondary)
-      }
-
-      // Name the destination Mac while a handoff is in flight — the button
-      // only shows "Sending…", which doesn't say where it's going.
-      if connectionState == .releasing {
-        Text(
-          peerName.map { String(localized: "Sending to \($0)…") }
-            ?? String(localized: "Sending…")
-        )
-        .font(.caption)
-        .foregroundColor(.secondary)
-      }
-
-      // Mirrors the dropdown's inline failure line. The store auto-fades the
-      // message after 5s (and clears it on a fresh attempt), so this appears
-      // and disappears on its own — no extra state to manage here.
-      if let error = store.peripheralOperationError[peripheral.id] {
-        Text(error)
+      Spacer()
+      // Published store state, not a direct registry read: the level often
+      // appears in the registry a beat after `.connected`, and only a
+      // `@Published` change re-renders this row when that happens. The
+      // tab's 2s snapshot timer keeps it fresh from there.
+      if showConnectionStatus, connectionState == .connected,
+        let battery = store.batteryLevels[peripheral.id]
+      {
+        Text(battery.formatted(.percent))
           .font(.caption)
-          .foregroundColor(.red)
+          .foregroundColor(.secondary)
+          .help("Battery level of \(peripheral.name).")
       }
+      if showConnectionStatus {
+        connectionButton
+        Button(action: { secondaryAction?() }) {
+          Image(systemName: "minus.circle")
+            .foregroundColor(.red)
+        }
+        .help("Remove this peripheral from Magic Switch's list.")
+        .accessibilityLabel("Remove \(peripheral.name) from list")
+      } else {
+        Button(action: primaryAction) {
+          Image(systemName: "plus.circle")
+            .foregroundColor(.blue)
+        }
+        .help("Add this peripheral to Magic Switch's list.")
+        .accessibilityLabel("Add \(peripheral.name) to list")
+      }
+    }
+  }
+
+  /// In-flight state and the inline failure line, beside the name so the row
+  /// keeps one height whatever the peripheral is doing.
+  @ViewBuilder private var statusLine: some View {
+    if connectionState == .connecting {
+      Text(
+        store.canCancelConnect(peripheral.id)
+          ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
+      )
+      .font(.system(size: 9))
+      .foregroundColor(.secondary)
+      .lineLimit(1)
+    }
+
+    // Name the destination Mac while a handoff is in flight — the button
+    // only shows "Sending…", which doesn't say where it's going.
+    if connectionState == .releasing {
+      Text(
+        peerName.map { String(localized: "Sending to \($0)…") }
+          ?? String(localized: "Sending…")
+      )
+      .font(.system(size: 9))
+      .foregroundColor(.secondary)
+      .lineLimit(1)
+    }
+
+    // Mirrors the dropdown's inline failure line. The store auto-fades the
+    // message after 5s (and clears it on a fresh attempt), so this appears
+    // and disappears on its own — no extra state to manage here.
+    if let error = store.peripheralOperationError[peripheral.id] {
+      Text(error)
+        .font(.system(size: 9))
+        .foregroundColor(.red)
+        .lineLimit(1)
     }
   }
 
