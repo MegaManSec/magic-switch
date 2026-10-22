@@ -71,8 +71,9 @@ final class DialbackAddresses: ObservableObject {
     if entries.isEmpty {
       entries = addresses.filter { $0.isIPv4 && !$0.pointToPoint }.map { Self.entry($0.host, nil) }
     }
-    guard !entries.isEmpty else { return nil }
-    return (entries.prefix(2).joined(separator: " or "), proven: false)
+    guard let first = entries.first else { return nil }
+    let shown = entries.count > 1 ? String(localized: "\(first) or \(entries[1])") : first
+    return (shown, proven: false)
   }
 
   /// Dialable host string of an endpoint — unlike `RateLimiter`'s bucketing
@@ -103,8 +104,8 @@ final class DialbackAddresses: ObservableObject {
 
   private static func label(for type: NWInterface.InterfaceType) -> String? {
     switch type {
-    case .wifi: return "Wi-Fi"
-    case .wiredEthernet: return "Ethernet"
+    case .wifi: return String(localized: "Wi-Fi")
+    case .wiredEthernet: return String(localized: "Ethernet")
     default: return nil
     }
   }

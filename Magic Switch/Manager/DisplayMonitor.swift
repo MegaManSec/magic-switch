@@ -280,7 +280,7 @@ final class DisplayMonitor: ObservableObject {
       let key = NSDeviceDescriptionKey("NSScreenNumber")
       return (screen.deviceDescription[key] as? NSNumber)?.uint32Value == id
     }
-    return match?.localizedName ?? "External Display"
+    return match?.localizedName ?? String(localized: "External Display")
   }
 
   // MARK: - Persistence

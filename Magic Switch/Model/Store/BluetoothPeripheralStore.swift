@@ -1544,7 +1544,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           }
           classes[address] = UInt32(device.classOfDevice)
           paired.append(
-            BluetoothPeripheral(id: address, name: device.name ?? "Unknown Device")
+            BluetoothPeripheral(id: address, name: device.name ?? BluetoothPeripheral.unknownName)
           )
         }
 
@@ -2407,7 +2407,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     var changed = false
     let refreshed = peripherals.map { peripheral -> BluetoothPeripheral in
       guard let live = liveNames[peripheral.id],
-        !live.isEmpty, live != "Unknown Device", live != peripheral.name
+        !live.isEmpty, live != BluetoothPeripheral.unknownName, live != peripheral.name
       else { return peripheral }
       changed = true
       var updated = peripheral

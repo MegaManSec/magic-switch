@@ -36,6 +36,9 @@ struct BluetoothPeripheral: Identifiable, Codable, Equatable {
   /// Display name of the Bluetooth device
   var name: String
 
+  /// Name shown for a device IOBluetooth reports without one.
+  static let unknownName = String(localized: "Unknown Device")
+
   // MARK: - Codable
 
   private enum CodingKeys: String, CodingKey {
