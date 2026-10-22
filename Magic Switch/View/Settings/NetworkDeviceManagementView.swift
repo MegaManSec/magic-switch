@@ -202,7 +202,7 @@ struct NetworkDeviceManagementView: View {
       "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac."
     static let needsPairing = "Pair this Mac in the Pairing tab first."
     static let bluetoothToggle =
-      "Reach your other Mac over Bluetooth when the network won't carry the connection — for example on a VPN that blocks local traffic, or Wi-Fi that keeps devices apart. Turn this on on both Macs; they only find each other when paired with the same code. Magic Switch goes back to the network as soon as it works again, and everything sent over Bluetooth is encrypted with your pairing key."
+      "Reach your other Mac over Bluetooth when the network can't carry the connection. Turn it on for both Macs. Magic Switch goes back to the network as soon as it works again."
   }
 
   var body: some View {
