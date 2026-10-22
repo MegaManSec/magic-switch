@@ -40,12 +40,12 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Bluetooth is required to connect with nearby devices</string>
+	<string>Magic Switch uses Bluetooth to connect your peripherals to this Mac and to release them to your other Mac.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_magicswitch._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Local network access is needed to discover devices</string>
+	<string>Magic Switch uses the local network to find your other Mac and switch peripherals with it.</string>
 </dict>
 </plist>

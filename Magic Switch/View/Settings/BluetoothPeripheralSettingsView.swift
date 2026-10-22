@@ -25,6 +25,7 @@ struct BluetoothPeripheralSettingsView: View {
 
       AvailablePeripheralsSectionView(
         peripherals: bluetoothStore.availablePeripherals,
+        hasPairedPeripherals: !bluetoothStore.discoveredPeripherals.isEmpty,
         onPeripheralAdd: handlePeripheralAdd
       )
     }
@@ -34,7 +35,7 @@ struct BluetoothPeripheralSettingsView: View {
       Alert(
         title: Text("Remove \(peripheral.name)?"),
         message: Text(
-          "It will be removed from Magic Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals."
+          "It will be removed from Magic Switch's list. Its Bluetooth pairing is not affected. You can add it again from Available Peripherals while it's paired with this Mac."
         ),
         primaryButton: .destructive(Text("Remove")) {
           bluetoothStore.removeFromList(peripheral)
@@ -58,7 +59,7 @@ struct BluetoothPeripheralSettingsView: View {
     switch bluetoothStore.connectionState(for: peripheral.id) {
     case .connected:
       // Symmetric to the disconnected case: release locally then ask the
-      // peer to take it, so a "Remove from PC" actually hands the
+      // peer to take it, so a "Send" actually hands the
       // peripheral over instead of leaving it floating.
       bluetoothStore.sendPeripheralToPeer(peripheral)
     case .disconnected:
@@ -66,7 +67,7 @@ struct BluetoothPeripheralSettingsView: View {
       // pairing locally without that step would just hang.
       bluetoothStore.takePeripheralFromPeer(peripheral)
     case .connecting, .releasing:
-      break  // Handoff in flight; button is disabled in the UI.
+      break  // In flight; the button cancels (pairing) or is disabled (sending).
     }
   }
 
@@ -130,13 +131,19 @@ private struct RegisteredPeripheralsSectionView: View {
 /// Section for displaying available Bluetooth peripherals
 private struct AvailablePeripheralsSectionView: View {
   let peripherals: [BluetoothPeripheral]
+  let hasPairedPeripherals: Bool
   let onPeripheralAdd: (BluetoothPeripheral) -> Void
 
   var body: some View {
     Section(header: Text("Available Peripherals")) {
       if peripherals.isEmpty {
         Text(
-          "No Bluetooth peripherals to add. Pair a keyboard, mouse, or trackpad with this Mac in System Settings first."
+          hasPairedPeripherals
+            ? String(localized: "Every Bluetooth peripheral paired with this Mac is already added.")
+            : String(
+              localized:
+                "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first."
+            )
         )
         .font(.callout)
         .foregroundColor(.secondary)
@@ -186,6 +193,7 @@ private struct PeripheralRowView: View {
 
   @ObservedObject private var store = BluetoothPeripheralStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var pairing = PairingStore.shared
 
   private var connectionState: PeripheralConnectionState {
     store.connectionState(for: peripheral.id)
@@ -195,15 +203,13 @@ private struct PeripheralRowView: View {
     store.peripheralType(for: peripheral)
   }
 
-  /// Whether a paired peer Mac is currently reachable to take a released
-  /// peripheral. Releasing with no active peer just disconnects the peripheral
-  /// from both Macs, so the Release button is disabled until a peer is present.
-  /// Matches the handoff gate used elsewhere (e.g. `prepareForSleep`).
-  private var hasActivePeer: Bool {
-    networkStore.networkDevices.contains { $0.isActive }
-  }
+  /// Why the other Mac can't take a released peripheral right now — the same
+  /// gate as the menu's peripheral rows, so Send is never offered where the
+  /// menu greys the row out. Sending with no reachable peer would just
+  /// disconnect the peripheral from both Macs.
+  private var sendBlocker: SwitchBlocker? { networkStore.switchBlocker() }
 
-  /// The peer this Mac hands peripherals to, for the "Releasing to …" line.
+  /// The peer this Mac hands peripherals to, for the "Sending to …" line.
   private var peerName: String? {
     networkStore.networkDevices.first?.name
   }
@@ -221,7 +227,7 @@ private struct PeripheralRowView: View {
         if showConnectionStatus, connectionState == .connected,
           let battery = store.batteryLevels[peripheral.id]
         {
-          Text("\(battery)%")
+          Text(battery.formatted(.percent))
             .font(.caption)
             .foregroundColor(.secondary)
             .help("Battery level of \(peripheral.name).")
@@ -244,12 +250,24 @@ private struct PeripheralRowView: View {
         }
       }
 
+      if connectionState == .connecting {
+        Text(
+          store.canCancelConnect(peripheral.id)
+            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…")
+        )
+        .font(.caption)
+        .foregroundColor(.secondary)
+      }
+
       // Name the destination Mac while a handoff is in flight — the button
-      // only shows "Releasing…", which doesn't say where it's going.
+      // only shows "Sending…", which doesn't say where it's going.
       if connectionState == .releasing {
-        Text(peerName.map { "Releasing to \($0)…" } ?? "Releasing…")
-          .font(.caption)
-          .foregroundColor(.secondary)
+        Text(
+          peerName.map { String(localized: "Sending to \($0)…") }
+            ?? String(localized: "Sending…")
+        )
+        .font(.caption)
+        .foregroundColor(.secondary)
       }
 
       // Mirrors the dropdown's inline failure line. The store auto-fades the
@@ -283,24 +301,31 @@ private struct PeripheralRowView: View {
         }
       }
     } label: {
-      Image(systemName: resolvedType.symbolName)
-        .frame(width: 22)
+      Text(verbatim: "")
     }
     .menuStyle(.borderlessButton)
-    .fixedSize()
+    // Native menus ignore image-label frames. Keep the native arrow in a
+    // fixed-width menu and draw the icon separately so its center stays fixed.
+    .frame(width: 40)
+    .overlay(alignment: .leading) {
+      Image(systemName: resolvedType.symbolName)
+        .font(.system(size: 15))
+        .frame(width: 22)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+    .accessibilityLabel("Set the icon for \(peripheral.name)")
+    .accessibilityValue(resolvedType.label)
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
   /// Shared fixed-width label so the pill is the same size across its
-  /// resting states instead of hugging each title. The floor clears
-  /// "Connect" (51.2pt) and "Pairing…" (51.9pt at the 13pt control font) —
-  /// the 54 buys the latter a couple of points of headroom against
-  /// font-metric drift, where a 52 floor would sit 0.1pt from a
-  /// connecting-state nudge — so rows align and a Connect ↔ Release flip
-  /// doesn't nudge; sizing the floor to the rarely-seen "Releasing…"
-  /// (68.8pt) instead left the two resting titles swimming in dead space,
-  /// and the brief growth during a release reads as activity rather than
-  /// jitter.
+  /// clickable states ("Send" 31pt, "Take" 28pt, "Cancel" 42pt at the 13pt
+  /// control font) instead of hugging each title, so rows align and a flip
+  /// between them doesn't nudge. Only the disabled "Sending…" (60pt) grows
+  /// past the floor; sizing the floor to it would leave the resting titles
+  /// swimming in dead space, and the brief growth during a send reads as
+  /// activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
     Text(title).frame(minWidth: 54)
   }
@@ -309,26 +334,41 @@ private struct PeripheralRowView: View {
   private var connectionButton: some View {
     switch connectionState {
     case .connected:
-      Button(action: primaryAction) { actionLabel("Release") }
-        .disabled(!hasActivePeer)
-        .help(
-          hasActivePeer
-            ? "Release this peripheral from this Mac. The peer Mac will take ownership automatically."
-            : "No peer Mac is currently available to take this peripheral. Releasing is disabled so it isn't left disconnected from both Macs."
-        )
+      Button(action: primaryAction) {
+        actionLabel(
+          String(localized: "Send", comment: "Button: send this peripheral to the other Mac"))
+      }
+      .disabled(sendBlocker != nil)
+      .accessibilityLabel(String(localized: "Send \(peripheral.name) to the other Mac"))
+      .help(
+        sendBlocker?.userMessage
+          ?? String(
+            localized: "Send this peripheral to the other Mac, which takes it over automatically.")
+      )
     case .connecting:
-      Button(action: {}) { actionLabel("Pairing…") }
-        .disabled(true)
-        .help("Pairing in progress…")
+      Button(action: { store.cancelConnect(peripheral) }) {
+        actionLabel(String(localized: "Cancel"))
+      }
+      .disabled(!store.canCancelConnect(peripheral.id))
+      .accessibilityLabel(String(localized: "Cancel pairing \(peripheral.name)"))
+      .help(
+        store.canCancelConnect(peripheral.id)
+          ? "Pairing in progress. Click to cancel."
+          : "Asking the other Mac to release this peripheral…"
+      )
     case .releasing:
-      Button(action: {}) { actionLabel("Releasing…") }
+      Button(action: {}) { actionLabel(String(localized: "Sending…")) }
         .disabled(true)
-        .help("Handing this peripheral to the other Mac…")
+        .accessibilityLabel(String(localized: "Sending \(peripheral.name) to the other Mac…"))
+        .help("Sending this peripheral to the other Mac…")
     case .disconnected:
-      Button(action: primaryAction) { actionLabel("Connect") }
-        .help(
-          "Connect this peripheral to this Mac. If a peer Mac currently holds it, the peer will be asked to release it first."
-        )
+      Button(action: primaryAction) {
+        actionLabel(String(localized: "Take", comment: "Button: take this peripheral to this Mac"))
+      }
+      .accessibilityLabel(String(localized: "Take \(peripheral.name) to this Mac"))
+      .help(
+        "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
+      )
     }
   }
 }

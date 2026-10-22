@@ -9,7 +9,7 @@ enum PeripheralConnectionState: Equatable {
   case connecting
   /// Handing this peripheral off to the peer Mac. Display-only transient: it's
   /// been (or is being) released locally and the peer is pairing it, so the row
-  /// shows a disabled "Releasing…" — the mirror of the peer's `.connecting`
+  /// shows a disabled "Sending…" — the mirror of the peer's `.connecting`
   /// ("Pairing…") during the same handoff.
   case releasing
   case connected
@@ -35,6 +35,9 @@ struct BluetoothPeripheral: Identifiable, Codable, Equatable {
 
   /// Display name of the Bluetooth device
   var name: String
+
+  /// Name shown for a device IOBluetooth reports without one.
+  static let unknownName = String(localized: "Unknown Device")
 
   // MARK: - Codable
 
@@ -77,7 +80,7 @@ struct BluetoothPeripheral: Identifiable, Codable, Equatable {
 }
 
 /// Logical category of a peripheral. Drives the row glyph in the menu-bar
-/// dropdown and the Peripheral settings tab, and the choices in the manual type
+/// dropdown and the Peripherals tab, and the choices in the manual type
 /// picker. The resolved type is `user override ?? auto-detected`;
 /// `BluetoothPeripheralStore` owns both halves (`typeOverrides`, `deviceClasses`).
 enum PeripheralType: String, Codable, CaseIterable {
@@ -99,13 +102,16 @@ enum PeripheralType: String, Codable, CaseIterable {
   /// Title shown in the manual picker.
   var label: String {
     switch self {
-    case .keyboard: return "Keyboard"
-    case .mouse: return "Mouse"
-    case .trackpad: return "Trackpad"
-    case .headphones: return "Headphones"
+    case .keyboard: return String(localized: "Keyboard")
+    case .mouse: return String(localized: "Mouse")
+    case .trackpad: return String(localized: "Trackpad")
+    case .headphones: return String(localized: "Headphones")
     case .airpods: return "AirPods"
-    case .microphone: return "Microphone"
-    case .unknown: return "Other"
+    case .microphone: return String(localized: "Microphone")
+    case .unknown:
+      return String(
+        localized: "peripheral.type.other", defaultValue: "Other",
+        comment: "Peripheral type: any other kind of peripheral (singular)")
     }
   }
 

@@ -14,7 +14,7 @@ protocol NotificationManaging {
   ///   - body: The notification message
   ///   - identifier: Optional stable identifier. Re-posting with the same
   ///     identifier replaces the previous notification rather than stacking,
-  ///     so rapid retries coalesce instead of flooding Notification Centre.
+  ///     so rapid retries coalesce instead of flooding Notification Center.
   ///   - delivered: Called with the add-request error — nil when the
   ///     notification was accepted for delivery.
   static func showNotification(

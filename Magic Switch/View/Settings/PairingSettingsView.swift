@@ -11,7 +11,7 @@ struct PairingSettingsView: View {
   @State private var showGenerateSheet = false
   @State private var showEnterSheet = false
   @State private var showUnpairAlert = false
-  @State private var unpairErrorStatus: OSStatus?
+  @State private var unpairFailed = false
 
   // MARK: - Body
 
@@ -32,15 +32,13 @@ struct PairingSettingsView: View {
     }
     .alert(isPresented: $showUnpairAlert) {
       Alert(
-        title: Text("Unpair this device?"),
+        title: Text("Unpair this Mac?"),
         message: Text(
-          "Magic Switch will stop accepting commands from your other Mac until you pair again."
+          "You won't be able to switch peripherals with your other Mac until you pair again."
         ),
         primaryButton: .destructive(Text("Unpair")) {
-          unpairErrorStatus = nil
-          pairing.unpair { status in
-            unpairErrorStatus = status
-          }
+          unpairFailed = false
+          pairing.unpair { status in unpairFailed = status != nil }
         },
         secondaryButton: .cancel()
       )
@@ -54,7 +52,7 @@ struct PairingSettingsView: View {
       Text("Not paired")
         .font(.title2)
         .bold()
-      Text("Pair this Mac with another Magic Switch install to enable secure switching.")
+      Text("Pair this Mac with your other Mac to start switching peripherals.")
         .foregroundColor(.secondary)
       HStack {
         Button("Generate Code") {
@@ -89,22 +87,26 @@ struct PairingSettingsView: View {
       }
       if let fingerprint = pairing.fingerprint {
         VStack(alignment: .leading, spacing: 4) {
-          Text("Your fingerprint")
+          Text("Pairing key fingerprint")
             .font(.caption)
             .foregroundColor(.secondary)
           Text(fingerprint)
             .font(.system(.title3, design: .monospaced))
+            .speechSpellsOutCharacters()
         }
       }
-      Text("Compare with the fingerprint shown on your other Mac — they should match.")
-        .foregroundColor(.secondary)
+      Text(
+        "Compare with the fingerprint shown on your other Mac — they should match. If they don't, pair both Macs again with the same code."
+      )
+      .foregroundColor(.secondary)
       Button("Unpair") {
         showUnpairAlert = true
       }
       .foregroundColor(.red)
-      .help("Remove the saved pairing key. This Mac will stop accepting commands.")
-      if let status = unpairErrorStatus {
-        Text("Couldn't unpair: keychain returned error \(status).")
+      .help(
+        "Remove the saved pairing key. Switching with your other Mac stops until you pair again.")
+      if unpairFailed {
+        Text("Couldn't remove the pairing key from this Mac.")
           .foregroundColor(.red)
           .font(.caption)
       }
@@ -151,6 +153,7 @@ private struct GenerateCodeSheet: View {
         .font(.system(size: 32, weight: .bold, design: .monospaced))
         .textSelection(.enabled)
         .accessibilityLabel("Pairing code: \(formattedCode)")
+        .speechSpellsOutCharacters()
       HStack {
         Button {
           copyToPasteboard(formattedCode)
@@ -161,7 +164,7 @@ private struct GenerateCodeSheet: View {
         .accessibilityLabel("Copy pairing code")
       }
       Text(
-        "Enter this code on your other Mac. Order doesn't matter — both Macs derive the same key from the same code."
+        "Enter this code on your other Mac. It doesn't matter which Mac generates the code."
       )
       .foregroundColor(.secondary)
       .font(.caption)
@@ -180,16 +183,32 @@ private struct GenerateCodeSheet: View {
             .foregroundColor(.secondary)
         }
         Spacer()
-        Button("Discard") {
-          discard()
+        if saveState == .failed {
+          Button("Close") {
+            isPresented = false
+          }
+          .keyboardShortcut(.cancelAction)
+          .help("Close. Nothing was saved.")
+          Button("Try Again") {
+            generateAndSave()
+          }
+          .keyboardShortcut(.defaultAction)
+          .help("Generate a new code and try saving the key again.")
+        } else {
+          Button("Discard") {
+            discard()
+          }
+          .help("Remove the saved key from this Mac and close.")
+          Button("Done") {
+            isPresented = false
+          }
+          .keyboardShortcut(.defaultAction)
+          .disabled(saveState != .saved)
+          .help(
+            saveState == .saved
+              ? String(localized: "Close. The pairing key stays saved on this Mac.")
+              : String(localized: "Wait for the pairing key to finish saving."))
         }
-        .help("Remove the saved key from this Mac and close.")
-        Button("Done") {
-          isPresented = false
-        }
-        .keyboardShortcut(.defaultAction)
-        .disabled(saveState != .saved)
-        .help("Close. The pairing key stays saved on this Mac.")
       }
     }
     .padding(24)
@@ -211,9 +230,12 @@ private struct GenerateCodeSheet: View {
       switch result {
       case .success:
         saveState = .saved
-      case .failure:
+      case .failure(let err):
         saveState = .failed
-        errorMessage = "Failed to save pairing key."
+        if case .keychainFailed(let status) = err {
+          Log.app.error("Pairing: keychain save failed: \(status)")
+        }
+        errorMessage = String(localized: "Couldn't save the pairing key on this Mac.")
       }
     }
   }
@@ -238,6 +260,7 @@ private struct EnterCodeSheet: View {
   @State private var isPairing = false
 
   private static let codeFont = Font.system(.title2, design: .monospaced)
+  private static let codePlaceholder = "XXXX-XXXX-XXXX"
 
   /// Leading inset of the text inside a rounded-border NSTextField, used to
   /// line the ghost-dash overlay up with the field's own glyphs. Measured
@@ -256,7 +279,7 @@ private struct EnterCodeSheet: View {
   @ViewBuilder
   private var ghostDash: some View {
     if showsGhostDash {
-      (Text(input).foregroundColor(.clear) + Text("-").foregroundColor(.secondary))
+      (Text(input).foregroundColor(.clear) + Text(verbatim: "-").foregroundColor(.secondary))
         .font(Self.codeFont)
         .padding(.leading, Self.fieldTextInset)
         .offset(y: -1.5)
@@ -269,7 +292,8 @@ private struct EnterCodeSheet: View {
     VStack(spacing: 20) {
       Text("Enter Pairing Code")
         .font(.headline)
-      TextField("XXXX-XXXX-XXXX", text: $input)
+      TextField(Self.codePlaceholder, text: $input)
+        .accessibilityLabel("Pairing code")
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .font(Self.codeFont)
         .disabled(isPairing)
@@ -303,6 +327,7 @@ private struct EnterCodeSheet: View {
         Button("Cancel") {
           isPresented = false
         }
+        .keyboardShortcut(.cancelAction)
         .disabled(isPairing)
         .help("Close without pairing.")
         Button("Pair") {
@@ -320,7 +345,8 @@ private struct EnterCodeSheet: View {
   private func startPair() {
     let normalized = PairingStore.normalize(input)
     guard PairingStore.isValid(normalized) else {
-      errorMessage = "Code must be 12 characters from the pairing alphabet."
+      errorMessage = String(
+        localized: "Enter all \(PairingStore.codeLength) characters of the code.")
       return
     }
     isPairing = true
@@ -333,11 +359,12 @@ private struct EnterCodeSheet: View {
       case .failure(let err):
         switch err {
         case .invalidCode:
-          errorMessage = "Invalid code."
+          errorMessage = String(localized: "Invalid code.")
         case .derivationFailed:
-          errorMessage = "Couldn't derive a key from that code."
+          errorMessage = String(localized: "Couldn't use that code. Try entering it again.")
         case .keychainFailed(let status):
-          errorMessage = "Couldn't save the key to the keychain (error \(status))."
+          Log.app.error("Pairing: keychain save failed: \(status)")
+          errorMessage = String(localized: "Couldn't save the pairing key on this Mac.")
         }
       }
     }

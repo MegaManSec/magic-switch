@@ -12,7 +12,7 @@ import Foundation
 /// (both persisted in `UserDefaults`), so the network is hit at most once per
 /// day, while a transient failure — which doesn't advance the gate — is retried
 /// on the next tick instead of waiting for a relaunch. Results drive the
-/// right-click menu and the Settings → Other tab; we never auto-update, just
+/// menu-bar menu and the Settings → Other tab; we never auto-update, just
 /// link to the release page.
 final class UpdateChecker: ObservableObject {
   // MARK: - Singleton
@@ -118,7 +118,7 @@ final class UpdateChecker: ObservableObject {
     if !updateAvailable {
       // The cached "newer" version is usually the one now running — the user
       // just updated — so retire a delivered update banner rather than leave
-      // it stale in Notification Centre.
+      // it stale in Notification Center.
       NotificationManager.removeNotification(identifier: Constants.updateNotificationID)
     }
     startPolling()
@@ -161,8 +161,7 @@ final class UpdateChecker: ObservableObject {
   // MARK: - Private Methods
 
   /// Automatic check — suppressed in Debug so a dev build (version "0.0.0")
-  /// doesn't nag that every release is newer. Mirrors exodus-deps-tui skipping
-  /// the check when run from a source checkout.
+  /// doesn't nag that every release is newer.
   private func check() {
     #if DEBUG
       return
@@ -230,9 +229,11 @@ final class UpdateChecker: ObservableObject {
       UserDefaults.standard.string(forKey: Constants.notifiedVersionKey) != latest
     else { return }
     NotificationManager.showNotification(
-      title: "Update Available",
-      body:
-        "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the download page.",
+      title: String(localized: "Update Available"),
+      body: String(
+        localized:
+          "Magic Switch v\(latest) is available (you have v\(currentVersion)). Click to open the release page."
+      ),
       identifier: Constants.updateNotificationID
     ) { error in
       guard error == nil else { return }

@@ -275,21 +275,28 @@ final class DisplayMonitor: ObservableObject {
 
   /// User-facing name for a display, from the matching `NSScreen`. A display
   /// that's online but not active has no screen; fall back to a generic label.
+  private static let fallbackDisplayName = String(localized: "External Display")
+
   private static func displayName(for id: CGDirectDisplayID) -> String {
     let match = NSScreen.screens.first { screen in
       let key = NSDeviceDescriptionKey("NSScreenNumber")
       return (screen.deviceDescription[key] as? NSNumber)?.uint32Value == id
     }
-    return match?.localizedName ?? "External Display"
+    return match?.localizedName ?? fallbackDisplayName
   }
 
   // MARK: - Persistence
 
   /// Keep remembered names in sync with what the OS reports, so a renamed or
-  /// re-localized display doesn't leave a stale label in Settings.
+  /// re-localized display doesn't leave a stale label in Settings. The
+  /// generic fallback never replaces a real name: a display that is online
+  /// but has no screen (mirrored, asleep) still has the name it had before.
   private func refreshTriggerNames(from online: [ExternalDisplay]) {
     var updated = triggerDisplays
-    for display in online where updated[display.id] != nil && updated[display.id] != display.name {
+    for display in online
+    where updated[display.id] != nil && updated[display.id] != display.name
+      && display.name != Self.fallbackDisplayName
+    {
       updated[display.id] = display.name
     }
     if updated != triggerDisplays { triggerDisplays = updated }

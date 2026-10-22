@@ -152,6 +152,8 @@ final class DropdownContentView: NSView {
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
     updateChecker.objectWillChange
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
+    PairingStore.shared.objectWillChange
+      .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
   }
 
   @available(*, unavailable)
@@ -186,14 +188,14 @@ final class DropdownContentView: NSView {
 
     let macs = networkStore.networkDevices
     if !macs.isEmpty {
-      stack.addArrangedSubview(makeSectionHeader("Macs"))
+      stack.addArrangedSubview(makeSectionHeader(String(localized: "Macs")))
       for device in macs { stack.addArrangedSubview(makeMacRow(device)) }
       stack.addArrangedSubview(makeDivider())
     }
 
     let peripherals = bluetoothStore.peripherals
     if !peripherals.isEmpty {
-      stack.addArrangedSubview(makeSectionHeader("Peripherals"))
+      stack.addArrangedSubview(makeSectionHeader(String(localized: "Peripherals")))
       var previousRow: NSView?
       for peripheral in peripherals {
         let row = makePeripheralRow(peripheral)
@@ -217,14 +219,14 @@ final class DropdownContentView: NSView {
     if let last = stack.arrangedSubviews.last {
       stack.setCustomSpacing(stack.spacing + 1, after: last)
     }
-    let settingsRow = makeActionRow(title: "Settings…") { [weak self] in
+    let settingsRow = makeActionRow(title: String(localized: "Settings…")) { [weak self] in
       self?.dismissThen { self?.onOpenSettings() }
     }
     stack.addArrangedSubview(settingsRow)
     // Sit Quit flush against Settings, like consecutive peripheral rows.
     stack.setCustomSpacing(0, after: settingsRow)
     stack.addArrangedSubview(
-      makeActionRow(title: "Quit") { [weak self] in
+      makeActionRow(title: String(localized: "Quit")) { [weak self] in
         self?.dismissThen { self?.onQuit() }
       })
 
@@ -308,23 +310,25 @@ final class DropdownContentView: NSView {
         symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
     }
 
-    let unreachable = networkStore.unreachableHelp(for: device)
     row.toolTip =
       reachable
       ? (busy
-        ? "Finish the peripheral that's currently switching before switching them all."
+        ? String(localized: "Wait for the peripheral that's switching to finish, then try again.")
         : overBluetooth
-          ? "Switch peripherals between this Mac and \(device.name) over Bluetooth."
-          : "Switch peripherals between this Mac and \(device.name).")
-      : unreachable
-    row.setAccessibilityLabel(overBluetooth ? "\(device.name), over Bluetooth" : device.name)
+          ? String(
+            localized: "Switch peripherals between this Mac and \(device.name) over Bluetooth.")
+          : String(localized: "Switch peripherals between this Mac and \(device.name)."))
+      : (networkStore.switchBlocker() ?? .unreachable(device)).userMessage
+    row.setAccessibilityLabel(
+      overBluetooth ? String(localized: "\(device.name), over Bluetooth") : device.name)
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }
 
   private func makePeripheralRow(_ peripheral: BluetoothPeripheral) -> NSView {
     let state = bluetoothStore.connectionState(for: peripheral.id)
-    let canSwitch = networkStore.networkDevices.contains { networkStore.isSwitchable($0) }
+    let blocker = networkStore.switchBlocker()
+    let canSwitch = blocker == nil
     let row = MenuRowControl { [weak self] in
       guard let self = self else { return }
       // A click can race the rebuild that follows a state flip — act only on
@@ -339,13 +343,14 @@ final class DropdownContentView: NSView {
     // A disconnected peripheral is always clickable — take it (locally over
     // Bluetooth if there's no peer to ask). A connected one can only be *sent*,
     // so it greys out when no Mac is reachable to hand it to. A pairing row
-    // stays clickable so the attempt can be cancelled; a releasing one can't
-    // be — aborting a half-done release could strand the peripheral on
-    // neither Mac.
+    // stays clickable so the attempt can be cancelled, except while the other
+    // Mac is still being asked to release it; a releasing one can't be —
+    // aborting a half-done release could strand the peripheral on neither Mac.
+    let canCancel = bluetoothStore.canCancelConnect(peripheral.id)
     let enabled: Bool
     switch state {
     case .releasing: enabled = false
-    case .connecting: enabled = true
+    case .connecting: enabled = canCancel
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
@@ -374,13 +379,17 @@ final class DropdownContentView: NSView {
         // Low battery is the one state worth catching at a glance; 20% is
         // where macOS fires its own first low-battery warning.
         let batteryColor: NSColor = battery <= 20 ? .systemOrange : .secondaryLabelColor
-        top.addArrangedSubview(caption("\(battery)%", color: batteryColor))
+        top.addArrangedSubview(caption(battery.formatted(.percent), color: batteryColor))
       }
       top.addArrangedSubview(symbolView("checkmark", color: .controlAccentColor))
     case .connecting:
-      top.addArrangedSubview(caption("Pairing…", color: .secondaryLabelColor))
+      top.addArrangedSubview(
+        caption(
+          canCancel
+            ? String(localized: "Pairing…") : String(localized: "Waiting for the other Mac…"),
+          color: .secondaryLabelColor))
     case .releasing:
-      top.addArrangedSubview(caption("Releasing…", color: .secondaryLabelColor))
+      top.addArrangedSubview(caption(String(localized: "Sending…"), color: .secondaryLabelColor))
     case .disconnected:
       break
     }
@@ -405,31 +414,49 @@ final class DropdownContentView: NSView {
 
     switch state {
     case .connecting:
-      row.toolTip = "Pairing \(peripheral.name)… Click to cancel."
-    case .releasing:
-      row.toolTip = "Releasing \(peripheral.name) to the other Mac…"
-    case .connected:
       row.toolTip =
-        canSwitch
-        ? "On this Mac — click to hand \(peripheral.name) to the other Mac."
-        : "On this Mac. No other Mac is reachable to hand it to."
+        canCancel
+        ? String(localized: "Pairing \(peripheral.name)… Click to cancel.")
+        : String(localized: "Asking the other Mac to release \(peripheral.name)…")
+    case .releasing:
+      row.toolTip = String(localized: "Sending \(peripheral.name) to the other Mac…")
+    case .connected:
+      if let blocker {
+        row.toolTip = String(
+          localized: "On this Mac. \(blocker.userMessage)",
+          comment: "Two sentences: where the peripheral is, then why it can't be sent")
+      } else {
+        row.toolTip = String(
+          localized: "On this Mac — click to send \(peripheral.name) to the other Mac.")
+      }
     case .disconnected:
       row.toolTip =
         canSwitch
-        ? "Click to bring \(peripheral.name) to this Mac."
-        : "Click to connect \(peripheral.name) to this Mac over Bluetooth."
+        ? String(localized: "Click to take \(peripheral.name) to this Mac.")
+        : String(localized: "Click to connect \(peripheral.name) to this Mac over Bluetooth.")
     }
-    let stateSuffix: String
+    let stateLabel: String
     switch state {
-    case .connected: stateSuffix = ", on this Mac" + (battery.map { ", battery \($0)%" } ?? "")
-    case .connecting: stateSuffix = ", pairing"
-    case .releasing: stateSuffix = ", releasing"
-    case .disconnected: stateSuffix = ""
+    case .connected:
+      if let battery {
+        stateLabel = String(
+          localized: "\(peripheral.name), on this Mac, battery \(battery.formatted(.percent))")
+      } else {
+        stateLabel = String(localized: "\(peripheral.name), on this Mac")
+      }
+    case .connecting:
+      stateLabel =
+        canCancel
+        ? String(localized: "\(peripheral.name), pairing")
+        : String(localized: "\(peripheral.name), waiting for the other Mac")
+    case .releasing: stateLabel = String(localized: "\(peripheral.name), sending")
+    case .disconnected: stateLabel = peripheral.name
     }
-    let errorSuffix =
-      bluetoothStore.peripheralOperationError[peripheral.id]
-      .map { ", error: \($0)" } ?? ""
-    row.setAccessibilityLabel(peripheral.name + stateSuffix + errorSuffix)
+    if let error = bluetoothStore.peripheralOperationError[peripheral.id] {
+      row.setAccessibilityLabel(String(localized: "\(stateLabel), error: \(error)"))
+    } else {
+      row.setAccessibilityLabel(stateLabel)
+    }
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: column)
   }
@@ -461,10 +488,13 @@ final class DropdownContentView: NSView {
     content.spacing = 8
     content.alignment = .centerY
     content.addArrangedSubview(symbolView("arrow.down.circle.fill", color: .controlAccentColor))
-    content.addArrangedSubview(textLabel("Update Available: v\(latest)", color: .labelColor))
+    content.addArrangedSubview(
+      textLabel(String(localized: "Update Available — v\(latest)"), color: .labelColor))
     content.addArrangedSubview(spacer())
-    row.toolTip = "A newer version of Magic Switch is available. Opens the release page."
-    row.setAccessibilityLabel("Update available: version \(latest)")
+    row.toolTip = String(
+      localized:
+        "A newer version of Magic Switch is available. Opens the release page in your browser.")
+    row.setAccessibilityLabel(String(localized: "Update available: version \(latest)"))
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }

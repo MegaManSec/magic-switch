@@ -43,23 +43,11 @@ In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mou
 
 Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and right-click the menu-bar icon → **Settings**.
 
-### 2. Peripheral tab — choose what to manage
+### 2. Pairing tab — link the two Macs (required)
 
-Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic. Rows show a live battery level while the peripheral is connected to this Mac.
+On the first Mac, open **Pairing → Generate Code**. On the second Mac, open **Pairing → Enter Code** and manually type that same twelve-character code. The Macs do not need to be connected yet — both derive the same key from the code. Once both show matching eight-character fingerprints, continue to the **Macs** tab. If the fingerprints differ, check that you entered the same code on both Macs.
 
-<p align="center">
-  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab showing registered and available peripherals" width="600"><br>
-  <em>Peripheral tab — register the Magic devices you want to hand off. Each row's leading icon shows the detected device type.</em>
-</p>
-
-<p align="center">
-  <img src="docs/assets/peripheral-type-picker.png" alt="Peripheral tab with a row's type picker open" width="600"><br>
-  <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
-</p>
-
-### 3. Pairing tab — link the two Macs (required)
-
-Generate a twelve-character code on one Mac and enter it on the other; either direction works, since both Macs derive the same key from the same code. They should then show the same eight-character fingerprint — if they differ, the code was mistyped. Until this is done, switching and peripheral sync refuse to talk to the peer, and an unpaired Mac can't be added by address in the next step. (Pairing needs no connection between the Macs; the code alone is enough.)
+Until this is done, switching and peripheral sync refuse to talk to the peer, and an unpaired Mac can't be added by address in the next step.
 
 <p align="center">
   <img src="docs/assets/pairing-not-paired.png" alt="Pairing tab before pairing" width="600"><br>
@@ -77,11 +65,11 @@ Generate a twelve-character code on one Mac and enter it on the other; either di
   <em>After pairing — both Macs show the same fingerprint. If they differ, the code was mistyped.</em>
 </p>
 
-### 4. Macs tab — pick the other Mac
+### 3. Macs tab — pick the other Mac
 
 Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
-If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 3) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
 
 If the network won't let the Macs reach each other at all — a VPN that blocks local traffic, or Wi-Fi that keeps devices apart — turn on **Connect over Bluetooth when the network can't** at the bottom of the Macs tab, on **both** Macs. They then find each other over Bluetooth whenever they're in range, as long as they're paired with the same code, and a Mac reached that way shows an antenna badge. Magic Switch goes back to the network as soon as it works again, and the Bluetooth link carries the same encrypted channel.
 
@@ -93,6 +81,20 @@ If the network won't let the Macs reach each other at all — a VPN that blocks 
 <p align="center">
   <img src="docs/assets/add-by-address.png" alt="The Add a Mac by Address sheet" width="600"><br>
   <em>Add a Mac by Address (the <strong>+</strong> button) — the sheet shows this Mac's address and port to enter on the other one.</em>
+</p>
+
+### 4. Peripheral tab — choose what to manage
+
+Tick the Magic devices you want Magic Switch to hand back and forth. Each row's leading icon shows the detected device type; click it to override the type or reset it to Automatic. Rows show a live battery level while the peripheral is connected to this Mac.
+
+<p align="center">
+  <img src="docs/assets/peripheral-tab.png" alt="Peripheral tab showing registered and available peripherals" width="600"><br>
+  <em>Peripheral tab — register the Magic devices you want to hand off. Each row's leading icon shows the detected device type.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/peripheral-type-picker.png" alt="Peripheral tab with a row's type picker open" width="600"><br>
+  <em>That leading icon is also a picker — Magic Switch auto-detects the type (keyboard, mouse, trackpad, headphones, AirPods, microphone), and you can override it or set it back to Automatic.</em>
 </p>
 
 ### 5. Sync your peripherals to the other Mac

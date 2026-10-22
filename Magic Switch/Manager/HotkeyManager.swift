@@ -22,7 +22,23 @@ struct HotkeyShortcut: Codable, Equatable {
     if modifiers.contains(.option) { parts += "⌥" }
     if modifiers.contains(.shift) { parts += "⇧" }
     if modifiers.contains(.command) { parts += "⌘" }
-    return parts + keyDisplay
+    return parts + localizedKeyDisplay
+  }
+
+  /// `keyDisplay` is persisted as captured (English), so it is translated at
+  /// render time: only the named key "Space" and the "Key N" fallback for a
+  /// key with no glyph are words; the rest are glyphs, letters or "F5".
+  private var localizedKeyDisplay: String {
+    if keyDisplay == "Space" {
+      return String(
+        localized: "Space", comment: "The space bar, shown as part of a keyboard shortcut")
+    }
+    if keyDisplay.hasPrefix("Key "), let code = Int(keyDisplay.dropFirst(4)) {
+      return String(
+        localized: "Key \(code)",
+        comment: "Shown in a keyboard shortcut for a key with no character; %lld is its key code")
+    }
+    return keyDisplay
   }
 
   /// The same modifiers in Carbon's bit layout, for `RegisterEventHotKey`.
@@ -178,7 +194,14 @@ final class HotkeyManager: ObservableObject {
   /// Human-readable name for the pressed key alone (no modifiers).
   private static func keyDisplay(for event: NSEvent) -> String {
     if let special = specialKeyNames[Int(event.keyCode)] { return special }
-    if let chars = event.charactersIgnoringModifiers, !chars.isEmpty {
+    // Unshifted, so ⇧⌘2 reads "⇧⌘2" rather than "⇧⌘@"; a control or
+    // private-use character has no glyph to show.
+    if let chars = event.characters(byApplyingModifiers: []), !chars.isEmpty,
+      chars.unicodeScalars.allSatisfy({
+        let category = $0.properties.generalCategory
+        return category != .control && category != .privateUse
+      })
+    {
       return chars.uppercased()
     }
     return "Key \(event.keyCode)"
@@ -186,6 +209,9 @@ final class HotkeyManager: ObservableObject {
 
   private static let specialKeyNames: [Int: String] = [
     kVK_Space: "Space",
+    kVK_Delete: "⌫",
+    kVK_Escape: "⎋",
+    kVK_ANSI_KeypadEnter: "⌤",
     kVK_Return: "↩",
     kVK_Tab: "⇥",
     kVK_ForwardDelete: "⌦",
@@ -200,6 +226,8 @@ final class HotkeyManager: ObservableObject {
     kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4",
     kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7", kVK_F8: "F8",
     kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
+    kVK_F13: "F13", kVK_F14: "F14", kVK_F15: "F15", kVK_F16: "F16",
+    kVK_F17: "F17", kVK_F18: "F18", kVK_F19: "F19", kVK_F20: "F20",
   ]
 
   // MARK: - Carbon registration
@@ -235,8 +263,7 @@ final class HotkeyManager: ObservableObject {
     } else {
       // Most likely another app holds the same combo. The shortcut stays
       // stored (it may work next launch); log so the silence is explainable.
-      NSLog(
-        "Magic Switch: registering global hotkey \(shortcut.displayString) failed (\(status))")
+      Log.app.error("Registering global hotkey \(shortcut.displayString) failed (\(status))")
     }
   }
 

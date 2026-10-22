@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		076AB2172CE9D690004D45F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1F42CE9D690004D45F0 /* AppDelegate.swift */; };
 		076AB2182CE9D690004D45F0 /* Magic_SwitchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1F52CE9D690004D45F0 /* Magic_SwitchApp.swift */; };
-		076AB2192CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1F72CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift */; };
 		076AB21A2CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1F82CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift */; };
 		076AB21B2CE9D690004D45F0 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FA2CE9D690004D45F0 /* BluetoothManager.swift */; };
 		076AB21D2CE9D690004D45F0 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB1FC2CE9D690004D45F0 /* NotificationManager.swift */; };
@@ -44,12 +43,13 @@
 		0A0000B000000000000000BF /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000B000000000000000AF /* Log.swift */; };
 		0A0000C000000000000000D1 /* TransportConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000C000000000000000C1 /* TransportConnection.swift */; };
 		0A0000C000000000000000D2 /* BLETransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000C000000000000000C2 /* BLETransport.swift */; };
+		2090DBBE308976E900C04170 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2090DBBD308976E900C04170 /* Localizable.xcstrings */; };
+		2090DBC1308976E900C04170 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2090DBC0308976E900C04170 /* InfoPlist.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		076AB1F42CE9D690004D45F0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		076AB1F52CE9D690004D45F0 /* Magic_SwitchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Magic_SwitchApp.swift; sourceTree = "<group>"; };
-		076AB1F72CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IOBluetoothDevice+Extension.swift"; sourceTree = "<group>"; };
 		076AB1F82CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NetworkDevice+HealthCheck.swift"; sourceTree = "<group>"; };
 		076AB1FA2CE9D690004D45F0 /* BluetoothManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManager.swift; sourceTree = "<group>"; };
 		076AB1FC2CE9D690004D45F0 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -87,6 +87,8 @@
 		0A0000B000000000000000AF /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		0A0000C000000000000000C1 /* TransportConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportConnection.swift; sourceTree = "<group>"; };
 		0A0000C000000000000000C2 /* BLETransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLETransport.swift; sourceTree = "<group>"; };
+		2090DBBD308976E900C04170 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		2090DBC0308976E900C04170 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,7 +114,6 @@
 		076AB1F92CE9D690004D45F0 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
-				076AB1F72CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift */,
 				076AB1F82CE9D690004D45F0 /* NetworkDevice+HealthCheck.swift */,
 			);
 			path = Extensions;
@@ -212,6 +213,8 @@
 		076AB2162CE9D690004D45F0 /* Magic Switch */ = {
 			isa = PBXGroup;
 			children = (
+				2090DBBD308976E900C04170 /* Localizable.xcstrings */,
+				2090DBC0308976E900C04170 /* InfoPlist.xcstrings */,
 				076AB1F62CE9D690004D45F0 /* AppDelegate */,
 				076AB1F92CE9D690004D45F0 /* Extensions */,
 				076AB2062CE9D690004D45F0 /* Model */,
@@ -307,6 +310,8 @@
 			files = (
 				076AB22C2CE9D690004D45F0 /* Preview Assets.xcassets in Resources */,
 				076AB22D2CE9D690004D45F0 /* Assets.xcassets in Resources */,
+				2090DBBE308976E900C04170 /* Localizable.xcstrings in Resources */,
+				2090DBC1308976E900C04170 /* InfoPlist.xcstrings in Resources */,
 				0A0000C000000000000000BF /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -321,7 +326,6 @@
 				076AB2172CE9D690004D45F0 /* AppDelegate.swift in Sources */,
 				0A00006000000000000000BB /* HotkeyManager.swift in Sources */,
 				076AB2182CE9D690004D45F0 /* Magic_SwitchApp.swift in Sources */,
-				076AB2192CE9D690004D45F0 /* IOBluetoothDevice+Extension.swift in Sources */,
 				0A00007000000000000000BC /* PeripheralBattery.swift in Sources */,
 				0A00008000000000000000BD /* AdvertisingDiagnostics.swift in Sources */,
 				0A00009000000000000000BE /* DialbackAddresses.swift in Sources */,
