@@ -23,6 +23,12 @@
             "state" : "new",
             "value" : "Magic Switch uses Bluetooth to connect your peripherals to this Mac and to release them to your other Mac."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch usa Bluetooth para conectar tus periféricos a este Mac y liberarlos hacia tu otro Mac."
+          }
         }
       }
     },
@@ -34,6 +40,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Magic Switch uses the local network to find your other Mac and switch peripherals with it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch usa la red local para encontrar tu otro Mac y cambiar periféricos con él."
           }
         }
       }

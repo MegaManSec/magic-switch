@@ -9,6 +9,12 @@
             "state" : "new",
             "value" : "%1$@ %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ %2$@"
+          }
         }
       }
     },
@@ -18,6 +24,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "%1$@ (%2$@)"
           }
         }
@@ -31,17 +43,45 @@
             "state" : "new",
             "value" : "%1$@ Magic Switch keeps trying for up to %2$lld minutes."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ Magic Switch seguirá intentándolo hasta %2$lld minutos."
+          }
         }
       }
     },
     "%@ Reconnecting your peripherals to this Mac." : {
-      "comment" : "%@ is a whole sentence saying why the switch failed"
+      "comment" : "%@ is a whole sentence saying why the switch failed",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Volviendo a conectar tus periféricos a este Mac."
+          }
+        }
+      }
     },
     "%@ connected — switching your peripherals to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ se ha conectado: pasando tus periféricos a este Mac."
+          }
+        }
+      }
     },
     "%@ didn't disconnect from this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no se desconectó de este Mac."
+          }
+        }
+      }
     },
     "%@ didn't release %@. %@" : {
       "localizations" : {
@@ -50,14 +90,34 @@
             "state" : "new",
             "value" : "%1$@ didn't release %2$@. %3$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ no ha liberado %2$@. %3$@"
+          }
         }
       }
     },
     "%@ has a new pairing key. If you re-paired the other Mac yourself, open Settings → Macs and choose Trust." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tiene una nueva clave de emparejamiento. Si has vuelto a emparejar el otro Mac tú mismo, abre Ajustes → Macs y elige Confiar."
+          }
+        }
+      }
     },
     "%@ has a new pairing key. Switching is paused until you choose Trust in Settings → Macs." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tiene una nueva clave de emparejamiento. El cambio queda en pausa hasta que elijas Confiar en Ajustes → Macs."
+          }
+        }
+      }
     },
     "%@ has a new pairing key. Switching is paused until you choose Trust, or until %@ proves it has this Mac's current key." : {
       "localizations" : {
@@ -66,11 +126,24 @@
             "state" : "new",
             "value" : "%1$@ has a new pairing key. Switching is paused until you choose Trust, or until %2$@ proves it has this Mac's current key."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ tiene una nueva clave de emparejamiento. El cambio queda en pausa hasta que elijas Confiar, o hasta que %2$@ demuestre que tiene la clave actual de este Mac."
+          }
         }
       }
     },
     "%@ has a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ tiene una clave de emparejamiento que no coincide con la vista anteriormente, así que no se puede añadir. Pulsa el botón ↻ para volver a buscar."
+          }
+        }
+      }
     },
     "%@ is answering at %@." : {
       "localizations" : {
@@ -79,14 +152,34 @@
             "state" : "new",
             "value" : "%1$@ is answering at %2$@."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ responde en %@."
+          }
         }
       }
     },
     "%@ is answering over Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está respondiendo por Bluetooth."
+          }
+        }
+      }
     },
     "%@ is no longer visible on the network." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya no es visible en la red."
+          }
+        }
+      }
     },
     "%@ is now called %@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there." : {
       "localizations" : {
@@ -95,11 +188,24 @@
             "state" : "new",
             "value" : "%1$@ is now called %2$@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ahora se llama %2$@, así que se ha actualizado su entrada en Ajustes → Macs. Si no has cambiado el nombre de ese Mac, comprueba qué Mac aparece ahí."
+          }
         }
       }
     },
     "%@ is visible on the network." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ es visible en la red."
+          }
+        }
+      }
     },
     "%@ isn't connected right now. It still triggers the switch when it next connects. Display ID: %@." : {
       "localizations" : {
@@ -108,17 +214,44 @@
             "state" : "new",
             "value" : "%1$@ isn't connected right now. It still triggers the switch when it next connects. Display ID: %2$@."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no está conectada ahora mismo. Seguirá activando el cambio cuando se conecte de nuevo. ID de pantalla: %@."
+          }
         }
       }
     },
     "%@ isn't reachable on the network or over Bluetooth right now." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no está accesible ahora mismo ni por la red ni por Bluetooth."
+          }
+        }
+      }
     },
     "%@ isn't reachable on the network right now." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no está accesible en la red en este momento."
+          }
+        }
+      }
     },
     "%@ isn't responding. It may be off, out of range, or connected to your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no responde. Puede estar apagado, fuera de alcance o conectado a tu otro Mac."
+          }
+        }
+      }
     },
     "%@ or %@" : {
       "comment" : "Two IP addresses the other Mac can try, each with its network name in parentheses",
@@ -128,17 +261,44 @@
             "state" : "new",
             "value" : "%1$@ or %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ o %2$@"
+          }
         }
       }
     },
     "%@ proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha demostrado que tiene la clave de emparejamiento actual de este Mac, así que se ha reanudado el cambio. Si no has vuelto a emparejar ambos Macs tú mismo, empareja de nuevo con un código nuevo."
+          }
+        }
+      }
     },
     "%@ responded." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha respondido."
+          }
+        }
+      }
     },
     "%@ was found nearby over Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ se ha encontrado cerca por Bluetooth."
+          }
+        }
+      }
     },
     "%@, error: %@" : {
       "localizations" : {
@@ -147,11 +307,24 @@
             "state" : "new",
             "value" : "%1$@, error: %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, error: %2$@"
+          }
         }
       }
     },
     "%@, on this Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, en este Mac"
+          }
+        }
+      }
     },
     "%@, on this Mac, battery %@" : {
       "localizations" : {
@@ -160,113 +333,369 @@
             "state" : "new",
             "value" : "%1$@, on this Mac, battery %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, en este Mac, batería %2$@"
+          }
         }
       }
     },
     "%@, over Bluetooth" : {
-      "comment" : "VoiceOver label for a Mac in the menu that is reached over Bluetooth; %@ is the Mac's name"
+      "comment" : "VoiceOver label for a Mac in the menu that is reached over Bluetooth; %@ is the Mac's name",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, por Bluetooth"
+          }
+        }
+      }
     },
     "%@, pairing" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, emparejando"
+          }
+        }
+      }
     },
     "%@, sending" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, enviando"
+          }
+        }
+      }
     },
     "%@, waiting for the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, esperando al otro Mac"
+          }
+        }
+      }
     },
     "'direction' needs a value: 'take', 'send', or 'toggle'." : {
-      "comment" : "Keep 'direction', 'take', 'send' and 'toggle' as is; they are literal URL parameter name and values"
+      "comment" : "Keep 'direction', 'take', 'send' and 'toggle' as is; they are literal URL parameter name and values",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "'direction' necesita un valor: 'take', 'send' o 'toggle'."
+          }
+        }
+      }
     },
     "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address." : {
-      "comment" : "Keep 'peripheral' and 'trackpad' as is; they are a literal URL parameter and value"
+      "comment" : "Keep 'peripheral' and 'trackpad' as is; they are a literal URL parameter and value",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "'peripheral' necesita un valor: un tipo (p. ej., 'trackpad'), un nombre o una dirección MAC."
+          }
+        }
+      }
     },
     "A newer version of Magic Switch is available. Opens the release page in your browser." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay una versión más reciente de Magic Switch. Abre la página de la versión en tu navegador."
+          }
+        }
+      }
     },
     "About" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de"
+          }
+        }
+      }
     },
     "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acepta la nueva clave de emparejamiento. Hazlo solo si has vuelto a emparejar el otro Mac a propósito."
+          }
+        }
+      }
     },
     "Add" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir"
+          }
+        }
+      }
     },
     "Add %@ as your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade %@ como tu otro Mac."
+          }
+        }
+      }
     },
     "Add %@ to list" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir %@ a la lista"
+          }
+        }
+      }
     },
     "Add a Mac by Address" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un Mac por dirección"
+          }
+        }
+      }
     },
     "Add a Mac by address" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir un Mac por dirección"
+          }
+        }
+      }
     },
     "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade un periférico Bluetooth emparejado desde «Periféricos disponibles» (abajo) para gestionarlo desde la barra de menús."
+          }
+        }
+      }
     },
     "Add a peripheral to Magic Switch first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primero añade un periférico a Magic Switch."
+          }
+        }
+      }
     },
     "Add this peripheral to Magic Switch's list." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade este periférico a la lista de Magic Switch."
+          }
+        }
+      }
     },
     "Add your other Mac by IP address — for networks that block Bonjour discovery." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade tu otro Mac por dirección IP, para redes que bloquean la detección por Bonjour."
+          }
+        }
+      }
     },
     "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade tu otro Mac desde «Macs encontrados en la red» (abajo) para empezar a cambiar periféricos entre ellos."
+          }
+        }
+      }
     },
     "Allow Magic Switch in System Settings → Privacy & Security → Bluetooth." : {
-      "comment" : "System Settings → Privacy & Security → Bluetooth is a macOS UI path"
+      "comment" : "System Settings → Privacy & Security → Bluetooth is a macOS UI path",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permite Magic Switch en Ajustes del Sistema → Privacidad y seguridad → Bluetooth."
+          }
+        }
+      }
     },
     "Asking the other Mac to release %@…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pidiendo al otro Mac que libere %@…"
+          }
+        }
+      }
     },
     "Asking the other Mac to release this peripheral…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pidiendo al otro Mac que libere este periférico…"
+          }
+        }
+      }
     },
     "Automatic" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automático"
+          }
+        }
+      }
     },
     "Available Peripherals" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periféricos disponibles"
+          }
+        }
+      }
     },
     "Battery level of %@." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nivel de batería de %@."
+          }
+        }
+      }
     },
     "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejor estimación a partir de las interfaces de red activas de este Mac. Si el otro Mac no puede conectar, comprueba la dirección de este Mac en Ajustes del Sistema → Red."
+          }
+        }
+      }
     },
     "Bluetooth Off" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth desactivado"
+          }
+        }
+      }
     },
     "Bluetooth Permission Needed" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se necesita permiso de Bluetooth"
+          }
+        }
+      }
     },
     "Bluetooth Unsupported" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth no compatible"
+          }
+        }
+      }
     },
     "Bluetooth is off." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth está desactivado."
+          }
+        }
+      }
     },
     "Bluetooth is off. Turn it on in Control Center to reach your other Mac this way." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth está desactivado. Actívalo en el Centro de control para llegar a tu otro Mac de este modo."
+          }
+        }
+      }
     },
     "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
-      "comment" : "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting"
+      "comment" : "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La publicación de Bonjour está desactivada por una política en este Mac (NoMulticastAdvertisements), así que tu otro Mac no puede descubrirlo por sí solo. Un Mac ya añadido sigue llegando a este automáticamente; si no, usa el botón + en el otro Mac para añadir este por dirección."
+          }
+        }
+      }
     },
     "Can't Switch" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede cambiar"
+          }
+        }
+      }
     },
     "Cancel" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        }
+      }
     },
     "Cancel pairing %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar el emparejamiento de %@"
+          }
+        }
+      }
     },
     "Change shortcut for %@, currently %@" : {
       "localizations" : {
@@ -275,131 +704,425 @@
             "state" : "new",
             "value" : "Change shortcut for %1$@, currently %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar atajo de %@, actualmente %@"
+          }
         }
       }
     },
     "Check GitHub for a newer release right now." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca ahora en GitHub una versión más reciente."
+          }
+        }
+      }
     },
     "Check for Updates" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar actualizaciones"
+          }
+        }
+      }
     },
     "Choose which Bluetooth peripherals Magic Switch manages." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige qué periféricos Bluetooth gestiona Magic Switch."
+          }
+        }
+      }
     },
     "Click to connect %@ to this Mac over Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para conectar %@ a este Mac por Bluetooth."
+          }
+        }
+      }
     },
     "Click to record a shortcut. Pressing it anywhere in macOS moves the peripherals to whichever Mac doesn't have them, like clicking the other Mac in the menu." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para grabar un atajo. Al pulsarlo en cualquier parte de macOS, los periféricos pasan al Mac que no los tiene, como al hacer clic en el otro Mac en el menú."
+          }
+        }
+      }
     },
     "Click to record a shortcut. Pressing it anywhere in macOS sends every registered peripheral to the other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para grabar un atajo. Al pulsarlo en cualquier parte de macOS, todos los periféricos registrados se envían al otro Mac."
+          }
+        }
+      }
     },
     "Click to record a shortcut. Pressing it anywhere in macOS takes every registered peripheral to this Mac, even while the other Mac is asleep." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para grabar un atajo. Al pulsarlo en cualquier parte de macOS, todos los periféricos registrados pasan a este Mac, incluso si el otro Mac está en reposo."
+          }
+        }
+      }
     },
     "Click to take %@ to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para traer %@ a este Mac."
+          }
+        }
+      }
     },
     "Close" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        }
+      }
     },
     "Close without adding." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierra sin añadir."
+          }
+        }
+      }
     },
     "Close without pairing." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierra sin emparejar."
+          }
+        }
+      }
     },
     "Close. Nothing was saved." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierra. No se ha guardado nada."
+          }
+        }
+      }
     },
     "Close. The pairing key stays saved on this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierra. La clave de emparejamiento se queda guardada en este Mac."
+          }
+        }
+      }
     },
     "Compare with the fingerprint shown on your other Mac — they should match. If they don't, pair both Macs again with the same code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compárala con la huella que aparece en tu otro Mac: deben coincidir. Si no coinciden, empareja ambos Macs de nuevo con el mismo código."
+          }
+        }
+      }
     },
     "Confirmed: the most recent secure connection between the two Macs used this address." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmada: la conexión segura más reciente entre los dos Macs usó esta dirección."
+          }
+        }
+      }
     },
     "Connect a display to this Mac and it will appear here." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta una pantalla a este Mac y aparecerá aquí."
+          }
+        }
+      }
     },
     "Connect over Bluetooth when the network can't" : {
-      "comment" : "Toggle label: use Bluetooth to reach the other Mac when the network can't"
+      "comment" : "Toggle label: use Bluetooth to reach the other Mac when the network can't",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar por Bluetooth cuando la red no pueda"
+          }
+        }
+      }
     },
     "Connect to this address and add the Mac that answers." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conecta a esta dirección y añade el Mac que responda."
+          }
+        }
+      }
     },
     "Connecting…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando…"
+          }
+        }
+      }
     },
     "Copy" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar"
+          }
+        }
+      }
     },
     "Copy pairing code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar código de emparejamiento"
+          }
+        }
+      }
     },
     "Copy the pairing code to the clipboard." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia el código de emparejamiento al portapapeles."
+          }
+        }
+      }
     },
     "Couldn't Connect" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar"
+          }
+        }
+      }
     },
     "Couldn't Reach Your Other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con tu otro Mac"
+          }
+        }
+      }
     },
     "Couldn't Release Peripheral" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo liberar el periférico"
+          }
+        }
+      }
     },
     "Couldn't Switch" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cambiar"
+          }
+        }
+      }
     },
     "Couldn't check" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo comprobar"
+          }
+        }
+      }
     },
     "Couldn't connect %@. It may be off, out of range, or connected to your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar %@. Puede estar apagado, fuera de alcance o conectado a tu otro Mac."
+          }
+        }
+      }
     },
     "Couldn't connect." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar."
+          }
+        }
+      }
     },
     "Couldn't disconnect the peripherals from this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron desconectar los periféricos de este Mac."
+          }
+        }
+      }
     },
     "Couldn't establish a secure connection (possible tampering)." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo establecer una conexión segura (posible manipulación)."
+          }
+        }
+      }
     },
     "Couldn't establish a secure connection. Make sure your other Mac is paired with the same code (Settings → Pairing)." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo establecer una conexión segura. Asegúrate de que tu otro Mac está emparejado con el mismo código (Ajustes → Emparejamiento)."
+          }
+        }
+      }
     },
     "Couldn't pair %@ in time. It may be off, out of range, or connected to your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo emparejar %@ a tiempo. Puede estar apagado, fuera de alcance o conectado a tu otro Mac."
+          }
+        }
+      }
     },
     "Couldn't pair %@. Turn it off and on, then try again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo emparejar %@. Apágalo y vuelve a encenderlo, y prueba de nuevo."
+          }
+        }
+      }
     },
     "Couldn't prepare the request on this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo preparar la solicitud en este Mac."
+          }
+        }
+      }
     },
     "Couldn't reach the other Mac on the network or over Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con el otro Mac ni por la red ni por Bluetooth."
+          }
+        }
+      }
     },
     "Couldn't reach the other Mac on the network." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con el otro Mac por la red."
+          }
+        }
+      }
     },
     "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo contactar con el otro Mac de forma segura. Comprueba que ejecuta Magic Switch y que está emparejado con el mismo código (Ajustes → Emparejamiento), y que ningún cortafuegos bloquea el puerto."
+          }
+        }
+      }
     },
     "Couldn't release." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo liberar."
+          }
+        }
+      }
     },
     "Couldn't remove the pairing key from this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo eliminar la clave de emparejamiento de este Mac."
+          }
+        }
+      }
     },
     "Couldn't save the pairing key on this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar la clave de emparejamiento en este Mac."
+          }
+        }
+      }
     },
     "Couldn't send %@ to %@. %@" : {
       "localizations" : {
@@ -407,6 +1130,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Couldn't send %1$@ to %2$@. %3$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo enviar %1$@ a %2$@. %3$@"
           }
         }
       }
@@ -418,104 +1147,335 @@
             "state" : "new",
             "value" : "Couldn't send %1$@ to %2$@. Reconnecting it to this Mac."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo enviar %1$@ a %2$@. Volviendo a conectarlo a este Mac."
+          }
         }
       }
     },
     "Couldn't start pairing with %@. Turn it off and on, then try again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo iniciar el emparejamiento con %@. Apágalo y vuelve a encenderlo, y prueba de nuevo."
+          }
+        }
+      }
     },
     "Couldn't use that code. Try entering it again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo usar ese código. Prueba a introducirlo de nuevo."
+          }
+        }
+      }
     },
     "Create a new pairing code to enter on your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea un nuevo código de emparejamiento para introducirlo en tu otro Mac."
+          }
+        }
+      }
     },
     "Didn't disconnect." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se desconectó."
+          }
+        }
+      }
     },
     "Discard" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descartar"
+          }
+        }
+      }
     },
     "Display Connected" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalla conectada"
+          }
+        }
+      }
     },
     "Done" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hecho"
+          }
+        }
+      }
     },
     "Enter Code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introducir código"
+          }
+        }
+      }
     },
     "Enter Pairing Code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introducir código de emparejamiento"
+          }
+        }
+      }
     },
     "Enter a pairing code generated by your other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce un código de emparejamiento generado por tu otro Mac."
+          }
+        }
+      }
     },
     "Enter all %lld characters of the code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce los %lld caracteres del código."
+          }
+        }
+      }
     },
     "Enter this code on your other Mac. It doesn't matter which Mac generates the code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce este código en tu otro Mac. No importa qué Mac genere el código."
+          }
+        }
+      }
     },
     "Ethernet" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ethernet"
+          }
+        }
+      }
     },
     "Every Bluetooth peripheral paired with this Mac is already added." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los periféricos Bluetooth emparejados con este Mac ya están añadidos."
+          }
+        }
+      }
     },
     "External Display" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalla externa"
+          }
+        }
+      }
     },
     "For networks that block Bonjour. Pair both Macs with the same code first, then enter the other Mac's IP address." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para redes que bloquean Bonjour. Primero empareja ambos Macs con el mismo código y después introduce la dirección IP del otro Mac."
+          }
+        }
+      }
     },
     "Forget %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar %@"
+          }
+        }
+      }
     },
     "Forget %@ — it will no longer trigger a switch when it connects." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar %@: ya no provocará un cambio al conectarse."
+          }
+        }
+      }
     },
     "General" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
     },
     "Generate Code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generar código"
+          }
+        }
+      }
     },
     "Generate a new code and try saving the key again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Genera un código nuevo e intenta guardar la clave de nuevo."
+          }
+        }
+      }
     },
     "Headphones" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auriculares"
+          }
+        }
+      }
     },
     "IP address" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección IP"
+          }
+        }
+      }
     },
     "Identity Mismatch" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discrepancia de identidad"
+          }
+        }
+      }
     },
     "Identity Mismatch Resolved" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discrepancia de identidad resuelta"
+          }
+        }
+      }
     },
     "If your network won't let the Macs reach each other at all, turn on Connect over Bluetooth in Settings → Other." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si tu red no deja que los Macs se vean entre sí, activa Conectar por Bluetooth cuando la red no pueda en Ajustes → Otros."
+          }
+        }
+      }
     },
     "Invalid Switch Command" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comando de cambio no válido"
+          }
+        }
+      }
     },
     "Invalid code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código no válido."
+          }
+        }
+      }
     },
     "Invalid direction '%@'. Use 'take', 'send', or 'toggle'." : {
-      "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values"
+      "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección '%@' no válida. Usa 'take', 'send' o 'toggle'."
+          }
+        }
+      }
     },
     "It will be removed from Magic Switch's list. Its Bluetooth pairing is not affected. You can add it again from Available Peripherals while it's paired with this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminará de la lista de Magic Switch. Su emparejamiento Bluetooth no se ve afectado. Puedes volver a añadirlo desde Periféricos disponibles mientras esté emparejado con este Mac."
+          }
+        }
+      }
     },
     "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejará de ser tu otro Mac. Puedes volver a añadirlo desde «Macs encontrados en la red»."
+          }
+        }
+      }
     },
     "Keep trying for up to 10 minutes to reconnect a peripheral that dropped from this Mac, and take over the ones your other Mac leaves behind when it sleeps. Never takes a peripheral your other Mac is using." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sigue intentando durante hasta 10 minutos reconectar un periférico que se ha desconectado de este Mac, y se queda con los que tu otro Mac deja atrás cuando entra en reposo. Nunca toma un periférico que tu otro Mac esté usando."
+          }
+        }
+      }
     },
     "Kept %@ on this Mac. %@" : {
       "localizations" : {
@@ -524,44 +1484,136 @@
             "state" : "new",
             "value" : "Kept %1$@ on this Mac. %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ha mantenido %1$@ en este Mac. %2$@"
+          }
         }
       }
     },
     "Key %lld" : {
-      "comment" : "Shown in a keyboard shortcut for a key with no character; %lld is its key code"
+      "comment" : "Shown in a keyboard shortcut for a key with no character; %lld is its key code",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tecla %lld"
+          }
+        }
+      }
     },
     "Keyboard" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teclado"
+          }
+        }
+      }
     },
     "Keyboard Shortcuts" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atajos de teclado"
+          }
+        }
+      }
     },
     "License Information" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Información de licencia"
+          }
+        }
+      }
     },
     "Link this Mac to your other Mac. Separate from Bluetooth pairing in System Settings." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincula este Mac con tu otro Mac. Es independiente del emparejamiento Bluetooth en Ajustes del Sistema."
+          }
+        }
+      }
     },
     "Macs" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macs"
+          }
+        }
+      }
     },
     "Macs Found on the Network" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macs encontrados en la red"
+          }
+        }
+      }
     },
     "Magic Switch can't switch peripherals while Bluetooth is off." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch no puede cambiar los periféricos mientras Bluetooth está desactivado."
+          }
+        }
+      }
     },
     "Magic Switch couldn't find %@. Remove it and add it again from Available Peripherals." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch no pudo encontrar %@. Elimínalo y vuelve a añadirlo desde Periféricos disponibles."
+          }
+        }
+      }
     },
     "Magic Switch couldn't release %@ from this Mac. Try Forget This Device in System Settings → Bluetooth." : {
-      "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names"
+      "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch no pudo liberar %@ de este Mac. Prueba «Olvidar este dispositivo» en Ajustes del Sistema → Bluetooth."
+          }
+        }
+      }
     },
     "Magic Switch isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch no tiene permiso para usar Bluetooth. Concédelo en Ajustes del Sistema → Privacidad y seguridad → Bluetooth."
+          }
+        }
+      }
     },
     "Magic Switch needs attention" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch necesita tu atención"
+          }
+        }
+      }
     },
     "Magic Switch reset this Mac's pairing for %@ and couldn't pair it again. Turn %@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth." : {
       "comment" : "System Settings → Bluetooth is a macOS UI name",
@@ -570,6 +1622,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Magic Switch reset this Mac's pairing for %1$@ and couldn't pair it again. Turn %2$@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch restableció el emparejamiento de este Mac con %1$@ y no pudo volver a emparejarlo. Apaga y enciende %2$@; si no vuelve, empareja de nuevo en Ajustes del Sistema → Bluetooth."
           }
         }
       }
@@ -581,6 +1639,12 @@
             "state" : "new",
             "value" : "Magic Switch stopped trying to connect %1$@ after %2$lld minutes. Switch it off and on, then click it in the menu."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch dejó de intentar conectar %1$@ tras %2$lld minutos. Apágalo y enciéndelo, y haz clic en él en el menú."
+          }
         }
       }
     },
@@ -591,89 +1655,285 @@
             "state" : "new",
             "value" : "Magic Switch v%1$@ is available (you have v%2$@). Click to open the release page."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch v%1$@ está disponible (tienes la v%2$@). Haz clic para abrir la página de la versión."
+          }
         }
       }
     },
     "Magic Switch works with one other Mac at a time. Remove %@ first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch funciona con un solo otro Mac a la vez. Elimina primero %@."
+          }
+        }
+      }
     },
     "Magic Switch works with one other Mac at a time. Remove the current one first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch funciona con un solo otro Mac a la vez. Elimina primero el actual."
+          }
+        }
+      }
     },
     "Magic Switch: Bluetooth is off." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: Bluetooth está desactivado."
+          }
+        }
+      }
     },
     "Magic Switch: Bluetooth is resetting." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: Bluetooth se está reiniciando."
+          }
+        }
+      }
     },
     "Magic Switch: Bluetooth not supported on this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: Bluetooth no es compatible con este Mac."
+          }
+        }
+      }
     },
     "Magic Switch: Bluetooth permission denied." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: permiso de Bluetooth denegado."
+          }
+        }
+      }
     },
     "Magic Switch: no peripherals connected to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: ningún periférico conectado a este Mac."
+          }
+        }
+      }
     },
     "Magic Switch: not paired. Open Settings → Pairing." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: sin emparejar. Abre Ajustes → Emparejamiento."
+          }
+        }
+      }
     },
     "Magic Switch: peripherals connected to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch: periféricos conectados a este Mac."
+          }
+        }
+      }
     },
     "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asegúrate de que Magic Switch se está ejecutando en tu otro Mac y de que ambos Macs están en la misma red Wi-Fi. Después pulsa el botón ↻ para actualizar, o usa el botón + para añadir el Mac por dirección IP si tu red bloquea Bonjour."
+          }
+        }
+      }
     },
     "Mark a display and your peripherals switch to this Mac whenever it connects." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marca una pantalla y tus periféricos pasarán a este Mac cada vez que se conecte."
+          }
+        }
+      }
     },
     "Microphone" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Micrófono"
+          }
+        }
+      }
     },
     "Mouse" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ratón"
+          }
+        }
+      }
     },
     "New fingerprint: %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huella nueva: %@"
+          }
+        }
+      }
     },
     "New pairing key detected." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva clave de emparejamiento detectada."
+          }
+        }
+      }
     },
     "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay periféricos Bluetooth emparejados con este Mac. Primero empareja uno en Ajustes del Sistema → Bluetooth."
+          }
+        }
+      }
     },
     "No external displays connected." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay pantallas externas conectadas."
+          }
+        }
+      }
     },
     "No other Mac is set up — add one in Settings → Macs." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay otro Mac configurado: añade uno en Ajustes → Macs."
+          }
+        }
+      }
     },
     "No registered peripheral matches '%@'." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún periférico registrado coincide con '%@'."
+          }
+        }
+      }
     },
     "Not connected" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No conectado"
+          }
+        }
+      }
     },
     "Not found." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No encontrado."
+          }
+        }
+      }
     },
     "Not paired" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin emparejar"
+          }
+        }
+      }
     },
     "Not responding." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No responde."
+          }
+        }
+      }
     },
     "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones están desactivadas, así que no te enterarás cuando falle un cambio. Actívalas para Magic Switch en Ajustes del Sistema → Notificaciones."
+          }
+        }
+      }
     },
     "Now pick the other Mac in Settings → Macs to start switching." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora elige el otro Mac en Ajustes → Macs para empezar a cambiar."
+          }
+        }
+      }
     },
     "On this Mac — click to send %@ to the other Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este Mac: haz clic para enviar %@ al otro Mac."
+          }
+        }
+      }
     },
     "On this Mac. %@" : {
-      "comment" : "Two sentences: where the peripheral is, then why it can't be sent"
+      "comment" : "Two sentences: where the peripheral is, then why it can't be sent",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este Mac. %@"
+          }
+        }
+      }
     },
     "On your other Mac, add this Mac as %@, port %@." : {
       "localizations" : {
@@ -682,272 +1942,899 @@
             "state" : "new",
             "value" : "On your other Mac, add this Mac as %1$@, port %2$@."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En tu otro Mac, añade este Mac como %@, puerto %@."
+          }
         }
       }
     },
     "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified %@ has changed." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hazlo solo si has vuelto a emparejar el otro Mac a propósito. De lo contrario podría ser un intento de suplantación: la huella que identificaba antes a %@ ha cambiado."
+          }
+        }
+      }
     },
     "Open at Login" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir al iniciar sesión"
+          }
+        }
+      }
     },
     "Open the project license in your browser." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la licencia del proyecto en tu navegador."
+          }
+        }
+      }
     },
     "Other" : {
-      "comment" : "Settings tab title: other settings (plural noun phrase)"
+      "comment" : "Settings tab title: other settings (plural noun phrase)",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
+          }
+        }
+      }
     },
     "Other Mac Renamed" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro Mac con nuevo nombre"
+          }
+        }
+      }
     },
     "Over Bluetooth" : {
-      "comment" : "VoiceOver label for the antenna badge on a Mac reached over Bluetooth"
+      "comment" : "VoiceOver label for the antenna badge on a Mac reached over Bluetooth",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por Bluetooth"
+          }
+        }
+      }
     },
     "Pair" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejar"
+          }
+        }
+      }
     },
     "Pair both Macs in the Pairing tab to enable Ping, Sync, and the menu-bar switch." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empareja ambos Macs en la pestaña Emparejamiento para activar Ping, la sincronización y el cambio desde la barra de menús."
+          }
+        }
+      }
     },
     "Pair this Mac in the Pairing tab first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primero empareja este Mac en la pestaña Emparejamiento."
+          }
+        }
+      }
     },
     "Pair this Mac with your other Mac to start switching peripherals." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empareja este Mac con tu otro Mac para empezar a cambiar periféricos."
+          }
+        }
+      }
     },
     "Paired" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejado"
+          }
+        }
+      }
     },
     "Paired %@, but it didn't connect. Turn it off and on, then try again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se emparejó %@, pero no se conectó. Apágalo y vuelve a encenderlo, y prueba de nuevo."
+          }
+        }
+      }
     },
     "Pairing" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejamiento"
+          }
+        }
+      }
     },
     "Pairing %@… Click to cancel." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejando %@… Haz clic para cancelar."
+          }
+        }
+      }
     },
     "Pairing Code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de emparejamiento"
+          }
+        }
+      }
     },
     "Pairing Failed" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló el emparejamiento"
+          }
+        }
+      }
     },
     "Pairing Timed Out" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de emparejamiento agotado"
+          }
+        }
+      }
     },
     "Pairing Was Reset" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se restableció el emparejamiento"
+          }
+        }
+      }
     },
     "Pairing code" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de emparejamiento"
+          }
+        }
+      }
     },
     "Pairing code: %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código de emparejamiento: %@"
+          }
+        }
+      }
     },
     "Pairing codes don't match. Re-pair both Macs with the same code." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los códigos de emparejamiento no coinciden. Vuelve a emparejar ambos Macs con el mismo código."
+          }
+        }
+      }
     },
     "Pairing failed." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló el emparejamiento."
+          }
+        }
+      }
     },
     "Pairing in progress. Click to cancel." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejamiento en curso. Haz clic para cancelar."
+          }
+        }
+      }
     },
     "Pairing key fingerprint" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huella de la clave de emparejamiento"
+          }
+        }
+      }
     },
     "Pairing reset." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejamiento restablecido."
+          }
+        }
+      }
     },
     "Pairing timed out." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiempo de emparejamiento agotado."
+          }
+        }
+      }
     },
     "Pairing…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejando…"
+          }
+        }
+      }
     },
     "Peripheral Handling" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestión de periféricos"
+          }
+        }
+      }
     },
     "Peripherals" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periféricos"
+          }
+        }
+      }
     },
     "Peripherals Split Between Macs" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periféricos repartidos entre Macs"
+          }
+        }
+      }
     },
     "Ping" : {
-      "comment" : "Button: send a test message to the other Mac"
+      "comment" : "Button: send a test message to the other Mac",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping"
+          }
+        }
+      }
     },
     "Ping from %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping de %@"
+          }
+        }
+      }
     },
     "Pinging %@…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando ping a %@…"
+          }
+        }
+      }
     },
     "Port" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puerto"
+          }
+        }
+      }
     },
     "Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa una tecla con ⌘, ⌥ o ⌃. Esc cancela; ⌫ elimina el atajo."
+          }
+        }
+      }
     },
     "Previous fingerprint: %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huella anterior: %@"
+          }
+        }
+      }
     },
     "Quit" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salir"
+          }
+        }
+      }
     },
     "Re-scan the displays connected to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a buscar las pantallas conectadas a este Mac."
+          }
+        }
+      }
     },
     "Re-scan the network and Bluetooth for other Macs running Magic Switch." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a buscar en la red y por Bluetooth otros Macs con Magic Switch."
+          }
+        }
+      }
     },
     "Re-scan the network for other Macs running Magic Switch." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a buscar en la red otros Macs que ejecuten Magic Switch."
+          }
+        }
+      }
     },
     "Reach your other Mac over Bluetooth when the network can't carry the connection. Turn it on for both Macs. Magic Switch goes back to the network as soon as it works again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llega a tu otro Mac por Bluetooth cuando la red no pueda llevar la conexión. Actívalo en ambos Macs. Magic Switch vuelve a la red en cuanto funcione de nuevo."
+          }
+        }
+      }
     },
     "Received a ping from the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping recibido del otro Mac"
+          }
+        }
+      }
     },
     "Receiving peripherals from the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibiendo periféricos del otro Mac"
+          }
+        }
+      }
     },
     "Receiving peripherals from the other Mac…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibiendo periféricos del otro Mac…"
+          }
+        }
+      }
     },
     "Reconnect peripherals if they drop" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconectar periféricos si se desconectan"
+          }
+        }
+      }
     },
     "Record shortcut for %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabar atajo para %@"
+          }
+        }
+      }
     },
     "Recording shortcut for %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grabando atajo para %@"
+          }
+        }
+      }
     },
     "Refresh Macs found on the network" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar los Macs encontrados en la red"
+          }
+        }
+      }
     },
     "Refresh connected displays" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar pantallas conectadas"
+          }
+        }
+      }
     },
     "Registered Peripherals" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Periféricos registrados"
+          }
+        }
+      }
     },
     "Release peripherals when this Mac sleeps" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liberar periféricos cuando este Mac entre en reposo"
+          }
+        }
+      }
     },
     "Release the peripherals just before this Mac sleeps so your other Mac can take them. Turn off to keep them paired with this Mac while it sleeps." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Libera los periféricos justo antes de que este Mac entre en reposo para que tu otro Mac pueda tomarlos. Desactívalo para mantenerlos emparejados con este Mac mientras duerme."
+          }
+        }
+      }
     },
     "Remove" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
+          }
+        }
+      }
     },
     "Remove %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar %@"
+          }
+        }
+      }
     },
     "Remove %@ from Magic Switch." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina %@ de Magic Switch."
+          }
+        }
+      }
     },
     "Remove %@ from list" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar %@ de la lista"
+          }
+        }
+      }
     },
     "Remove %@?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar %@?"
+          }
+        }
+      }
     },
     "Remove shortcut: %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar atajo: %@"
+          }
+        }
+      }
     },
     "Remove the saved key from this Mac and close." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina la clave guardada de este Mac y cierra."
+          }
+        }
+      }
     },
     "Remove the saved pairing key. Switching with your other Mac stops until you pair again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina la clave de emparejamiento guardada. El cambio con tu otro Mac se detiene hasta que vuelvas a emparejar."
+          }
+        }
+      }
     },
     "Remove this peripheral from Magic Switch's list." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina este periférico de la lista de Magic Switch."
+          }
+        }
+      }
     },
     "Remove this shortcut." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elimina este atajo."
+          }
+        }
+      }
     },
     "Save the entered code as the pairing key on this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda el código introducido como clave de emparejamiento en este Mac."
+          }
+        }
+      }
     },
     "Saving…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardando…"
+          }
+        }
+      }
     },
     "Send" : {
-      "comment" : "Button: send this peripheral to the other Mac"
+      "comment" : "Button: send this peripheral to the other Mac",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar"
+          }
+        }
+      }
     },
     "Send %@ to the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar %@ al otro Mac"
+          }
+        }
+      }
     },
     "Send a test message over the secure channel — confirms both Macs can reach each other." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía un mensaje de prueba por el canal seguro: confirma que ambos Macs pueden comunicarse entre sí."
+          }
+        }
+      }
     },
     "Send peripherals to the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar periféricos al otro Mac"
+          }
+        }
+      }
     },
     "Send this peripheral to the other Mac, which takes it over automatically." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía este periférico al otro Mac, que se hace cargo de él automáticamente."
+          }
+        }
+      }
     },
     "Sending %@ to the other Mac…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando %@ al otro Mac…"
+          }
+        }
+      }
     },
     "Sending peripherals to the other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando periféricos al otro Mac"
+          }
+        }
+      }
     },
     "Sending peripherals to the other Mac…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando periféricos al otro Mac…"
+          }
+        }
+      }
     },
     "Sending this peripheral to the other Mac…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando este periférico al otro Mac…"
+          }
+        }
+      }
     },
     "Sending to %@…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando a %@…"
+          }
+        }
+      }
     },
     "Sending…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando…"
+          }
+        }
+      }
     },
     "Set the icon for %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Establecer el icono de %@"
+          }
+        }
+      }
     },
     "Set the icon for %@. Choose Automatic to detect it from the device." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Establece el icono de %@. Elige Automático para detectarlo desde el dispositivo."
+          }
+        }
+      }
     },
     "Settings" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes"
+          }
+        }
+      }
     },
     "Settings…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes…"
+          }
+        }
+      }
     },
     "Some peripherals are on this Mac, others aren't. In the menu, click the ones that are on the wrong Mac, then click your other Mac to move them all at once." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algunos periféricos están en este Mac y otros no. En el menú, haz clic en los que están en el Mac equivocado y luego en tu otro Mac para moverlos todos a la vez."
+          }
+        }
+      }
     },
     "Space" : {
-      "comment" : "The space bar, shown as part of a keyboard shortcut"
+      "comment" : "The space bar, shown as part of a keyboard shortcut",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espacio"
+          }
+        }
+      }
     },
     "Sponsor on GitHub" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patrocinar en GitHub"
+          }
+        }
+      }
     },
     "Start Magic Switch automatically when you log in to this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia Magic Switch automáticamente al iniciar sesión en este Mac."
+          }
+        }
+      }
     },
     "Startup, peripheral handling, shortcuts, display triggers, and updates." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicio, gestión de periféricos, atajos, disparadores de pantalla y actualizaciones."
+          }
+        }
+      }
     },
     "Support Magic Switch's development. Opens GitHub Sponsors in your browser." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apoya el desarrollo de Magic Switch. Abre GitHub Sponsors en tu navegador."
+          }
+        }
+      }
     },
     "Switch failed." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló el cambio."
+          }
+        }
+      }
     },
     "Switch peripherals between this Mac and %@ over Bluetooth." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia periféricos entre este Mac y %@ por Bluetooth."
+          }
+        }
+      }
     },
     "Switch peripherals between this Mac and %@." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia los periféricos entre este Mac y %@."
+          }
+        }
+      }
     },
     "Switch your peripherals to this Mac whenever %@ connects. Display ID: %@." : {
       "localizations" : {
@@ -956,14 +2843,34 @@
             "state" : "new",
             "value" : "Switch your peripherals to this Mac whenever %1$@ connects. Display ID: %2$@."
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasa tus periféricos a este Mac cada vez que se conecte %1$@. ID de pantalla: %2$@."
+          }
         }
       }
     },
     "Sync peripheral list to %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizar la lista de periféricos con %@"
+          }
+        }
+      }
     },
     "Sync this Mac's peripheral list to %@ so both Macs manage the same peripherals." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincroniza la lista de periféricos de este Mac con %@ para que ambos Macs gestionen los mismos periféricos."
+          }
+        }
+      }
     },
     "Synced %lld peripherals to %@." : {
       "localizations" : {
@@ -980,6 +2887,24 @@
                 "stringUnit" : {
                   "state" : "new",
                   "value" : "Synced %lld peripherals to %@."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se sincronizó %lld periférico con %@."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Se sincronizaron %lld periféricos con %@."
                 }
               }
             }
@@ -1006,158 +2931,530 @@
               }
             }
           }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sincronizando %lld periférico con %@…"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Sincronizando %lld periféricos con %@…"
+                }
+              }
+            }
+          }
         }
       }
     },
     "Take" : {
-      "comment" : "Button: take this peripheral to this Mac"
+      "comment" : "Button: take this peripheral to this Mac",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer"
+          }
+        }
+      }
     },
     "Take %@ to this Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer %@ a este Mac"
+          }
+        }
+      }
     },
     "Take Peripherals When a Display Connects" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer periféricos cuando se conecte una pantalla"
+          }
+        }
+      }
     },
     "Take peripherals to this Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer periféricos a este Mac"
+          }
+        }
+      }
     },
     "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trae este periférico a este Mac. Si el otro Mac lo tiene ahora, se le pedirá que lo libere primero."
+          }
+        }
+      }
     },
     "Test message received. Both Macs can reach each other." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mensaje de prueba recibido. Ambos Macs pueden comunicarse entre sí."
+          }
+        }
+      }
     },
     "That Mac has the same name as this one (%@). Rename one of them in System Settings → General → About, then try again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese Mac tiene el mismo nombre que este (%@). Cambia el nombre de uno de ellos en Ajustes del Sistema → General → Información, y prueba de nuevo."
+          }
+        }
+      }
     },
     "That address is this Mac." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa dirección es la de este Mac."
+          }
+        }
+      }
     },
     "The new fingerprint should match the one shown in Settings → Pairing on %@." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La huella nueva debe coincidir con la que aparece en Ajustes → Emparejamiento en %@."
+          }
+        }
+      }
     },
     "The other Mac couldn't complete the request. If its peripheral list is out of date, click Sync in Settings → Macs." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac no pudo completar la solicitud. Si su lista de periféricos está desactualizada, haz clic en Sincronizar en Ajustes → Macs."
+          }
+        }
+      }
     },
     "The other Mac didn't respond in time." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac no respondió a tiempo."
+          }
+        }
+      }
     },
     "The other Mac isn't ready to be added yet. Try again in a moment." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac aún no está listo para añadirse. Prueba de nuevo en un momento."
+          }
+        }
+      }
     },
     "The other Mac returned an invalid response." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac devolvió una respuesta no válida."
+          }
+        }
+      }
     },
     "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac ejecuta una versión anterior de Magic Switch que no se puede añadir por dirección. Actualízalo primero."
+          }
+        }
+      }
     },
     "The other Mac stopped responding before it finished." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac dejó de responder antes de terminar."
+          }
+        }
+      }
     },
     "The other Mac you switch peripherals with." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro Mac con el que cambias periféricos."
+          }
+        }
+      }
     },
     "This Mac accepts connections on port %@." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac acepta conexiones en el puerto %@."
+          }
+        }
+      }
     },
     "This Mac couldn't search the network for other Macs. If your other Mac doesn't appear, use the + button to add it by address." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no pudo buscar otros Macs en la red. Si tu otro Mac no aparece, usa el botón + para añadirlo por dirección."
+          }
+        }
+      }
     },
     "This Mac does not support the Bluetooth features Magic Switch needs." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no admite las funciones de Bluetooth que necesita Magic Switch."
+          }
+        }
+      }
     },
     "This Mac doesn't support Bluetooth Low Energy." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no es compatible con Bluetooth Low Energy."
+          }
+        }
+      }
     },
     "This Mac isn't accepting connections yet. Try again in a moment." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac aún no acepta conexiones. Prueba de nuevo en un momento."
+          }
+        }
+      }
     },
     "This Mac isn't paired with your other Mac. Open Settings → Pairing." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no está emparejado con tu otro Mac. Abre Ajustes → Emparejamiento."
+          }
+        }
+      }
     },
     "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los anuncios de Bonjour de este Mac no llegan a la red, así que tu otro Mac no puede descubrirlo por sí solo. Un Mac ya añadido sigue llegando a este automáticamente; si no, usa el botón + en el otro Mac para añadir este por dirección."
+          }
+        }
+      }
     },
     "Toggle peripherals between Macs" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternar periféricos entre Macs"
+          }
+        }
+      }
     },
     "Too many failed attempts to reach the other Mac. Try again in a minute." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demasiados intentos fallidos de contactar con el otro Mac. Prueba de nuevo en un minuto."
+          }
+        }
+      }
     },
     "Trackpad" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trackpad"
+          }
+        }
+      }
     },
     "Trust" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confiar"
+          }
+        }
+      }
     },
     "Trust new key for %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confiar en la nueva clave de %@"
+          }
+        }
+      }
     },
     "Trust new pairing key for %@?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Confiar en la nueva clave de emparejamiento de %@?"
+          }
+        }
+      }
     },
     "Try Again" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar"
+          }
+        }
+      }
     },
     "Unknown Device" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dispositivo desconocido"
+          }
+        }
+      }
     },
     "Unknown parameter '%@'. Supported: 'peripheral' and 'direction'." : {
-      "comment" : "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names"
+      "comment" : "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parámetro desconocido '%@'. Admitidos: 'peripheral' y 'direction'."
+          }
+        }
+      }
     },
     "Unpair" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desemparejar"
+          }
+        }
+      }
     },
     "Unpair this Mac?" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desemparejar este Mac?"
+          }
+        }
+      }
     },
     "Unrecognized command URL '%@'. The only command is magicswitch://switch." : {
-      "comment" : "Keep magicswitch://switch as is; it is the literal URL"
+      "comment" : "Keep magicswitch://switch as is; it is the literal URL",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL de comando no reconocida '%@'. El único comando es magicswitch://switch."
+          }
+        }
+      }
     },
     "Up to date" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizado"
+          }
+        }
+      }
     },
     "Update Available" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualización disponible"
+          }
+        }
+      }
     },
     "Update Available — v%@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualización disponible — v%@"
+          }
+        }
+      }
     },
     "Update available: version %@" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualización disponible: versión %@"
+          }
+        }
+      }
     },
     "Update to version %@ available" : {
-      "comment" : "VoiceOver label for the red badge on the Version row; %@ is the newer version number"
+      "comment" : "VoiceOver label for the red badge on the Version row; %@ is the newer version number",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualización a la versión %@ disponible"
+          }
+        }
+      }
     },
     "Version" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión"
+          }
+        }
+      }
     },
     "Wait for the pairing key to finish saving." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera a que termine de guardarse la clave de emparejamiento."
+          }
+        }
+      }
     },
     "Wait for the peripheral that's switching to finish, then try again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera a que termine el periférico que se está cambiando y prueba de nuevo."
+          }
+        }
+      }
     },
     "Waiting for the other Mac…" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando al otro Mac…"
+          }
+        }
+      }
     },
     "Wi-Fi" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wi-Fi"
+          }
+        }
+      }
     },
     "You canceled while Magic Switch was pairing %@ again, so it's no longer paired with this Mac. Click it in the menu to pair it again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelaste mientras Magic Switch volvía a emparejar %@, así que ya no está emparejado con este Mac. Haz clic en él en el menú para emparejarlo de nuevo."
+          }
+        }
+      }
     },
     "You won't be able to switch peripherals with your other Mac until you pair again." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No podrás cambiar periféricos con tu otro Mac hasta que vuelvas a emparejar."
+          }
+        }
+      }
     },
     "Your Other Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu otro Mac"
+          }
+        }
+      }
     },
     "Your other Mac didn't respond. Make sure Magic Switch is running on it." : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu otro Mac no respondió. Asegúrate de que Magic Switch se está ejecutando en él."
+          }
+        }
+      }
     },
     "another Mac" : {
-
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "otro Mac"
+          }
+        }
+      }
     },
     "peripheral.type.other" : {
       "comment" : "Peripheral type: any other kind of peripheral (singular)",
@@ -1166,6 +3463,12 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro"
           }
         }
       }
