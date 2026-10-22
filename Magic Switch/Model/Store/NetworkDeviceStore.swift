@@ -417,8 +417,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           {
             self.probeReachability(of: device)
           }
-        case .success(.legacy):
-          // The peer's listener isn't up, so it has no identity to give yet.
+        case .success(.legacy), .success(.unavailable):
+          // Nothing to ingest, but the handshake completed.
           break
         case .failure:
           self.bluetoothProbeFailures[peripheral] = Date()
@@ -981,7 +981,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           if case .success(.peer(let identity, let proved, let route)) = result {
             self.ingestIntroduction(identity, provedFingerprint: proved, over: route)
           }
-          // `.legacy` still counts: the handshake completed.
+          // `.legacy` and `.unavailable` still count: the handshake completed.
           if case .success = result { completion(true) } else { completion(false) }
         }
       }
@@ -1200,6 +1200,7 @@ enum ManualAddError: Error {
   case legacyPeer
   case anotherMacRegistered(String)
   case listenerNotReady
+  case peerNotReady
   case outgoing(OutgoingFailure)
 
   var userMessage: String {
@@ -1222,6 +1223,9 @@ enum ManualAddError: Error {
         localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
       return OutgoingFailure.listenerNotReady.userMessage
+    case .peerNotReady:
+      return String(
+        localized: "The other Mac isn't ready to be added yet. Try again in a moment.")
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -1282,6 +1286,10 @@ enum DeviceCommand: String, Codable {
   /// identity instead of OP_SUCCESS; legacy builds reply OP_FAILED, which
   /// still proves the handshake. Keeps endpoints fresh without Bonjour.
   case introduce = "INTRODUCE"
+  /// Reply to `INTRODUCE` from a current peer whose listener isn't bound yet,
+  /// so it has no identity to send. Distinct from the `OP_FAILED` an older
+  /// peer returns for the opcode it doesn't know.
+  case introduceUnavailable = "INTRODUCE_UNAVAILABLE"
 }
 
 /// Decodes the standard OP_SUCCESS/OP_FAILED acknowledgement used by normal
@@ -1600,6 +1608,7 @@ extension NetworkDeviceStore {
   enum IntroduceReply {
     case peer(IntroducedIdentity, provedFingerprint: String, route: PeerRoute)
     case legacy
+    case unavailable
   }
 
   /// Exchanges identities with the peer at `routes` over the secure channel.
@@ -1650,6 +1659,9 @@ extension NetworkDeviceStore {
                 } else if DeviceCommand(rawValue: response) == .operationFailed {
                   reply = .legacy
                   done(.success(()))
+                } else if DeviceCommand(rawValue: response) == .introduceUnavailable {
+                  reply = .unavailable
+                  done(.success(()))
                 } else {
                   done(.failure(.invalidResponse))
                 }
@@ -1691,6 +1703,8 @@ extension NetworkDeviceStore {
           completion(.failure(.outgoing(failure)))
         case .success(.legacy):
           completion(.failure(.legacyPeer))
+        case .success(.unavailable):
+          completion(.failure(.peerNotReady))
         case .success(.peer(let identity, let proved, _)):
           // The handshake happily completes against our own listener (same
           // key, both roles), and `registerNetworkDevice` has no self-guard.

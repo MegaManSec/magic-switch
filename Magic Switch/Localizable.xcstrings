@@ -1042,6 +1042,9 @@
     "The other Mac didn't respond in time." : {
 
     },
+    "The other Mac isn't ready to be added yet. Try again in a moment." : {
+
+    },
     "The other Mac returned an invalid response." : {
 
     },

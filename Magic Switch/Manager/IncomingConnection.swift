@@ -486,7 +486,7 @@ final class IncomingConnection {
       if let local = localIdentity() {
         sendString(local.encoded)
       } else {
-        sendString(DeviceCommand.operationFailed.rawValue)
+        sendString(DeviceCommand.introduceUnavailable.rawValue)
       }
       if let host = DialbackAddresses.hostString(from: endpoint), let proved = provedFingerprint {
         DispatchQueue.main.async {
