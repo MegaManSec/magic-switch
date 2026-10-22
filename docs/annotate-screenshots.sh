@@ -77,18 +77,18 @@ annotate() {
   echo "wrote $output ($(magick identify -format '%wx%h' "$output"))"
 }
 
-# ---- Peripheral tab ----
+# ---- Peripherals tab ----
 annotate peripheral-tab "#292929" 0 88 560 47 \
 "2 988 145 988 182
 3 1105 350 1105 314
 1 1050 478 1082 478
 4 815 204 855 204" \
 "1|Register a Magic device so Magic Switch can manage and hand it off
-2|Release — hand this peripheral to the other Mac
+2|Send — hand this peripheral to the other Mac
 3|Remove — stop managing this peripheral
 4|Battery level, live while the peripheral is connected to this Mac"
 
-# ---- Peripheral tab: type picker (single badge) ----
+# ---- Peripherals tab: type picker (single badge) ----
 annotate peripheral-type-picker "#292929" 0 88 730 47 \
 "1 185 158 118 200" \
 "1|Click a peripheral's icon to pick a type — or Automatic to auto-detect"
@@ -126,7 +126,7 @@ annotate other-tab "#282828" 320 88 1480 47 \
 4 1030 640 1062 640
 5 270 993 218 993
 6 160 1415 160 1382" \
-"1|Launch at Login — start Magic Switch when you log in
+"1|Open at Login — start Magic Switch when you log in
 2|Release peripherals to the other Mac when this Mac sleeps
 3|Reconnect peripherals automatically if they drop
 4|Record a shortcut — send, take, or toggle every peripheral from anywhere
