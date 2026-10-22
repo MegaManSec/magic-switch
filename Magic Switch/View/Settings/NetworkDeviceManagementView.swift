@@ -532,7 +532,6 @@ private struct NetworkDeviceListView: View {
 
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
-  @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   init(
     devices: [NetworkDevice],

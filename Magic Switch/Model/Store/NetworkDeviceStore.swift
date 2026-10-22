@@ -121,6 +121,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// `routes(for:)`) and badges their rows.
   @Published private(set) var reachedOverBluetooth: Set<String> = []
   private var bluetoothSettingObserver: AnyCancellable?
+  private var bluetoothSettingForwarder: AnyCancellable?
 
   /// In-flight Ping/Sync per device id. Set when the user taps Ping/Sync on the
   /// Macs tab and cleared when the op finishes; the view both disables the
@@ -166,6 +167,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     BLETransport.shared.start(
       localIdentity: { [weak self] in self?.servicePublisher.currentIdentity() },
       onPeerDiscovered: { [weak self] in self?.identifyBluetoothPeer($0) })
+    bluetoothSettingForwarder = BLETransport.shared.$isEnabled
+      .removeDuplicates()
+      .dropFirst()
+      .sink { [weak self] _ in self?.objectWillChange.send() }
     bluetoothSettingObserver = BLETransport.shared.$isEnabled
       .removeDuplicates()
       .dropFirst()
