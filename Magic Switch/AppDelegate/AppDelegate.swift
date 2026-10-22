@@ -720,7 +720,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         title: String(localized: "Peripherals Split Between Macs"),
         body: String(
           localized:
-            "Some peripherals are on this Mac, others aren't. Right-click the menu bar icon to switch each peripheral individually, then left-click to handle them all at once."
+            "Some peripherals are on this Mac, others aren't. Click each peripheral in the menu to switch it on its own, then click your other Mac to move them all at once."
         ),
         identifier: "switch-mixed-state"
       )
