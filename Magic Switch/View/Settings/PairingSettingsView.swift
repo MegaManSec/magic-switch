@@ -214,9 +214,12 @@ private struct GenerateCodeSheet: View {
       switch result {
       case .success:
         saveState = .saved
-      case .failure:
+      case .failure(let err):
         saveState = .failed
-        errorMessage = String(localized: "Failed to save pairing key.")
+        if case .keychainFailed(let status) = err {
+          Log.app.error("Pairing: keychain save failed: \(status)")
+        }
+        errorMessage = String(localized: "Couldn't save the pairing key on this Mac.")
       }
     }
   }
