@@ -1294,7 +1294,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             notifyBody:
               String(
                 localized:
-                  "Couldn't connect \(peripheral.name) (error \(openResult)). It may be off, out of range, or connected to your other Mac."
+                  "Couldn't connect \(peripheral.name). It may be off, out of range, or connected to your other Mac."
               ),
             attempt: attempt
           )
@@ -1397,7 +1397,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         notifyBody:
           String(
             localized:
-              "Couldn't start pairing with \(peripheral.name) (error \(pairResult)). Turn it off and on, then try again."
+              "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again."
           ),
         attempt: attempt
       )
@@ -1712,7 +1712,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             notifyBody:
               String(
                 localized:
-                  "Paired \(name), but couldn't open a connection (error \(openResult)). Try turning it off and on."
+                  "Paired \(name), but couldn't open a connection. Try turning it off and on."
               ),
             attempt: attempt
           )

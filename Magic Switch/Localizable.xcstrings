@@ -234,10 +234,19 @@
     "Couldn't Connect" : {
 
     },
+    "Couldn't connect %@. It may be off, out of range, or connected to your other Mac." : {
+
+    },
     "Couldn't Reach Your Other Mac" : {
 
     },
     "Couldn't Release Peripheral" : {
+
+    },
+    "Couldn't remove the pairing key from this Mac." : {
+
+    },
+    "Couldn't save the pairing key on this Mac." : {
 
     },
     "Couldn't Switch" : {
@@ -248,16 +257,6 @@
     },
     "Couldn't check" : {
 
-    },
-    "Couldn't connect %@ (error %d). It may be off, out of range, or connected to your other Mac." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't connect %1$@ (error %2$d). It may be off, out of range, or connected to your other Mac."
-          }
-        }
-      }
     },
     "Couldn't connect." : {
 
@@ -292,9 +291,6 @@
     "Couldn't release." : {
 
     },
-    "Couldn't save the key to the keychain (error %d)." : {
-
-    },
     "Couldn't send %@ to %@: %@" : {
       "localizations" : {
         "en" : {
@@ -315,20 +311,7 @@
         }
       }
     },
-    "Couldn't start pairing with %@ (error %d). Turn it off and on, then try again." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't start pairing with %1$@ (error %2$d). Turn it off and on, then try again."
-          }
-        }
-      }
-    },
     "Couldn't start pairing with %@. Turn it off and on, then try again." : {
-
-    },
-    "Couldn't unpair: keychain returned error %d." : {
 
     },
     "Create a new pairing code to enter on your other Mac." : {
@@ -581,15 +564,8 @@
     "Paired" : {
 
     },
-    "Paired %@, but couldn't open a connection (error %d). Try turning it off and on." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Paired %1$@, but couldn't open a connection (error %2$d). Try turning it off and on."
-          }
-        }
-      }
+    "Paired %@, but couldn't open a connection. Try turning it off and on." : {
+
     },
     "Pairing" : {
 

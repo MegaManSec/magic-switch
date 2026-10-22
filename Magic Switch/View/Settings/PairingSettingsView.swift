@@ -40,6 +40,9 @@ struct PairingSettingsView: View {
           unpairErrorStatus = nil
           pairing.unpair { status in
             unpairErrorStatus = status
+            if let status {
+              Log.app.error("Unpair: keychain delete failed: \(status)")
+            }
           }
         },
         secondaryButton: .cancel()
@@ -103,8 +106,8 @@ struct PairingSettingsView: View {
       }
       .foregroundColor(.red)
       .help("Remove the saved pairing key. This Mac will stop accepting commands.")
-      if let status = unpairErrorStatus {
-        Text("Couldn't unpair: keychain returned error \(status).")
+      if unpairErrorStatus != nil {
+        Text("Couldn't remove the pairing key from this Mac.")
           .foregroundColor(.red)
           .font(.caption)
       }
@@ -338,8 +341,8 @@ private struct EnterCodeSheet: View {
         case .derivationFailed:
           errorMessage = String(localized: "Couldn't derive a key from that code.")
         case .keychainFailed(let status):
-          errorMessage = String(
-            localized: "Couldn't save the key to the keychain (error \(status)).")
+          Log.app.error("Pairing: keychain save failed: \(status)")
+          errorMessage = String(localized: "Couldn't save the pairing key on this Mac.")
         }
       }
     }
