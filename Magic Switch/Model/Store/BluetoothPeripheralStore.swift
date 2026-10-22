@@ -275,7 +275,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// outranks it — and caps its pair attempts. Main-only.
   private var adoptionProgress: [String: AdoptionProgress] = [:]
 
-  /// Ids we released on purpose (handoff, "Remove from PC", sleep), each with
+  /// Ids we released on purpose (handoff, Send, sleep), each with
   /// the time it was flagged. The disconnect notification that follows within
   /// `Constants.intentionalReleaseGrace` must not arm the watcher — the
   /// peripheral is meant to leave this Mac. A *later* disconnect is treated as
@@ -869,7 +869,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Asks the peer to release just this peripheral, then pairs it
-  /// locally. Used by the Peripheral tab's "Connect to PC" button and by
+  /// locally. Used by the Peripherals tab's "Take" button and by
   /// the right-click menu's per-peripheral switch. Apple's Magic devices
   /// only honor one host at a time, so `IOBluetoothDevicePair.start()`
   /// would hang otherwise.
@@ -955,7 +955,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// The inverse direction: release the peripheral locally, wait for the
   /// IOBluetooth-level disconnect to land, then ask the peer to take it.
-  /// Used by the Peripheral tab's "Remove from PC" button and by the
+  /// Used by the Peripherals tab's "Send" button and by the
   /// right-click menu's per-peripheral switch when the peripheral is
   /// currently on this Mac.
   ///
@@ -978,9 +978,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       unregisterFromPC(peripheral)
       return
     }
-    // Show "Releasing…" right away so the row greys out and stops accepting
+    // Show "Sending…" right away so the row greys out and stops accepting
     // clicks while the preflight below runs — it can take up to 5s, and until
-    // it returns the button would otherwise still read "Release". On preflight
+    // it returns the button would otherwise still read "Send". On preflight
     // failure we revert to `.connected`; on success `performSendHandoff`
     // re-asserts `.releasing` from its `unregisterFromPC` completion (the
     // release lands `.disconnected` first, for at most a queue hop).
@@ -1023,7 +1023,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Rest of the send handoff, entered once the local release has been
-  /// issued. The row has read "Releasing…" since `sendPeripheralToPeer`
+  /// issued. The row has read "Sending…" since `sendPeripheralToPeer`
   /// painted it (the release path leaves `.releasing` rows alone); the
   /// disconnect notification and the periodic fetch both skip a `.releasing`
   /// row, so it persists until a terminal branch resolves it.
@@ -1035,7 +1035,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       guard let self = self else { return }
       guard success else {
         // It never disconnected, so it's still on this Mac — drop back to
-        // connected rather than leave it stuck "Releasing…".
+        // connected rather than leave it stuck "Sending…".
         self.setConnectionState(.connected, for: peripheral.id)
         self.setPeripheralError(String(localized: "Didn't disconnect."), for: peripheral.id)
         NotificationManager.showNotification(
@@ -1074,7 +1074,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // reclaims it only if the peer confirms it isn't holding it.
           self.clearIntentionalRelease(peripheral.id)
           // We did release it locally, so we're disconnected regardless of
-          // where it ended up; clear the "Releasing…" row.
+          // where it ended up; clear the "Sending…" row.
           self.setConnectionState(.disconnected, for: peripheral.id)
           self.armReconnect(peripheral.id)
           self.setPeripheralError(String(localized: "Handoff failed."), for: peripheral.id)
@@ -1125,14 +1125,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   // MARK: - Full-Set Handoff Display
 
-  /// Mark every registered peripheral "Releasing…" for the menu-bar full-set
+  /// Mark every registered peripheral "Sending…" for the menu-bar full-set
   /// handoff (the per-peripheral send drives its own row in `performSendHandoff`).
   /// Call after the local releases land; pair with `finishFullSetRelease(success:)`.
   func beginFullSetRelease() {
     peripherals.forEach { setConnectionState(.releasing, for: $0.id) }
   }
 
-  /// End the full-set "Releasing…" display. On success the peripherals now live
+  /// End the full-set "Sending…" display. On success the peripherals now live
   /// on the peer, so they read `.disconnected`; on a non-success that didn't
   /// actually move them (e.g. the local disconnect failed), restore the live
   /// state. The `CONNECT_ALL`-failure rollback re-pairs locally via
@@ -1870,7 +1870,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// strobe the dropdown. Reuses the delegate arm's `pair-failed-…`
   /// identifier so an early and a late failure of one attempt replace each
   /// other instead of stacking. The previous behavior — `print` and fall to
-  /// `.disconnected` — left an interactive "Connect" that failed
+  /// `.disconnected` — left an interactive "Take" that failed
   /// synchronously (pair start error, out of range, discarded
   /// `openConnection` result) looking like nothing happened: the watchdog
   /// no-ops once the state has left `.connecting`, so not even the timeout

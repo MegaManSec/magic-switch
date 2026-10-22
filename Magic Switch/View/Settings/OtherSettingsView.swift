@@ -310,7 +310,7 @@ struct OtherSettingsView: View {
 
 // MARK: - Supporting Views
 
-/// One row of the Keyboard shortcuts section: the action's name, a recorder
+/// One row of the Keyboard Shortcuts section: the action's name, a recorder
 /// button showing the current chord (or the record/recording prompt), and a
 /// clear button while a chord is set. Recording state lives in
 /// `HotkeyManager` so only one row can record at a time.

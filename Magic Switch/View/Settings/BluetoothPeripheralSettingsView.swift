@@ -58,7 +58,7 @@ struct BluetoothPeripheralSettingsView: View {
     switch bluetoothStore.connectionState(for: peripheral.id) {
     case .connected:
       // Symmetric to the disconnected case: release locally then ask the
-      // peer to take it, so a "Remove from PC" actually hands the
+      // peer to take it, so a "Send" actually hands the
       // peripheral over instead of leaving it floating.
       bluetoothStore.sendPeripheralToPeer(peripheral)
     case .disconnected:
@@ -66,7 +66,7 @@ struct BluetoothPeripheralSettingsView: View {
       // pairing locally without that step would just hang.
       bluetoothStore.takePeripheralFromPeer(peripheral)
     case .connecting, .releasing:
-      break  // Handoff in flight; button is disabled in the UI.
+      break  // In flight; the button cancels (pairing) or is disabled (sending).
     }
   }
 
@@ -304,15 +304,12 @@ private struct PeripheralRowView: View {
   }
 
   /// Shared fixed-width label so the pill is the same size across its
-  /// resting states instead of hugging each title. The floor clears
-  /// "Connect" (51.2pt) and "Pairing…" (51.9pt at the 13pt control font) —
-  /// the 54 buys the latter a couple of points of headroom against
-  /// font-metric drift, where a 52 floor would sit 0.1pt from a
-  /// connecting-state nudge — so rows align and a Connect ↔ Release flip
-  /// doesn't nudge; sizing the floor to the rarely-seen "Releasing…"
-  /// (68.8pt) instead left the two resting titles swimming in dead space,
-  /// and the brief growth during a release reads as activity rather than
-  /// jitter.
+  /// resting states ("Send", "Take") instead of hugging each title, so rows
+  /// align and a Send ↔ Take flip doesn't nudge. The floor clears "Pairing…"
+  /// (51.9pt at the 13pt control font) with a couple of points of headroom
+  /// against font-metric drift; sizing it to the rarely-seen "Sending…"
+  /// instead would leave the two resting titles swimming in dead space, and
+  /// the brief growth during a send reads as activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
     Text(title).frame(minWidth: 54)
   }

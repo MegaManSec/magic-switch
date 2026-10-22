@@ -9,7 +9,7 @@ enum PeripheralConnectionState: Equatable {
   case connecting
   /// Handing this peripheral off to the peer Mac. Display-only transient: it's
   /// been (or is being) released locally and the peer is pairing it, so the row
-  /// shows a disabled "Releasing…" — the mirror of the peer's `.connecting`
+  /// shows a disabled "Sending…" — the mirror of the peer's `.connecting`
   /// ("Pairing…") during the same handoff.
   case releasing
   case connected

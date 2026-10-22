@@ -864,7 +864,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// preflight and `CONNECT_ALL` — if it does, re-connect peripherals
   /// locally rather than leave them stranded.
   private func performHandoffToPeer(device: NetworkDevice) {
-    // Paint every row "Releasing…" before the releases start — the mirror of
+    // Paint every row "Sending…" before the releases start — the mirror of
     // the peer's "Pairing…", and what keeps `isAnyPeripheralTransitioning`
     // true for the whole release window now that the IOBluetooth work runs
     // asynchronously on the store's Bluetooth queue. Without it, a second
@@ -909,7 +909,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             // Rollback: peer didn't take the peripherals, so re-pair them
             // locally. Without this the user is left with peripherals paired
             // nowhere. `connectPeripheral` flips each row to `.connecting`,
-            // which clears the "Releasing…" state on its own.
+            // which clears the "Sending…" state on its own.
             self.bluetoothStore.peripherals.forEach { peripheral in
               self.bluetoothStore.connectPeripheral(peripheral)
             }
