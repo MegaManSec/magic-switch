@@ -335,9 +335,10 @@ private struct PeripheralRowView: View {
             )
         )
     case .connecting:
-      Button(action: {}) { actionLabel(String(localized: "Pairing…")) }
-        .disabled(true)
-        .help("Pairing in progress…")
+      Button(action: { store.cancelConnect(peripheral) }) {
+        actionLabel(String(localized: "Pairing…"))
+      }
+      .help("Pairing in progress. Click to cancel.")
     case .releasing:
       Button(action: {}) { actionLabel(String(localized: "Sending…")) }
         .disabled(true)
