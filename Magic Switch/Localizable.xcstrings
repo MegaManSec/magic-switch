@@ -79,22 +79,26 @@
     "%@, on this Mac" : {
 
     },
-    "%@, on this Mac, battery %lld%" : {
-
+    "%@, on this Mac, battery %lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, on this Mac, battery %2$lld%%"
+          }
+        }
+      }
     },
     "%@, pairing" : {
 
     },
-    "%@, releasing" : {
+    "%@, sending" : {
 
     },
     "%lld%%" : {
 
     },
     "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address." : {
-
-    },
-    "-" : {
 
     },
     "A newer version of Magic Switch is available. Opens the release page in your browser." : {
@@ -185,10 +189,10 @@
     "Checking…" : {
 
     },
-    "Click to bring %@ to this Mac." : {
+    "Click to connect %@ to this Mac over Bluetooth." : {
 
     },
-    "Click to connect %@ to this Mac over Bluetooth." : {
+    "Click to take %@ to this Mac." : {
 
     },
     "Close without adding." : {
@@ -209,13 +213,7 @@
     "Confirmed: the most recent secure connection between the two Macs used this address." : {
 
     },
-    "Connect" : {
-
-    },
     "Connect a display to this Mac and it will appear here." : {
-
-    },
-    "Connect this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
 
     },
     "Connect to this address and add the Mac that answers." : {
@@ -251,11 +249,15 @@
     "Couldn't check" : {
 
     },
-    "Couldn't communicate with your other Mac: %@" : {
-
-    },
-    "Couldn't connect %@ (error %lld). It may be off, out of range, or connected to your other Mac." : {
-
+    "Couldn't connect %@ (error %d). It may be off, out of range, or connected to your other Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't connect %1$@ (error %2$d). It may be off, out of range, or connected to your other Mac."
+          }
+        }
+      }
     },
     "Couldn't connect." : {
 
@@ -271,19 +273,6 @@
     },
     "Couldn't establish a secure connection." : {
 
-    },
-    "Couldn't hand %@ to %@: %@" : {
-
-    },
-    "Couldn't hand %@ to %@; keeping it on this Mac." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't hand %1$@ to %2$@; keeping it on this Mac."
-          }
-        }
-      }
     },
     "Couldn't pair %@. It may currently be connected to your other Mac — try the menu-bar switch action instead." : {
 
@@ -303,11 +292,38 @@
     "Couldn't release." : {
 
     },
-    "Couldn't save the key to the keychain (error %lld)." : {
+    "Couldn't save the key to the keychain (error %d)." : {
 
     },
-    "Couldn't start pairing with %@ (error %lld). Turn it off and on, then try again." : {
-
+    "Couldn't send %@ to %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@: %3$@"
+          }
+        }
+      }
+    },
+    "Couldn't send %@ to %@; keeping it on this Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@; keeping it on this Mac."
+          }
+        }
+      }
+    },
+    "Couldn't start pairing with %@ (error %d). Turn it off and on, then try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't start pairing with %1$@ (error %2$d). Turn it off and on, then try again."
+          }
+        }
+      }
     },
     "Couldn't start pairing with %@. Turn it off and on, then try again." : {
 
@@ -372,9 +388,6 @@
     "Grant Bluetooth access in System Settings to use Magic Switch." : {
 
     },
-    "Handing this peripheral to the other Mac…" : {
-
-    },
     "Handoff failed." : {
 
     },
@@ -390,7 +403,7 @@
     "Identity Mismatch Resolved" : {
 
     },
-    "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using." : {
+    "If a peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using." : {
 
     },
     "Invalid Switch Command" : {
@@ -414,10 +427,7 @@
     "Keyboard" : {
 
     },
-    "Keyboard shortcuts" : {
-
-    },
-    "Launch at Login" : {
+    "Keyboard Shortcuts" : {
 
     },
     "License Information" : {
@@ -462,13 +472,13 @@
     "Magic Switch: Bluetooth permission denied." : {
 
     },
-    "Magic Switch: no peripherals connected to this Mac" : {
+    "Magic Switch: no peripherals connected to this Mac." : {
 
     },
     "Magic Switch: not paired. Open Settings → Pairing." : {
 
     },
-    "Magic Switch: peripherals connected to this Mac" : {
+    "Magic Switch: peripherals connected to this Mac." : {
 
     },
     "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour." : {
@@ -492,10 +502,7 @@
     "No Mac is registered — pick one in Settings → Macs." : {
 
     },
-    "No external displays connected" : {
-
-    },
-    "No other Mac is currently available to take this peripheral. Releasing is disabled so it isn't left disconnected from both Macs." : {
+    "No external displays connected." : {
 
     },
     "No registered peripheral matches '%@'." : {
@@ -522,10 +529,10 @@
     "Now pick the other Mac in Settings → Macs to start switching." : {
 
     },
-    "On this Mac — click to hand %@ to the other Mac." : {
+    "On this Mac — click to send %@ to the other Mac." : {
 
     },
-    "On this Mac. No other Mac is reachable to hand it to." : {
+    "On this Mac. No other Mac is reachable to send it to." : {
 
     },
     "On your other Mac, add this Mac as %@, port %@." : {
@@ -547,11 +554,14 @@
     "Only one Mac can be connected at a time. Remove the existing one first." : {
 
     },
+    "Open at Login" : {
+
+    },
     "Open the project license in your browser." : {
 
     },
     "Other" : {
-
+      "comment" : "Settings tab title: other settings (plural noun phrase)"
     },
     "Other Mac unreachable." : {
 
@@ -571,8 +581,15 @@
     "Paired" : {
 
     },
-    "Paired %@, but couldn't open a connection (error %lld). Try turning it off and on." : {
-
+    "Paired %@, but couldn't open a connection (error %d). Try turning it off and on." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Paired %1$@, but couldn't open a connection (error %2$d). Try turning it off and on."
+          }
+        }
+      }
     },
     "Pairing" : {
 
@@ -601,7 +618,7 @@
     "Pairing failed." : {
 
     },
-    "Pairing in progress…" : {
+    "Pairing in progress. Click to cancel." : {
 
     },
     "Pairing reset." : {
@@ -613,7 +630,7 @@
     "Pairing…" : {
 
     },
-    "Peripheral handling" : {
+    "Peripheral Handling" : {
 
     },
     "Peripherals" : {
@@ -640,13 +657,13 @@
     "Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut." : {
 
     },
-    "Press anywhere in macOS to bring every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing." : {
-
-    },
-    "Press anywhere in macOS to hand every registered peripheral to the other Mac. Pressing it again once they're there does nothing." : {
-
-    },
     "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back." : {
+
+    },
+    "Press anywhere in macOS to send every registered peripheral to the other Mac. Pressing it again once they're there does nothing." : {
+
+    },
+    "Press anywhere in macOS to take every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing." : {
 
     },
     "Previous fingerprint: %@" : {
@@ -679,7 +696,7 @@
     "Recording shortcut for %@" : {
 
     },
-    "Refresh available devices" : {
+    "Refresh Macs found on the network" : {
 
     },
     "Refresh connected displays" : {
@@ -691,22 +708,7 @@
     "Registered Peripherals" : {
 
     },
-    "Release" : {
-
-    },
     "Release peripherals when this Mac sleeps" : {
-
-    },
-    "Release this peripheral from this Mac. The other Mac will take ownership automatically." : {
-
-    },
-    "Releasing %@ to the other Mac…" : {
-
-    },
-    "Releasing to %@…" : {
-
-    },
-    "Releasing…" : {
 
     },
     "Remove" : {
@@ -745,6 +747,9 @@
     "Saving…" : {
 
     },
+    "Send" : {
+
+    },
     "Send a test message over the secure channel — confirms both Macs can reach each other." : {
 
     },
@@ -754,13 +759,28 @@
     "Send peripherals to the other Mac" : {
 
     },
+    "Send this peripheral to the other Mac, which takes it over automatically." : {
+
+    },
     "Send your peripheral list to this Mac so it knows about them." : {
+
+    },
+    "Sending %@ to the other Mac…" : {
 
     },
     "Sending peripherals to the other Mac" : {
 
     },
     "Sending peripherals to the other Mac…" : {
+
+    },
+    "Sending this peripheral to the other Mac…" : {
+
+    },
+    "Sending to %@…" : {
+
+    },
+    "Sending…" : {
 
     },
     "Sent via Magic Switch." : {
@@ -793,7 +813,7 @@
     "Support Magic Switch's development. Opens GitHub Sponsors in your browser." : {
 
     },
-    "Switch Cancelled" : {
+    "Switch Canceled" : {
 
     },
     "Switch Failed" : {
@@ -849,10 +869,16 @@
         }
       }
     },
+    "Take" : {
+
+    },
     "Take peripherals to this Mac" : {
 
     },
     "Take peripherals when a display connects" : {
+
+    },
+    "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
 
     },
     "That address is this Mac." : {
@@ -868,6 +894,9 @@
 
     },
     "The other Mac didn't respond to the secure handshake." : {
+
+    },
+    "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs." : {
 
     },
     "The other Mac isn't reachable — keeping peripherals on this Mac." : {
@@ -927,7 +956,7 @@
     "Unpair" : {
 
     },
-    "Unpair this device?" : {
+    "Unpair this Mac?" : {
 
     },
     "Unrecognized command URL '%@'. The only command is magicswitch://switch." : {
@@ -948,20 +977,17 @@
     "Version" : {
 
     },
-    "When %@ connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: %@." : {
+    "When %@ connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "When %1$@ connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: %2$@."
+            "value" : "When %1$@ connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: %2$@."
           }
         }
       }
     },
-    "When this Mac sleeps, hand its Magic peripherals back so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps." : {
-
-    },
-    "XXXX-XXXX-XXXX" : {
+    "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps." : {
 
     },
     "Your Other Mac" : {
@@ -975,6 +1001,17 @@
     },
     "another Mac" : {
 
+    },
+    "peripheral.type.other" : {
+      "comment" : "Peripheral type: any other kind of peripheral (singular)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Other"
+          }
+        }
+      }
     }
   },
   "version" : "1.3"
