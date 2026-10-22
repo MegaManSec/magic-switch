@@ -25,6 +25,7 @@ struct BluetoothPeripheralSettingsView: View {
 
       AvailablePeripheralsSectionView(
         peripherals: bluetoothStore.availablePeripherals,
+        hasPairedPeripherals: !bluetoothStore.discoveredPeripherals.isEmpty,
         onPeripheralAdd: handlePeripheralAdd
       )
     }
@@ -34,7 +35,7 @@ struct BluetoothPeripheralSettingsView: View {
       Alert(
         title: Text("Remove \(peripheral.name)?"),
         message: Text(
-          "It will be removed from Magic Switch's list. Bluetooth pairing with this Mac is not affected; you can add it again from Available Peripherals."
+          "It will be removed from Magic Switch's list. Its Bluetooth pairing is not affected. You can add it again from Available Peripherals while it's paired with this Mac."
         ),
         primaryButton: .destructive(Text("Remove")) {
           bluetoothStore.removeFromList(peripheral)
@@ -130,13 +131,19 @@ private struct RegisteredPeripheralsSectionView: View {
 /// Section for displaying available Bluetooth peripherals
 private struct AvailablePeripheralsSectionView: View {
   let peripherals: [BluetoothPeripheral]
+  let hasPairedPeripherals: Bool
   let onPeripheralAdd: (BluetoothPeripheral) -> Void
 
   var body: some View {
     Section(header: Text("Available Peripherals")) {
       if peripherals.isEmpty {
         Text(
-          "No Bluetooth peripherals to add. Pair a keyboard, mouse, or trackpad with this Mac in System Settings first."
+          hasPairedPeripherals
+            ? String(localized: "Every Bluetooth peripheral paired with this Mac is already added.")
+            : String(
+              localized:
+                "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first."
+            )
         )
         .font(.callout)
         .foregroundColor(.secondary)

@@ -401,6 +401,9 @@
     "Ethernet" : {
 
     },
+    "Every Bluetooth peripheral paired with this Mac is already added." : {
+
+    },
     "External Display" : {
 
     },
@@ -446,7 +449,7 @@
     "Invalid direction '%@'. Use 'take', 'send', or 'toggle'." : {
       "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values"
     },
-    "It will be removed from Magic Switch's list. Bluetooth pairing with this Mac is not affected; you can add it again from Available Peripherals." : {
+    "It will be removed from Magic Switch's list. Its Bluetooth pairing is not affected. You can add it again from Available Peripherals while it's paired with this Mac." : {
 
     },
     "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
@@ -552,7 +555,7 @@
     "New pairing key advertised." : {
 
     },
-    "No Bluetooth peripherals to add. Pair a keyboard, mouse, or trackpad with this Mac in System Settings first." : {
+    "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first." : {
 
     },
     "No external displays connected." : {
