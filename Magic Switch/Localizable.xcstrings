@@ -246,7 +246,19 @@
     "Checking…" : {
 
     },
+    "Choose which Bluetooth peripherals Magic Switch manages." : {
+
+    },
     "Click to connect %@ to this Mac over Bluetooth." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS moves the peripherals to whichever Mac doesn't have them, like clicking the other Mac in the menu." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS sends every registered peripheral to the other Mac." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS takes every registered peripheral to this Mac, even while the other Mac is asleep." : {
 
     },
     "Click to take %@ to this Mac." : {
@@ -365,9 +377,6 @@
     "Create a new pairing code to enter on your other Mac." : {
 
     },
-    "Cryptographic shared key with the other Mac. Required by Magic Switch — separate from the System Settings → Bluetooth pairing of your peripherals." : {
-
-    },
     "Didn't disconnect." : {
 
     },
@@ -375,9 +384,6 @@
 
     },
     "Display Connected" : {
-
-    },
-    "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically." : {
 
     },
     "Done" : {
@@ -437,9 +443,6 @@
     "Identity Mismatch Resolved" : {
 
     },
-    "If a peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using." : {
-
-    },
     "Invalid Switch Command" : {
 
     },
@@ -453,6 +456,9 @@
 
     },
     "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
+
+    },
+    "Keep trying for up to 10 minutes to reconnect a peripheral that dropped from this Mac, and take over the ones your other Mac leaves behind when it sleeps. Never takes a peripheral your other Mac is using." : {
 
     },
     "Kept %@ on this Mac. %@" : {
@@ -475,6 +481,9 @@
 
     },
     "License Information" : {
+
+    },
+    "Link this Mac to your other Mac. Separate from Bluetooth pairing in System Settings." : {
 
     },
     "Macs" : {
@@ -541,6 +550,9 @@
 
     },
     "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour." : {
+
+    },
+    "Mark a display and your peripherals switch to this Mac whenever it connects." : {
 
     },
     "Microphone" : {
@@ -685,9 +697,6 @@
     "Peripherals Split Between Macs" : {
 
     },
-    "Pick which paired Bluetooth peripherals Magic Switch should manage. Pair them in System Settings → Bluetooth first; this tab just selects from those." : {
-
-    },
     "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac." : {
 
     },
@@ -704,15 +713,6 @@
 
     },
     "Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut." : {
-
-    },
-    "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back." : {
-
-    },
-    "Press anywhere in macOS to send every registered peripheral to the other Mac. Pressing it again once they're there does nothing." : {
-
-    },
-    "Press anywhere in macOS to take every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing." : {
 
     },
     "Previous fingerprint: %@" : {
@@ -755,6 +755,9 @@
 
     },
     "Release peripherals when this Mac sleeps" : {
+
+    },
+    "Release the peripherals just before this Mac sleeps so your other Mac can take them. Turn off to keep them paired with this Mac while it sleeps." : {
 
     },
     "Remove" : {
@@ -858,6 +861,16 @@
     },
     "Switch peripherals between this Mac and %@." : {
 
+    },
+    "Switch your peripherals to this Mac whenever %@ connects. Display ID: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch your peripherals to this Mac whenever %1$@ connects. Display ID: %2$@."
+          }
+        }
+      }
     },
     "Sync peripheral list to %@" : {
 
@@ -1015,19 +1028,6 @@
 
     },
     "Wait for the peripheral that's switching to finish, then try again." : {
-
-    },
-    "When %@ connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "When %1$@ connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: %2$@."
-          }
-        }
-      }
-    },
-    "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps." : {
 
     },
     "Wi-Fi" : {

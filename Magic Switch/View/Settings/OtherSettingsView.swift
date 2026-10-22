@@ -44,11 +44,11 @@ struct OtherSettingsView: View {
       Section(header: Text("Peripheral Handling")) {
         Toggle("Release peripherals when this Mac sleeps", isOn: $releaseOnSleep)
           .help(
-            "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
+            "Release the peripherals just before this Mac sleeps so your other Mac can take them. Turn off to keep them paired with this Mac while it sleeps."
           )
         Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
           .help(
-            "If a peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
+            "Keep trying for up to 10 minutes to reconnect a peripheral that dropped from this Mac, and take over the ones your other Mac leaves behind when it sleeps. Never takes a peripheral your other Mac is using."
           )
       }
       Section(header: Text("Keyboard Shortcuts")) {
@@ -58,7 +58,7 @@ struct OtherSettingsView: View {
           help:
             String(
               localized:
-                "Press anywhere in macOS to send every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
+                "Click to record a shortcut. Pressing it anywhere in macOS sends every registered peripheral to the other Mac."
             )
         )
         ShortcutRecorderRow(
@@ -67,7 +67,7 @@ struct OtherSettingsView: View {
           help:
             String(
               localized:
-                "Press anywhere in macOS to take every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
+                "Click to record a shortcut. Pressing it anywhere in macOS takes every registered peripheral to this Mac, even while the other Mac is asleep."
             )
         )
         ShortcutRecorderRow(
@@ -76,7 +76,7 @@ struct OtherSettingsView: View {
           help:
             String(
               localized:
-                "Press anywhere in macOS to move the peripherals to whichever Mac doesn't have them — exactly like clicking the other Mac in the menu. Note that pressing it twice moves them there and back."
+                "Click to record a shortcut. Pressing it anywhere in macOS moves the peripherals to whichever Mac doesn't have them, like clicking the other Mac in the menu."
             )
         )
       }
@@ -94,7 +94,7 @@ struct OtherSettingsView: View {
         HStack {
           Text("Take Peripherals When a Display Connects")
             .help(
-              "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
+              "Mark a display and your peripherals switch to this Mac whenever it connects."
             )
           Spacer()
           Button(action: { displayMonitor.refreshNow() }) {
@@ -210,7 +210,7 @@ struct OtherSettingsView: View {
     if row.isConnected {
       Toggle(row.name, isOn: triggerBinding(for: row))
         .help(
-          "When \(row.name) connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
+          "Switch your peripherals to this Mac whenever \(row.name) connects. Display ID: \(row.id)."
         )
     } else {
       HStack {

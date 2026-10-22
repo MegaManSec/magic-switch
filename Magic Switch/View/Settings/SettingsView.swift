@@ -32,9 +32,7 @@ struct SettingsView: View {
       BluetoothPeripheralSettingsView()
         .tabItem {
           Label(TabItem.devices.text, systemImage: TabItem.devices.image)
-            .help(
-              "Pick which paired Bluetooth peripherals Magic Switch should manage. Pair them in System Settings → Bluetooth first; this tab just selects from those."
-            )
+            .help("Choose which Bluetooth peripherals Magic Switch manages.")
         }
         .tag(0)
 
@@ -49,7 +47,7 @@ struct SettingsView: View {
         .tabItem {
           Label(TabItem.pairing.text, systemImage: TabItem.pairing.image)
             .help(
-              "Cryptographic shared key with the other Mac. Required by Magic Switch — separate from the System Settings → Bluetooth pairing of your peripherals."
+              "Link this Mac to your other Mac. Separate from Bluetooth pairing in System Settings."
             )
         }
         .tag(2)
