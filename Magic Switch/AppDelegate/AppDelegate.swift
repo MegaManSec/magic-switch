@@ -691,14 +691,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           }
         case .failure(let error):
           NotificationManager.showNotification(
-            title: String(localized: "Couldn't Reach Your Other Mac"),
-            body: error
+            title: String(localized: "Couldn't Switch"),
+            body: error,
+            identifier: "switch-preflight-failed"
           )
         case .timeout:
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Reach Your Other Mac"),
             body: String(
-              localized: "Your other Mac didn't respond. Make sure Magic Switch is running on it.")
+              localized: "Your other Mac didn't respond. Make sure Magic Switch is running on it."),
+            identifier: "switch-preflight-failed"
           )
         }
       }
