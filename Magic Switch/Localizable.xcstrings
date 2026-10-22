@@ -123,12 +123,12 @@
     "%@, on this Mac" : {
 
     },
-    "%@, on this Mac, battery %lld%%" : {
+    "%@, on this Mac, battery %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@, on this Mac, battery %2$lld%%"
+            "value" : "%1$@, on this Mac, battery %2$@"
           }
         }
       }
@@ -137,9 +137,6 @@
 
     },
     "%@, sending" : {
-
-    },
-    "%lld%%" : {
 
     },
     "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address." : {

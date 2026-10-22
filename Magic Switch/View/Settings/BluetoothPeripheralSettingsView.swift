@@ -221,7 +221,7 @@ private struct PeripheralRowView: View {
         if showConnectionStatus, connectionState == .connected,
           let battery = store.batteryLevels[peripheral.id]
         {
-          Text("\(battery)%")
+          Text(battery.formatted(.percent))
             .font(.caption)
             .foregroundColor(.secondary)
             .help("Battery level of \(peripheral.name).")
