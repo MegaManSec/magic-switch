@@ -925,7 +925,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             self.endTransfer()
             NotificationManager.showNotification(
               title: String(localized: "Couldn't Switch"),
-              body: String(localized: "\(err.userMessage) Peripherals reconnected to this Mac."),
+              body: String(
+                localized: "\(err.userMessage) Reconnecting your peripherals to this Mac.",
+                comment: "%@ is a whole sentence saying why the switch failed"),
               identifier: "switch-connect-failed"
             )
           } else {

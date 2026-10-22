@@ -1070,7 +1070,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             title: String(localized: "Couldn't Switch"),
             body: String(
               localized:
-                "Couldn't send \(peripheral.name) to \(device.name); keeping it on this Mac."),
+                "Couldn't send \(peripheral.name) to \(device.name). Reconnecting it to this Mac."),
             identifier: "send-connect-failed-\(peripheral.id)"
           )
         case .failure(let err):

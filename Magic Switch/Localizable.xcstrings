@@ -33,8 +33,8 @@
         }
       }
     },
-    "%@ Peripherals reconnected to this Mac." : {
-
+    "%@ Reconnecting your peripherals to this Mac." : {
+      "comment" : "%@ is a whole sentence saying why the switch failed"
     },
     "%@ connected — switching your peripherals to this Mac." : {
 
@@ -352,22 +352,22 @@
     "Couldn't save the pairing key on this Mac." : {
 
     },
+    "Couldn't send %@ to %@. Reconnecting it to this Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@. Reconnecting it to this Mac."
+          }
+        }
+      }
+    },
     "Couldn't send %@ to %@: %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "Couldn't send %1$@ to %2$@: %3$@"
-          }
-        }
-      }
-    },
-    "Couldn't send %@ to %@; keeping it on this Mac." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't send %1$@ to %2$@; keeping it on this Mac."
           }
         }
       }
