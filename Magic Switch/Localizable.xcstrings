@@ -22,6 +22,17 @@
         }
       }
     },
+    "%@ (%@)" : {
+      "comment" : "An IP address followed by the name of its network, e.g. 192.168.1.5 (Wi-Fi)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "%@ Peripherals reconnected to this Mac." : {
 
     },

@@ -105,7 +105,11 @@ final class DialbackAddresses: ObservableObject {
   }
 
   private static func entry(_ host: String, _ label: String?) -> String {
-    label.map { "\(host) (\($0))" } ?? host
+    label.map {
+      String(
+        localized: "\(host) (\($0))",
+        comment: "An IP address followed by the name of its network, e.g. 192.168.1.5 (Wi-Fi)")
+    } ?? host
   }
 
   private static func label(for type: NWInterface.InterfaceType) -> String? {
