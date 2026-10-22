@@ -253,7 +253,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
           body:
             String(
               localized:
-                "\(device.name) is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself."
+                "\(device.name) has a new pairing key. If you re-paired the other Mac yourself, open Settings → Macs and choose Trust."
             ),
           identifier: "identity-mismatch-\(device.id)"
         )
@@ -402,7 +402,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       body:
         String(
           localized:
-            "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed."
+            "\(old.name) is now called \(discovered.name), so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there."
         ),
       identifier: "peer-renamed-\(discovered.id)"
     )
@@ -516,7 +516,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         body:
           String(
             localized:
-              "\(networkDevices[index].name) proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code."
+              "\(networkDevices[index].name) proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code."
           ),
         identifier: "identity-mismatch-\(networkDevices[index].id)"
       )

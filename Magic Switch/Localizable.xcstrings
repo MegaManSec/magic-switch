@@ -1,16 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "\"%@\" now answers as \"%@\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "\"%1$@\" now answers as \"%2$@\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed."
-          }
-        }
-      }
-    },
     "%@ %@" : {
       "comment" : "Two sentences: the Bonjour advisory, then the add-by-address instruction",
       "localizations" : {
@@ -52,29 +42,23 @@
         }
       }
     },
+    "%@ has a new pairing key. If you re-paired the other Mac yourself, open Settings → Macs and choose Trust." : {
+
+    },
     "%@ has a new pairing key. Switching is paused until you choose Trust in Settings → Macs." : {
 
     },
-    "%@ has stopped advertising on the network." : {
-
-    },
-    "%@ is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself." : {
-
-    },
-    "%@ is advertising a new pairing key. Switching from this Mac is paused until you choose Trust, or until %@ proves over the secure channel that it holds this Mac's current key." : {
+    "%@ has a new pairing key. Switching is paused until you choose Trust, or until %@ proves it has this Mac's current key." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@ is advertising a new pairing key. Switching from this Mac is paused until you choose Trust, or until %2$@ proves over the secure channel that it holds this Mac's current key."
+            "value" : "%1$@ has a new pairing key. Switching is paused until you choose Trust, or until %2$@ proves it has this Mac's current key."
           }
         }
       }
     },
-    "%@ is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan." : {
-
-    },
-    "%@ is advertising itself on the network." : {
+    "%@ has a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan." : {
 
     },
     "%@ is answering at %@." : {
@@ -86,6 +70,22 @@
           }
         }
       }
+    },
+    "%@ is no longer visible on the network." : {
+
+    },
+    "%@ is now called %@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is now called %2$@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there."
+          }
+        }
+      }
+    },
+    "%@ is visible on the network." : {
+
     },
     "%@ isn't connected right now. It still triggers the switch when it next connects. Display ID: %@." : {
       "localizations" : {
@@ -114,7 +114,7 @@
         }
       }
     },
-    "%@ proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code." : {
+    "%@ proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code." : {
 
     },
     "%@ responded." : {
@@ -156,6 +156,9 @@
 
     },
     "About" : {
+
+    },
+    "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac." : {
 
     },
     "Add" : {
@@ -564,7 +567,7 @@
     "New fingerprint: %@" : {
 
     },
-    "New pairing key advertised." : {
+    "New pairing key detected." : {
 
     },
     "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first." : {
@@ -695,9 +698,6 @@
 
     },
     "Peripherals Split Between Macs" : {
-
-    },
-    "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac." : {
 
     },
     "Ping" : {

@@ -234,7 +234,7 @@ struct NetworkDeviceManagementView: View {
     static let trust =
       String(
         localized:
-          "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac.")
+          "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac.")
     static let needsPairing = String(localized: "Pair this Mac in the Pairing tab first.")
   }
 
@@ -553,17 +553,17 @@ private struct NetworkDeviceListView: View {
       return canTrust
         ? String(
           localized:
-            "\(device.name) is advertising a new pairing key. Switching from this Mac is paused until you choose Trust, or until \(device.name) proves over the secure channel that it holds this Mac's current key."
+            "\(device.name) has a new pairing key. Switching is paused until you choose Trust, or until \(device.name) proves it has this Mac's current key."
         )
         : String(
           localized:
-            "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan."
+            "\(device.name) has a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan."
         )
     }
     guard canTrust else {
       return device.isActive
-        ? String(localized: "\(device.name) is advertising itself on the network.")
-        : String(localized: "\(device.name) has stopped advertising on the network.")
+        ? String(localized: "\(device.name) is visible on the network.")
+        : String(localized: "\(device.name) is no longer visible on the network.")
     }
     // Mirror the menu's verdict rather than `isActive`: a fresh-looking
     // Bonjour record only says the peer advertised, while the ping poll is
@@ -644,7 +644,7 @@ private struct NetworkDeviceListView: View {
             Image(systemName: "exclamationmark.triangle.fill")
               .foregroundColor(.yellow)
               .accessibilityHidden(true)
-            Text("New pairing key advertised.")
+            Text("New pairing key detected.")
               .font(.caption)
               .foregroundColor(.secondary)
             Spacer()
