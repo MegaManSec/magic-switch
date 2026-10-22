@@ -315,6 +315,7 @@ private struct PeripheralRowView: View {
         .accessibilityHidden(true)
     }
     .accessibilityLabel("Set the icon for \(peripheral.name)")
+    .accessibilityValue(resolvedType.label)
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
@@ -338,6 +339,7 @@ private struct PeripheralRowView: View {
           String(localized: "Send", comment: "Button: send this peripheral to the other Mac"))
       }
       .disabled(sendBlocker != nil)
+      .accessibilityLabel(String(localized: "Send \(peripheral.name) to the other Mac"))
       .help(
         sendBlocker?.userMessage
           ?? String(
@@ -348,6 +350,7 @@ private struct PeripheralRowView: View {
         actionLabel(String(localized: "Cancel"))
       }
       .disabled(!store.canCancelConnect(peripheral.id))
+      .accessibilityLabel(String(localized: "Cancel pairing \(peripheral.name)"))
       .help(
         store.canCancelConnect(peripheral.id)
           ? "Pairing in progress. Click to cancel."
@@ -356,11 +359,13 @@ private struct PeripheralRowView: View {
     case .releasing:
       Button(action: {}) { actionLabel(String(localized: "Sending…")) }
         .disabled(true)
+        .accessibilityLabel(String(localized: "Sending \(peripheral.name) to the other Mac…"))
         .help("Sending this peripheral to the other Mac…")
     case .disconnected:
       Button(action: primaryAction) {
         actionLabel(String(localized: "Take", comment: "Button: take this peripheral to this Mac"))
       }
+      .accessibilityLabel(String(localized: "Take \(peripheral.name) to this Mac"))
       .help(
         "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
       )

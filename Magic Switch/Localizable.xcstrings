@@ -236,6 +236,9 @@
     "Cancel" : {
 
     },
+    "Cancel pairing %@" : {
+
+    },
     "Change shortcut for %@, currently %@" : {
       "localizations" : {
         "en" : {
@@ -682,6 +685,9 @@
     "Pairing Was Reset" : {
 
     },
+    "Pairing code" : {
+
+    },
     "Pairing code: %@" : {
 
     },
@@ -814,6 +820,9 @@
     "Send" : {
       "comment" : "Button: send this peripheral to the other Mac"
     },
+    "Send %@ to the other Mac" : {
+
+    },
     "Send a test message over the secure channel — confirms both Macs can reach each other." : {
 
     },
@@ -939,6 +948,9 @@
     },
     "Take" : {
       "comment" : "Button: take this peripheral to this Mac"
+    },
+    "Take %@ to this Mac" : {
+
     },
     "Take Peripherals When a Display Connects" : {
 

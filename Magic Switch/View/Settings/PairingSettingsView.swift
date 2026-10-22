@@ -92,6 +92,7 @@ struct PairingSettingsView: View {
             .foregroundColor(.secondary)
           Text(fingerprint)
             .font(.system(.title3, design: .monospaced))
+            .speechSpellsOutCharacters()
         }
       }
       Text(
@@ -152,6 +153,7 @@ private struct GenerateCodeSheet: View {
         .font(.system(size: 32, weight: .bold, design: .monospaced))
         .textSelection(.enabled)
         .accessibilityLabel("Pairing code: \(formattedCode)")
+        .speechSpellsOutCharacters()
       HStack {
         Button {
           copyToPasteboard(formattedCode)
@@ -291,6 +293,7 @@ private struct EnterCodeSheet: View {
       Text("Enter Pairing Code")
         .font(.headline)
       TextField(Self.codePlaceholder, text: $input)
+        .accessibilityLabel("Pairing code")
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .font(Self.codeFont)
         .disabled(isPairing)
@@ -324,6 +327,7 @@ private struct EnterCodeSheet: View {
         Button("Cancel") {
           isPresented = false
         }
+        .keyboardShortcut(.cancelAction)
         .disabled(isPairing)
         .help("Close without pairing.")
         Button("Pair") {
