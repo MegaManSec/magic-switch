@@ -951,7 +951,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             body:
               String(
                 localized:
-                  "Couldn't ask \(device.name) to release \(peripheral.name): \(err.userMessage)"),
+                  "\(device.name) didn't release \(peripheral.name). \(err.userMessage)"),
             identifier: "take-failed-\(peripheral.id)"
           )
         }
@@ -998,14 +998,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         case .failure(let err):
           // Peer unreachable — nothing released, peripheral stays on this Mac.
           self.setConnectionState(.connected, for: peripheral.id)
-          self.setPeripheralError(String(localized: "Other Mac unreachable."), for: peripheral.id)
+          self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
-            title: String(localized: "Switch Canceled"),
-            body:
-              String(
-                localized:
-                  "Couldn't reach \(device.name) — keeping \(peripheral.name) on this Mac. \(err.userMessage)"
-              ),
+            title: String(localized: "Couldn't Switch"),
+            body: String(localized: "Kept \(peripheral.name) on this Mac. \(err.userMessage)"),
             identifier: "send-preflight-failed-\(peripheral.id)"
           )
         case .success:
@@ -1088,7 +1084,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             title: String(localized: "Couldn't Switch"),
             body:
               String(
-                localized: "Couldn't send \(peripheral.name) to \(device.name): \(err.userMessage)"),
+                localized: "Couldn't send \(peripheral.name) to \(device.name). \(err.userMessage)"),
             identifier: "send-connect-failed-\(peripheral.id)"
           )
         }

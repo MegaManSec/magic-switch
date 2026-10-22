@@ -42,6 +42,16 @@
     "%@ didn't disconnect from this Mac." : {
 
     },
+    "%@ didn't release %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ didn't release %2$@. %3$@"
+          }
+        }
+      }
+    },
     "%@ has a new pairing key. Switching is paused until you choose Trust in Settings → Macs." : {
 
     },
@@ -290,16 +300,6 @@
     "Couldn't Switch" : {
 
     },
-    "Couldn't ask %@ to release %@: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't ask %1$@ to release %2$@: %3$@"
-          }
-        }
-      }
-    },
     "Couldn't check" : {
 
     },
@@ -327,16 +327,6 @@
     "Couldn't pair %@. Turn it off and on, then try switching again." : {
 
     },
-    "Couldn't reach %@ — keeping %@ on this Mac. %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't reach %1$@ — keeping %2$@ on this Mac. %3$@"
-          }
-        }
-      }
-    },
     "Couldn't reach the other Mac on the network." : {
 
     },
@@ -352,22 +342,22 @@
     "Couldn't save the pairing key on this Mac." : {
 
     },
+    "Couldn't send %@ to %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@. %3$@"
+          }
+        }
+      }
+    },
     "Couldn't send %@ to %@. Reconnecting it to this Mac." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "Couldn't send %1$@ to %2$@. Reconnecting it to this Mac."
-          }
-        }
-      }
-    },
-    "Couldn't send %@ to %@: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Couldn't send %1$@ to %2$@: %3$@"
           }
         }
       }
@@ -461,6 +451,16 @@
     },
     "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
 
+    },
+    "Kept %@ on this Mac. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Kept %1$@ on this Mac. %2$@"
+          }
+        }
+      }
     },
     "Key %lld" : {
       "comment" : "Shown in a keyboard shortcut for a key with no character; %lld is its key code"
@@ -614,9 +614,6 @@
       "comment" : "Settings tab title: other settings (plural noun phrase)"
     },
     "Other Mac Renamed" : {
-
-    },
-    "Other Mac unreachable." : {
 
     },
     "Pair" : {
@@ -854,9 +851,6 @@
 
     },
     "Support Magic Switch's development. Opens GitHub Sponsors in your browser." : {
-
-    },
-    "Switch Canceled" : {
 
     },
     "Switch failed." : {
