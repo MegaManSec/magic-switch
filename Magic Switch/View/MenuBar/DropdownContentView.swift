@@ -466,7 +466,8 @@ final class DropdownContentView: NSView {
       textLabel(String(localized: "Update Available — v\(latest)"), color: .labelColor))
     content.addArrangedSubview(spacer())
     row.toolTip = String(
-      localized: "A newer version of Magic Switch is available. Opens the release page.")
+      localized:
+        "A newer version of Magic Switch is available. Opens the release page in your browser.")
     row.setAccessibilityLabel(String(localized: "Update available: version \(latest)"))
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
