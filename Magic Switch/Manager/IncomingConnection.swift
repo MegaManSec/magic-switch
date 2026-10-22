@@ -338,8 +338,9 @@ final class IncomingConnection {
       }
       do {
         let peripherals = try JSONDecoder().decode([BluetoothPeripheral].self, from: data)
-        bluetoothStore.updatePeripherals(peripherals)
-        sendString(DeviceCommand.operationSuccess.rawValue)
+        let accepted = bluetoothStore.updatePeripherals(peripherals)
+        sendString(
+          (accepted ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
       } catch {
         Log.network.error("syncPeripherals decode failed: \(error)")
         sendString(DeviceCommand.operationFailed.rawValue)

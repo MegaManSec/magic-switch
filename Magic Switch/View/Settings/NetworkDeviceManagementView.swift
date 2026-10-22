@@ -514,6 +514,7 @@ private struct NetworkDeviceListView: View {
 
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  @ObservedObject private var bluetoothStore = BluetoothPeripheralStore.shared
 
   init(
     devices: [NetworkDevice],
@@ -630,7 +631,9 @@ private struct NetworkDeviceListView: View {
             // dimming, so pick the colour from the same condition that
             // disables the button — otherwise an unreachable Mac's sync
             // icon stays bright blue while silently ignoring clicks.
-            let syncEnabled = online && !blockedByPairing && inFlight == nil
+            // An empty list would wipe the other Mac's list rather than sync it.
+            let nothingToSync = bluetoothStore.peripherals.isEmpty
+            let syncEnabled = online && !blockedByPairing && !nothingToSync && inFlight == nil
             // Not `square.and.arrow.up` — that's the system Share glyph, which
             // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
@@ -641,8 +644,10 @@ private struct NetworkDeviceListView: View {
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
-                : online
-                  ? NetworkDeviceManagementView.Help.sync(device.name) : offlineHelp(for: device)
+                : nothingToSync
+                  ? String(localized: "Add a peripheral to Magic Switch first.")
+                  : online
+                    ? NetworkDeviceManagementView.Help.sync(device.name) : offlineHelp(for: device)
             )
             .accessibilityLabel("Sync peripheral list to \(device.name)")
           }

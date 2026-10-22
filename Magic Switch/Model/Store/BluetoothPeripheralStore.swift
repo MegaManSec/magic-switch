@@ -1643,21 +1643,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Updates the peripheral list with new data from sync
   /// - Parameter newPeripherals: Array of peripherals to update with
-  func updatePeripherals(_ newPeripherals: [BluetoothPeripheral]) {
+  /// Returns `false` when the list was rejected, so the sender can be told.
+  @discardableResult
+  func updatePeripherals(_ newPeripherals: [BluetoothPeripheral]) -> Bool {
     // Cap inbound list size; reject larger payloads outright.
     guard newPeripherals.count <= 64 else {
       Log.bluetooth.error("Rejecting peripheral sync: list exceeds cap of 64")
-      return
+      return false
     }
 
     if !Thread.isMainThread {
       DispatchQueue.main.async { [weak self] in
         self?.updatePeripherals(newPeripherals)
       }
-      return
+      return true
     }
 
     peripherals = newPeripherals
+    return true
   }
 
   // MARK: - Pair Delegate & Connection Tracking
