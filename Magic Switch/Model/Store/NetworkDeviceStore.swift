@@ -244,9 +244,13 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // indication the peer is up; a mismatch (isActive == false) keeps it
       // greyed. The `.ping` poll refines this between Bonjour events.
       deviceReachability[device.id] = networkDevices[index].isActive
+      // A proven update carrying this Mac's own current key is the far side
+      // of a mutual re-pair: the resolve that follows clears the park in the
+      // same tick, so there is no warning for the user to see.
       if let prior = priorFingerprint,
         let incoming = device.fingerprint,
-        prior != incoming
+        prior != incoming,
+        !(proven && incoming == PairingStore.shared.fingerprint)
       {
         NotificationManager.showNotification(
           title: String(localized: "Identity Mismatch"),
@@ -281,12 +285,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       isActive: true,
       fingerprint: provedFingerprint
     )
+    let wasPending = networkDevices.first { $0.id == name }?.pendingFingerprint != nil
     addDiscoveredNetworkDevice(device)
     updateNetworkDevice(device, proven: true)
     // After the update: if it just parked this record pending exactly the
     // proved key, the proof supersedes the warning in the same tick (the
-    // handshake-time resolve hooks fired before these frames existed).
-    resolvePendingFingerprint(provedByHandshake: provedFingerprint)
+    // handshake-time resolve hooks fired before these frames existed). Only
+    // a park the user could already have seen is worth announcing.
+    resolvePendingFingerprint(provedByHandshake: provedFingerprint, announce: wasPending)
   }
 
   /// A Mac's Bonjour service name follows its computer name, and `id` *is*
@@ -490,7 +496,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// handshake is mutual, each side verifies the other's transcript MAC
   /// before reporting success) — so whichever Mac's reachability poll fires
   /// first heals both ends of a symmetric mutual-re-pair park.
-  func resolvePendingFingerprint(provedByHandshake provedFingerprint: String) {
+  func resolvePendingFingerprint(provedByHandshake provedFingerprint: String, announce: Bool = true)
+  {
     guard let currentFingerprint = PairingStore.shared.fingerprint,
       provedFingerprint == currentFingerprint
     else { return }
@@ -512,6 +519,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       Log.network.notice(
         "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
       )
+      guard announce else { continue }
       NotificationManager.showNotification(
         title: String(localized: "Identity Mismatch Resolved"),
         body:
