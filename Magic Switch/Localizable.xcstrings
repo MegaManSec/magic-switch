@@ -11,12 +11,13 @@
         }
       }
     },
-    "%@ Enter %@, port %@ there." : {
+    "%@ %@" : {
+      "comment" : "Two sentences: the Bonjour advisory, then the add-by-address instruction",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@ Enter %2$@, port %3$@ there."
+            "value" : "%1$@ %2$@"
           }
         }
       }

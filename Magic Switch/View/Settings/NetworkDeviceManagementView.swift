@@ -99,9 +99,13 @@ struct NetworkDeviceManagementView: View {
           // unknowable here.
           if let warning = diagnostics.publishWarning {
             if let display = dialback.display(), let port = networkStore.localListeningPort {
+              let instruction = String(
+                localized:
+                  "On your other Mac, add this Mac as \(display.addresses), port \(String(port)).")
               advisory(
                 String(
-                  localized: "\(warning) Enter \(display.addresses), port \(String(port)) there.")
+                  localized: "\(warning) \(instruction)",
+                  comment: "Two sentences: the Bonjour advisory, then the add-by-address instruction")
               )
               .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
             } else {
