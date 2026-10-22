@@ -491,7 +491,7 @@
     "Identity Mismatch Resolved" : {
 
     },
-    "If your network won't let the Macs reach each other at all, turn on Bluetooth below." : {
+    "If your network won't let the Macs reach each other at all, turn on the Bluetooth option below." : {
 
     },
     "Invalid Switch Command" : {
@@ -782,6 +782,9 @@
 
     },
     "Re-scan the displays connected to this Mac." : {
+
+    },
+    "Re-scan the network and Bluetooth for other Macs running Magic Switch." : {
 
     },
     "Re-scan the network for other Macs running Magic Switch." : {

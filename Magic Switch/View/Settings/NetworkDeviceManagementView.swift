@@ -25,7 +25,8 @@ private enum Constants {
       )
     static let bluetoothHint = String(
       localized:
-        "If your network won't let the Macs reach each other at all, turn on Bluetooth below.")
+        "If your network won't let the Macs reach each other at all, turn on the Bluetooth option below."
+    )
     static let bluetooth = String(localized: "Bluetooth")
     static let bluetoothToggle = String(localized: "Connect over Bluetooth when the network can't")
     static let connectionLimitMessage =
@@ -224,8 +225,12 @@ struct NetworkDeviceManagementView: View {
     static func remove(_ name: String) -> String {
       String(localized: "Remove \(name) from Magic Switch.")
     }
-    static let refresh = String(
-      localized: "Re-scan the network for other Macs running Magic Switch.")
+    static var refresh: String {
+      BLETransport.shared.isEnabled
+        ? String(
+          localized: "Re-scan the network and Bluetooth for other Macs running Magic Switch.")
+        : String(localized: "Re-scan the network for other Macs running Magic Switch.")
+    }
     static let addByAddress =
       String(
         localized: "Add your other Mac by IP address — for networks that block Bonjour discovery.")
