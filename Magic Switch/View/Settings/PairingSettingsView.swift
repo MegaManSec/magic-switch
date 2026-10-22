@@ -92,7 +92,7 @@ struct PairingSettingsView: View {
       }
       if let fingerprint = pairing.fingerprint {
         VStack(alignment: .leading, spacing: 4) {
-          Text("Your fingerprint")
+          Text("Pairing key fingerprint")
             .font(.caption)
             .foregroundColor(.secondary)
           Text(fingerprint)

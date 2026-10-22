@@ -34,7 +34,7 @@ struct BluetoothPeripheralSettingsView: View {
       Alert(
         title: Text("Remove \(peripheral.name)?"),
         message: Text(
-          "It will be removed from Magic Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals."
+          "It will be removed from Magic Switch's list. Bluetooth pairing with this Mac is not affected; you can add it again from Available Peripherals."
         ),
         primaryButton: .destructive(Text("Remove")) {
           bluetoothStore.removeFromList(peripheral)

@@ -448,7 +448,7 @@
     "Invalid direction '%@'. Use 'take', 'send', or 'toggle'." : {
       "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values"
     },
-    "It will be removed from Magic Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals." : {
+    "It will be removed from Magic Switch's list. Bluetooth pairing with this Mac is not affected; you can add it again from Available Peripherals." : {
 
     },
     "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
@@ -657,6 +657,9 @@
 
     },
     "Pairing in progress. Click to cancel." : {
+
+    },
+    "Pairing key fingerprint" : {
 
     },
     "Pairing reset." : {
@@ -1035,9 +1038,6 @@
 
     },
     "Your Other Mac" : {
-
-    },
-    "Your fingerprint" : {
 
     },
     "Your other Mac didn't respond. Make sure Magic Switch is running on it." : {
