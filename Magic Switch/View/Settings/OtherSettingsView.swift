@@ -92,7 +92,7 @@ struct OtherSettingsView: View {
         }
       } header: {
         HStack {
-          Text("Take peripherals when a display connects")
+          Text("Take Peripherals When a Display Connects")
             .help(
               "Displays connected to this Mac appear here. A display you mark acts as a docking trigger: whenever it connects to this Mac, Magic Switch switches your peripherals to this Mac automatically."
             )
