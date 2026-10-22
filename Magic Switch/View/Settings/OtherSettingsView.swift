@@ -36,12 +36,12 @@ struct OtherSettingsView: View {
       }
       if #available(macOS 13.0, *) {
         Section(header: Text("General")) {
-          Toggle("Launch at Login", isOn: $launchAtLogin)
+          Toggle("Open at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin, perform: setLaunchAtLogin)
             .help("Start Magic Switch automatically when you log in to this Mac.")
         }
       }
-      Section(header: Text("Peripheral handling")) {
+      Section(header: Text("Peripheral Handling")) {
         Toggle("Release peripherals when this Mac sleeps", isOn: $releaseOnSleep)
           .help(
             "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
@@ -51,7 +51,7 @@ struct OtherSettingsView: View {
             "If a peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
-      Section(header: Text("Keyboard shortcuts")) {
+      Section(header: Text("Keyboard Shortcuts")) {
         ShortcutRecorderRow(
           direction: .send,
           title: String(localized: "Send peripherals to the other Mac"),
@@ -82,7 +82,7 @@ struct OtherSettingsView: View {
       }
       Section {
         if displayRows.isEmpty {
-          Text("No external displays connected")
+          Text("No external displays connected.")
             .foregroundColor(.secondary)
             .help("Connect a display to this Mac and it will appear here.")
         } else {
