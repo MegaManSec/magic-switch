@@ -281,6 +281,27 @@ private struct PeripheralRowView: View {
     }
   }
 
+  /// The type glyph centered on a fixed canvas. Native menus flatten their
+  /// label to one image and ignore SwiftUI frames inside it, so this is what
+  /// keeps every row's icon center, and the arrow beside it, in one column.
+  private var typeIcon: NSImage {
+    let symbolName = resolvedType.symbolName
+    let image = NSImage(size: NSSize(width: 24, height: 18), flipped: false) { rect in
+      guard
+        let symbol = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+          .withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+      else { return false }
+      let size = symbol.size
+      symbol.draw(
+        in: NSRect(
+          x: (rect.width - size.width) / 2, y: (rect.height - size.height) / 2,
+          width: size.width, height: size.height))
+      return true
+    }
+    image.isTemplate = true
+    return image
+  }
+
   /// Leading icon that doubles as a type picker. Shows the resolved glyph;
   /// tapping it overrides the auto-detected type (or resets to Automatic). The
   /// override is stored per address, so setting it on an Available peripheral
@@ -301,19 +322,11 @@ private struct PeripheralRowView: View {
         }
       }
     } label: {
-      Text(verbatim: "")
+      Image(nsImage: typeIcon)
     }
     .menuStyle(.borderlessButton)
-    // Native menus ignore image-label frames. Keep the native arrow in a
-    // fixed-width menu and draw the icon separately so its center stays fixed.
-    .frame(width: 40)
-    .overlay(alignment: .leading) {
-      Image(systemName: resolvedType.symbolName)
-        .font(.system(size: 15))
-        .frame(width: 22)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
+    .fixedSize()
+    .frame(width: 44, alignment: .leading)
     .accessibilityLabel("Set the icon for \(peripheral.name)")
     .accessibilityValue(resolvedType.label)
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
