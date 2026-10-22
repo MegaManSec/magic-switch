@@ -44,11 +44,11 @@ struct OtherSettingsView: View {
       Section(header: Text("Peripheral handling")) {
         Toggle("Release peripherals when this Mac sleeps", isOn: $releaseOnSleep)
           .help(
-            "When this Mac sleeps, hand its Magic peripherals back so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
+            "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps."
           )
         Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
           .help(
-            "If a Magic peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
+            "If a peripheral that should be on this Mac drops — for example after closing the lid, or when you power-cycle a peripheral that got stuck — keep trying to reconnect it until it's back. When your other Mac goes to sleep or drops off the network, this Mac also adopts the peripherals it left behind. Magic Switch won't take a peripheral your other Mac is actively using."
           )
       }
       Section(header: Text("Keyboard shortcuts")) {
@@ -210,7 +210,7 @@ struct OtherSettingsView: View {
     if row.isConnected {
       Toggle(row.name, isOn: triggerBinding(for: row))
         .help(
-          "When \(row.name) connects to this Mac — for example when you dock — automatically switch your Magic peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
+          "When \(row.name) connects to this Mac — for example when you dock — automatically switch your peripherals to this Mac, taking them from your other Mac if needed. Display ID: \(row.id)."
         )
     } else {
       HStack {

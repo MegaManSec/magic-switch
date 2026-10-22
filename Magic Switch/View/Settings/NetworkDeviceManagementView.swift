@@ -377,7 +377,7 @@ private struct AvailableDevicesSectionView: View {
         }
         .buttonStyle(.borderless)
         .help(NetworkDeviceManagementView.Help.refresh)
-        .accessibilityLabel("Refresh available devices")
+        .accessibilityLabel("Refresh Macs found on the network")
       }
     }
   }

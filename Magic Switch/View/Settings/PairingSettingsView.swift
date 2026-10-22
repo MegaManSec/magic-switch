@@ -32,7 +32,7 @@ struct PairingSettingsView: View {
     }
     .alert(isPresented: $showUnpairAlert) {
       Alert(
-        title: Text("Unpair this device?"),
+        title: Text("Unpair this Mac?"),
         message: Text(
           "Magic Switch will stop accepting commands from your other Mac until you pair again."
         ),
