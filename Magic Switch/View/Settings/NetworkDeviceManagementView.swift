@@ -206,10 +206,17 @@ struct NetworkDeviceManagementView: View {
       String(
         localized:
           "Send a test message over the secure channel — confirms both Macs can reach each other.")
-    static let add = String(localized: "Add this Mac as your other Mac.")
-    static let sync = String(
-      localized: "Sync your peripheral list to this Mac so both Macs manage the same peripherals.")
-    static let remove = String(localized: "Remove this Mac from Magic Switch.")
+    static func add(_ name: String) -> String {
+      String(localized: "Add \(name) as your other Mac.")
+    }
+    static func sync(_ name: String) -> String {
+      String(
+        localized:
+          "Sync this Mac's peripheral list to \(name) so both Macs manage the same peripherals.")
+    }
+    static func remove(_ name: String) -> String {
+      String(localized: "Remove \(name) from Magic Switch.")
+    }
     static let refresh = String(
       localized: "Re-scan the network for other Macs running Magic Switch.")
     static let addByAddress =
@@ -314,7 +321,7 @@ private struct RegisteredDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.notify,
-          actionHelp: NetworkDeviceManagementView.Help.notify,
+          actionHelp: { _ in NetworkDeviceManagementView.Help.notify },
           requiresPairing: true,
           operationResults: operationResults,
           action: onDeviceNotify,
@@ -356,7 +363,7 @@ private struct AvailableDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.add,
-          actionHelp: NetworkDeviceManagementView.Help.add,
+          actionHelp: { NetworkDeviceManagementView.Help.add($0.name) },
           action: onDeviceRegister
         )
       }
@@ -495,7 +502,7 @@ private struct NetworkDeviceListView: View {
 
   let devices: [NetworkDevice]
   let buttonTitle: String
-  let actionHelp: String
+  let actionHelp: (NetworkDevice) -> String
   let requiresPairing: Bool
   let operationResults: [String: OperationResult]
   let action: (NetworkDevice) -> Void
@@ -509,7 +516,7 @@ private struct NetworkDeviceListView: View {
   init(
     devices: [NetworkDevice],
     buttonTitle: String,
-    actionHelp: String,
+    actionHelp: @escaping (NetworkDevice) -> String,
     requiresPairing: Bool = false,
     operationResults: [String: OperationResult] = [:],
     action: @escaping (NetworkDevice) -> Void,
@@ -598,7 +605,8 @@ private struct NetworkDeviceListView: View {
             Text(buttonTitle)
           }
           .disabled(!device.isActive || blockedByPairing || inFlight != nil)
-          .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
+          .help(
+            blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp(device))
 
           if let onSync = onSyncPeripherals {
             // An explicit foregroundColor overrides the automatic disabled
@@ -616,7 +624,7 @@ private struct NetworkDeviceListView: View {
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
-                : NetworkDeviceManagementView.Help.sync
+                : NetworkDeviceManagementView.Help.sync(device.name)
             )
             .accessibilityLabel("Sync peripheral list to \(device.name)")
           }
@@ -626,7 +634,7 @@ private struct NetworkDeviceListView: View {
               Image(systemName: "trash")
                 .foregroundColor(.red)
             }
-            .help(NetworkDeviceManagementView.Help.remove)
+            .help(NetworkDeviceManagementView.Help.remove(device.name))
             .accessibilityLabel("Remove \(device.name)")
           }
         }

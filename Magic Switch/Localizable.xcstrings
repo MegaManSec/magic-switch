@@ -164,6 +164,9 @@
     "Add" : {
 
     },
+    "Add %@ as your other Mac." : {
+
+    },
     "Add %@ to list" : {
 
     },
@@ -174,9 +177,6 @@
 
     },
     "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar." : {
-
-    },
-    "Add this Mac as your other Mac." : {
 
     },
     "Add this peripheral to Magic Switch's list." : {
@@ -763,6 +763,9 @@
     "Remove %@" : {
 
     },
+    "Remove %@ from Magic Switch." : {
+
+    },
     "Remove %@ from list" : {
 
     },
@@ -776,9 +779,6 @@
 
     },
     "Remove the saved pairing key. Switching with your other Mac stops until you pair again." : {
-
-    },
-    "Remove this Mac from Magic Switch." : {
 
     },
     "Remove this peripheral from Magic Switch's list." : {
@@ -862,7 +862,7 @@
     "Sync peripheral list to %@" : {
 
     },
-    "Sync your peripheral list to this Mac so both Macs manage the same peripherals." : {
+    "Sync this Mac's peripheral list to %@ so both Macs manage the same peripherals." : {
 
     },
     "Synced %lld peripherals to %@." : {
