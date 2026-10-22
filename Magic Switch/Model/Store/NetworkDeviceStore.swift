@@ -114,7 +114,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   private static let maxBluetoothProbes = 2
   private static let bluetoothProbeBackoff: TimeInterval = 2 * 60
   /// How long a reachability probe waits on the network before also trying
-  /// Bluetooth.
+  /// Bluetooth, unless the network answered the last probe.
   private static let bluetoothProbeHeadStart: TimeInterval = 1
   /// Registered devices whose latest reachability probe only got through over
   /// Bluetooth. Orders their routes (see `routes(for:)`) and badges their rows.
@@ -857,9 +857,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// tripping our own outbound limiter. Factored out of `pollReachability` so a
   /// single device can be re-probed off-cycle — by the fast confirming recheck
   /// below, and by a Bonjour withdraw — without waiting out the 30s interval.
-  /// Bluetooth is tried too once the network fails or has had
-  /// `bluetoothProbeHeadStart`, and counts only if the network fails. A peer
-  /// known only over Bluetooth isn't probed until a scan identifies it.
+  /// Bluetooth is tried too once the network fails, or once it has had
+  /// `bluetoothProbeHeadStart` if the last probe didn't get through on it, and
+  /// counts only if the network fails. A peer known only over Bluetooth isn't
+  /// probed until a scan identifies it.
   private func probeReachability(of device: NetworkDevice) {
     let network = Self.networkRoutes(to: device)
     let bluetooth = bluetoothRoutes(to: device)
@@ -908,8 +909,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         if !reached { startBluetooth() }
         settleIfDone()
       }
-      DispatchQueue.main.asyncAfter(deadline: .now() + Self.bluetoothProbeHeadStart) {
-        if overNetwork == nil { startBluetooth() }
+      if !isReachable(device.id) || reachedOverBluetooth.contains(device.id) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.bluetoothProbeHeadStart) {
+          if overNetwork == nil { startBluetooth() }
+        }
       }
     }
     settleIfDone()
