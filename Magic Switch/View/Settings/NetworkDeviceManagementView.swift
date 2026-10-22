@@ -620,7 +620,7 @@ private struct NetworkDeviceListView: View {
 
   private func offlineHelp(for device: NetworkDevice) -> String {
     onTrustPending != nil
-      ? String(localized: "\(device.name) isn't reachable on the network right now.")
+      ? networkStore.unreachableHelp(for: device)
       : String(localized: "\(device.name) is no longer visible on the network.")
   }
 
