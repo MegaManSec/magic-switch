@@ -244,6 +244,12 @@ private struct PeripheralRowView: View {
         }
       }
 
+      if connectionState == .connecting {
+        Text("Pairing…")
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+
       // Name the destination Mac while a handoff is in flight — the button
       // only shows "Sending…", which doesn't say where it's going.
       if connectionState == .releasing {
@@ -304,12 +310,12 @@ private struct PeripheralRowView: View {
   }
 
   /// Shared fixed-width label so the pill is the same size across its
-  /// resting states ("Send", "Take") instead of hugging each title, so rows
-  /// align and a Send ↔ Take flip doesn't nudge. The floor clears "Pairing…"
-  /// (51.9pt at the 13pt control font) with a couple of points of headroom
-  /// against font-metric drift; sizing it to the rarely-seen "Sending…"
-  /// instead would leave the two resting titles swimming in dead space, and
-  /// the brief growth during a send reads as activity rather than jitter.
+  /// clickable states ("Send" 31pt, "Take" 28pt, "Cancel" 42pt at the 13pt
+  /// control font) instead of hugging each title, so rows align and a flip
+  /// between them doesn't nudge. Only the disabled "Sending…" (60pt) grows
+  /// past the floor; sizing the floor to it would leave the resting titles
+  /// swimming in dead space, and the brief growth during a send reads as
+  /// activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
     Text(title).frame(minWidth: 54)
   }
@@ -336,9 +342,14 @@ private struct PeripheralRowView: View {
       )
     case .connecting:
       Button(action: { store.cancelConnect(peripheral) }) {
-        actionLabel(String(localized: "Pairing…"))
+        actionLabel(String(localized: "Cancel"))
       }
-      .help("Pairing in progress. Click to cancel.")
+      .disabled(!store.canCancelConnect(peripheral.id))
+      .help(
+        store.canCancelConnect(peripheral.id)
+          ? "Pairing in progress. Click to cancel."
+          : "Asking the other Mac to release this peripheral…"
+      )
     case .releasing:
       Button(action: {}) { actionLabel(String(localized: "Sending…")) }
         .disabled(true)

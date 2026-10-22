@@ -315,7 +315,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Main-only.
   /// Counted, not a flag: overlapping takes of one peripheral each own a
   /// release, and the first to finish must not clear the guard for the rest.
-  private var takeReleasesInFlight: [String: Int] = [:]
+  @Published private(set) var takeReleasesInFlight: [String: Int] = [:]
 
   // MARK: - Computed Properties
 
@@ -837,22 +837,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Aborts the in-flight connect for `peripheral` — the dropdown's
-  /// "Pairing…" row routes its click here. Superseding the attempt token
+  /// "Pairing…" row and the Peripherals tab's Cancel button route their
+  /// clicks here. Superseding the attempt token
   /// orphans every path still in flight (the Bluetooth-queue preflight
   /// re-checks it before its destructive steps), and the watcher is stood
   /// down so a retry doesn't repaint "Pairing…" seconds later; an attempt
   /// that already removed the local bond reports that, since standing the
   /// watcher down leaves no one to rebuild it. Refused while a take's release
-  /// round trip is on the wire — see `takeReleasesInFlight`.
+  /// round trip is on the wire — see `canCancelConnect`.
   func cancelConnect(_ peripheral: BluetoothPeripheral) {
     guard Thread.isMainThread else {
       DispatchQueue.main.async { [weak self] in self?.cancelConnect(peripheral) }
       return
     }
     let id = peripheral.id
-    guard connectionState(for: id) == .connecting,
-      takeReleasesInFlight[id] == nil
-    else { return }
+    guard canCancelConnect(id) else { return }
     _ = beginConnectAttempt(for: id)
     tearDownPairAttempt(for: id)
     disarmReconnect(id)
@@ -867,6 +866,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       )
     }
     setConnectionState(.disconnected, for: id)
+  }
+
+  /// Whether `cancelConnect` would act on `id`: pairing, with no take release
+  /// round trip still on the wire (see `takeReleasesInFlight`). Main-only.
+  func canCancelConnect(_ id: String) -> Bool {
+    connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
   }
 
   /// Asks the peer to release just this peripheral, then pairs it

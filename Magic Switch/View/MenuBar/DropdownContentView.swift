@@ -332,13 +332,14 @@ final class DropdownContentView: NSView {
     // A disconnected peripheral is always clickable — take it (locally over
     // Bluetooth if there's no peer to ask). A connected one can only be *sent*,
     // so it greys out when no Mac is reachable to hand it to. A pairing row
-    // stays clickable so the attempt can be cancelled; a releasing one can't
-    // be — aborting a half-done release could strand the peripheral on
-    // neither Mac.
+    // stays clickable so the attempt can be cancelled, except while the other
+    // Mac is still being asked to release it; a releasing one can't be —
+    // aborting a half-done release could strand the peripheral on neither Mac.
+    let canCancel = bluetoothStore.canCancelConnect(peripheral.id)
     let enabled: Bool
     switch state {
     case .releasing: enabled = false
-    case .connecting: enabled = true
+    case .connecting: enabled = canCancel
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
@@ -398,7 +399,10 @@ final class DropdownContentView: NSView {
 
     switch state {
     case .connecting:
-      row.toolTip = String(localized: "Pairing \(peripheral.name)… Click to cancel.")
+      row.toolTip =
+        canCancel
+        ? String(localized: "Pairing \(peripheral.name)… Click to cancel.")
+        : String(localized: "Asking the other Mac to release \(peripheral.name)…")
     case .releasing:
       row.toolTip = String(localized: "Sending \(peripheral.name) to the other Mac…")
     case .connected:

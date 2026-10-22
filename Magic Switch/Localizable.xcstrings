@@ -167,6 +167,12 @@
     "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them." : {
 
     },
+    "Asking the other Mac to release %@…" : {
+
+    },
+    "Asking the other Mac to release this peripheral…" : {
+
+    },
     "Automatic" : {
 
     },
