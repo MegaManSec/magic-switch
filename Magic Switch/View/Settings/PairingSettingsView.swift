@@ -11,7 +11,7 @@ struct PairingSettingsView: View {
   @State private var showGenerateSheet = false
   @State private var showEnterSheet = false
   @State private var showUnpairAlert = false
-  @State private var unpairErrorStatus: OSStatus?
+  @State private var unpairFailed = false
 
   // MARK: - Body
 
@@ -37,13 +37,8 @@ struct PairingSettingsView: View {
           "Magic Switch will stop accepting commands from your other Mac until you pair again."
         ),
         primaryButton: .destructive(Text("Unpair")) {
-          unpairErrorStatus = nil
-          pairing.unpair { status in
-            unpairErrorStatus = status
-            if let status {
-              Log.app.error("Unpair: keychain delete failed: \(status)")
-            }
-          }
+          unpairFailed = false
+          pairing.unpair { status in unpairFailed = status != nil }
         },
         secondaryButton: .cancel()
       )
@@ -106,7 +101,7 @@ struct PairingSettingsView: View {
       }
       .foregroundColor(.red)
       .help("Remove the saved pairing key. This Mac will stop accepting commands.")
-      if unpairErrorStatus != nil {
+      if unpairFailed {
         Text("Couldn't remove the pairing key from this Mac.")
           .foregroundColor(.red)
           .font(.caption)
