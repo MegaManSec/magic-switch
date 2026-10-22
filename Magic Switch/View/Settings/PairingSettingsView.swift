@@ -238,6 +238,7 @@ private struct EnterCodeSheet: View {
   @State private var isPairing = false
 
   private static let codeFont = Font.system(.title2, design: .monospaced)
+  private static let codePlaceholder = "XXXX-XXXX-XXXX"
 
   /// Leading inset of the text inside a rounded-border NSTextField, used to
   /// line the ghost-dash overlay up with the field's own glyphs. Measured
@@ -256,7 +257,7 @@ private struct EnterCodeSheet: View {
   @ViewBuilder
   private var ghostDash: some View {
     if showsGhostDash {
-      (Text(input).foregroundColor(.clear) + Text("-").foregroundColor(.secondary))
+      (Text(input).foregroundColor(.clear) + Text(verbatim: "-").foregroundColor(.secondary))
         .font(Self.codeFont)
         .padding(.leading, Self.fieldTextInset)
         .offset(y: -1.5)
@@ -269,7 +270,7 @@ private struct EnterCodeSheet: View {
     VStack(spacing: 20) {
       Text("Enter Pairing Code")
         .font(.headline)
-      TextField("XXXX-XXXX-XXXX", text: $input)
+      TextField(Self.codePlaceholder, text: $input)
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .font(Self.codeFont)
         .disabled(isPairing)
