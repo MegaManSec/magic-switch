@@ -318,19 +318,22 @@ private struct PeripheralRowView: View {
   private var connectionButton: some View {
     switch connectionState {
     case .connected:
-      Button(action: primaryAction) { actionLabel(String(localized: "Send")) }
-        .disabled(!hasActivePeer)
-        .help(
-          hasActivePeer
-            ? String(
-              localized:
-                "Send this peripheral to the other Mac, which takes it over automatically."
-            )
-            : String(
-              localized:
-                "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs."
-            )
-        )
+      Button(action: primaryAction) {
+        actionLabel(
+          String(localized: "Send", comment: "Button: send this peripheral to the other Mac"))
+      }
+      .disabled(!hasActivePeer)
+      .help(
+        hasActivePeer
+          ? String(
+            localized:
+              "Send this peripheral to the other Mac, which takes it over automatically."
+          )
+          : String(
+            localized:
+              "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs."
+          )
+      )
     case .connecting:
       Button(action: { store.cancelConnect(peripheral) }) {
         actionLabel(String(localized: "Pairing…"))
@@ -341,10 +344,12 @@ private struct PeripheralRowView: View {
         .disabled(true)
         .help("Sending this peripheral to the other Mac…")
     case .disconnected:
-      Button(action: primaryAction) { actionLabel(String(localized: "Take")) }
-        .help(
-          "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
-        )
+      Button(action: primaryAction) {
+        actionLabel(String(localized: "Take", comment: "Button: take this peripheral to this Mac"))
+      }
+      .help(
+        "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
+      )
     }
   }
 }

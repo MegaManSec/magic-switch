@@ -15,15 +15,22 @@ enum URLCommandError: Error {
     switch self {
     case .unknownCommand(let url):
       return String(
-        localized: "Unrecognized command URL '\(url)'. The only command is magicswitch://switch.")
+        localized: "Unrecognized command URL '\(url)'. The only command is magicswitch://switch.",
+        comment: "Keep magicswitch://switch as is; it is the literal URL")
     case .unknownParameter(let name):
       return String(
-        localized: "Unknown parameter '\(name)'. Supported: 'peripheral' and 'direction'.")
+        localized: "Unknown parameter '\(name)'. Supported: 'peripheral' and 'direction'.",
+        comment: "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names")
     case .invalidDirection(let value):
-      return String(localized: "Invalid direction '\(value)'. Use 'take', 'send', or 'toggle'.")
+      return String(
+        localized: "Invalid direction '\(value)'. Use 'take', 'send', or 'toggle'.",
+        comment: "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values")
     case .emptyPeripheral:
       return String(
-        localized: "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address."
+        localized:
+          "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address.",
+        comment:
+          "Keep 'peripheral' and 'trackpad' as is; they are a literal URL parameter and value"
       )
     case .noMatch(let selector):
       return String(localized: "No registered peripheral matches '\(selector)'.")

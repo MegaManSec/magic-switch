@@ -114,7 +114,8 @@ final class AdvertisingDiagnostics: ObservableObject {
     if advertisingDisabledByPolicy() {
       return String(
         localized:
-          "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address."
+          "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address.",
+        comment: "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting"
       )
     }
     return String(

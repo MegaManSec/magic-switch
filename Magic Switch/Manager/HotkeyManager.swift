@@ -29,9 +29,14 @@ struct HotkeyShortcut: Codable, Equatable {
   /// render time: only the named key "Space" and the "Key N" fallback for a
   /// key with no glyph are words; the rest are glyphs, letters or "F5".
   private var localizedKeyDisplay: String {
-    if keyDisplay == "Space" { return String(localized: "Space") }
+    if keyDisplay == "Space" {
+      return String(
+        localized: "Space", comment: "The space bar, shown as part of a keyboard shortcut")
+    }
     if keyDisplay.hasPrefix("Key "), let code = Int(keyDisplay.dropFirst(4)) {
-      return String(localized: "Key \(code)")
+      return String(
+        localized: "Key \(code)",
+        comment: "Shown in a keyboard shortcut for a key with no character; %lld is its key code")
     }
     return keyDisplay
   }

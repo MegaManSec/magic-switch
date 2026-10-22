@@ -72,7 +72,13 @@ final class DialbackAddresses: ObservableObject {
       entries = addresses.filter { $0.isIPv4 && !$0.pointToPoint }.map { Self.entry($0.host, nil) }
     }
     guard let first = entries.first else { return nil }
-    let shown = entries.count > 1 ? String(localized: "\(first) or \(entries[1])") : first
+    let shown =
+      entries.count > 1
+      ? String(
+        localized: "\(first) or \(entries[1])",
+        comment: "Two IP addresses the other Mac can try, each with its network name in parentheses"
+      )
+      : first
     return (shown, proven: false)
   }
 

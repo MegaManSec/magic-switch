@@ -26,7 +26,8 @@ private enum Constants {
     static let connectionLimitMessage =
       String(
         localized: "Magic Switch works with one other Mac at a time. Remove the current one first.")
-    static let notify = String(localized: "Ping")
+    static let notify = String(
+      localized: "Ping", comment: "Button: send a test message to the other Mac")
     static let add = String(localized: "Add")
   }
 }
@@ -105,7 +106,8 @@ struct NetworkDeviceManagementView: View {
               advisory(
                 String(
                   localized: "\(warning) \(instruction)",
-                  comment: "Two sentences: the Bonjour advisory, then the add-by-address instruction")
+                  comment:
+                    "Two sentences: the Bonjour advisory, then the add-by-address instruction")
               )
               .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
             } else {

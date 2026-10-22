@@ -762,7 +762,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         body:
           String(
             localized:
-              "Magic Switch couldn't release \(peripheral.name) from this Mac. Try Forget This Device in System Settings → Bluetooth."
+              "Magic Switch couldn't release \(peripheral.name) from this Mac. Try Forget This Device in System Settings → Bluetooth.",
+            comment: "Forget This Device and System Settings → Bluetooth are macOS UI names"
           ),
         identifier: "unregister-failed-\(peripheral.id)"
       )
@@ -1230,7 +1231,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           notifyBody:
             String(
               localized:
-                "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first."
+                "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first.",
+              comment: "System Settings → Bluetooth is a macOS UI name"
             ),
           attempt: attempt
         )
@@ -1925,7 +1927,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private static func bondResetBody(_ name: String) -> String {
     String(
       localized:
-        "Magic Switch reset this Mac's pairing for \(name) and couldn't pair it again. Turn \(name) off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+        "Magic Switch reset this Mac's pairing for \(name) and couldn't pair it again. Turn \(name) off and on — if it doesn't come back, pair it again in System Settings → Bluetooth.",
+      comment: "System Settings → Bluetooth is a macOS UI name"
     )
   }
 

@@ -74,7 +74,7 @@
       }
     },
     "%@ isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first." : {
-
+      "comment" : "System Settings → Bluetooth is a macOS UI name"
     },
     "%@ isn't reachable on the network right now." : {
 
@@ -83,6 +83,7 @@
 
     },
     "%@ or %@" : {
+      "comment" : "Two IP addresses the other Mac can try, each with its network name in parentheses",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -131,7 +132,7 @@
 
     },
     "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address." : {
-
+      "comment" : "Keep 'peripheral' and 'trackpad' as is; they are a literal URL parameter and value"
     },
     "A newer version of Magic Switch is available. Opens the release page in your browser." : {
 
@@ -191,7 +192,7 @@
 
     },
     "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
-
+      "comment" : "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting"
     },
     "Can't Switch" : {
 
@@ -445,7 +446,7 @@
 
     },
     "Invalid direction '%@'. Use 'take', 'send', or 'toggle'." : {
-
+      "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values"
     },
     "It will be removed from Magic Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals." : {
 
@@ -454,7 +455,7 @@
 
     },
     "Key %lld" : {
-
+      "comment" : "Shown in a keyboard shortcut for a key with no character; %lld is its key code"
     },
     "Keyboard" : {
 
@@ -475,12 +476,13 @@
 
     },
     "Magic Switch couldn't release %@ from this Mac. Try Forget This Device in System Settings → Bluetooth." : {
-
+      "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names"
     },
     "Magic Switch needs attention" : {
 
     },
     "Magic Switch reset this Mac's pairing for %@ and couldn't pair it again. Turn %@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth." : {
+      "comment" : "System Settings → Bluetooth is a macOS UI name",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -682,7 +684,7 @@
 
     },
     "Ping" : {
-
+      "comment" : "Button: send a test message to the other Mac"
     },
     "Ping from %@" : {
 
@@ -784,7 +786,7 @@
 
     },
     "Send" : {
-
+      "comment" : "Button: send this peripheral to the other Mac"
     },
     "Send a test message over the secure channel — confirms both Macs can reach each other." : {
 
@@ -829,7 +831,7 @@
 
     },
     "Space" : {
-
+      "comment" : "The space bar, shown as part of a keyboard shortcut"
     },
     "Sponsor on GitHub" : {
 
@@ -906,7 +908,7 @@
       }
     },
     "Take" : {
-
+      "comment" : "Button: take this peripheral to this Mac"
     },
     "Take Peripherals When a Display Connects" : {
 
@@ -993,7 +995,7 @@
 
     },
     "Unknown parameter '%@'. Supported: 'peripheral' and 'direction'." : {
-
+      "comment" : "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names"
     },
     "Unpair" : {
 
@@ -1002,7 +1004,7 @@
 
     },
     "Unrecognized command URL '%@'. The only command is magicswitch://switch." : {
-
+      "comment" : "Keep magicswitch://switch as is; it is the literal URL"
     },
     "Up to date" : {
 
