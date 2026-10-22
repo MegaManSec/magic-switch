@@ -308,10 +308,7 @@ final class DropdownContentView: NSView {
         symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
     }
 
-    let unreachable =
-      BLETransport.shared.isEnabled
-      ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
-      : "\(device.name) isn't reachable on the network right now."
+    let unreachable = networkStore.unreachableHelp(for: device)
     row.toolTip =
       reachable
       ? (busy

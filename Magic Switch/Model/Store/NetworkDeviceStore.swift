@@ -452,6 +452,13 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     return device.networkRoute == nil
   }
 
+  /// Hover text for a registered Mac that isn't reachable.
+  func unreachableHelp(for device: NetworkDevice) -> String {
+    BLETransport.shared.isEnabled
+      ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
+      : "\(device.name) isn't reachable on the network right now."
+  }
+
   /// A Mac's Bonjour service name follows its computer name, and `id` *is*
   /// that name — so a renamed peer advertises as a brand-new identity while
   /// its registered record (under the old name) never hears another update and

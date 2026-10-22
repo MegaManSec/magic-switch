@@ -532,6 +532,7 @@ private struct NetworkDeviceListView: View {
 
   @ObservedObject private var pairing = PairingStore.shared
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
+  /// Observed so rows redraw when the transport is toggled.
   @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   init(
@@ -590,9 +591,7 @@ private struct NetworkDeviceListView: View {
     // advertised indefinitely, and claiming "reachable" there would
     // contradict the greyed row in the menu.
     guard networkStore.isReachable(device.id) else {
-      return bluetoothTransport.isEnabled
-        ? "\(device.name) isn't reachable on the network or over Bluetooth right now."
-        : "\(device.name) isn't reachable on the network right now."
+      return networkStore.unreachableHelp(for: device)
     }
     guard let route = device.networkRoute, !networkStore.isReachedOverBluetooth(device) else {
       return "\(device.name) is answering over Bluetooth."
