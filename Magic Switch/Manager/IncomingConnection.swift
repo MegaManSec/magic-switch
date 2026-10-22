@@ -290,7 +290,7 @@ final class IncomingConnection {
         let releases = DispatchGroup()
         peripherals.forEach { peripheral in
           releases.enter()
-          store.unregisterFromPC(peripheral) { releases.leave() }
+          store.unregisterFromPC(peripheral) { _ in releases.leave() }
         }
         releases.notify(queue: .main) {
           self.replyOnceDisconnected(peripherals.map(\.id))
@@ -364,7 +364,7 @@ final class IncomingConnection {
           self.replyOnceDisconnected([address])
           return
         }
-        store.unregisterFromPC(peripheral) {
+        store.unregisterFromPC(peripheral) { _ in
           self.replyOnceDisconnected([address])
         }
       }

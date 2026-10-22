@@ -888,7 +888,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     let releases = DispatchGroup()
     bluetoothStore.peripherals.forEach { peripheral in
       releases.enter()
-      bluetoothStore.unregisterFromPC(peripheral) { releases.leave() }
+      bluetoothStore.unregisterFromPC(peripheral) { _ in releases.leave() }
     }
     releases.notify(queue: .main) { [weak self] in
       self?.continueHandoffToPeer(device: device)
