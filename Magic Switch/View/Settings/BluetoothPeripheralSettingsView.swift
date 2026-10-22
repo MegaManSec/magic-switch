@@ -197,13 +197,13 @@ private struct PeripheralRowView: View {
 
   /// Whether a paired peer Mac is currently reachable to take a released
   /// peripheral. Releasing with no active peer just disconnects the peripheral
-  /// from both Macs, so the Release button is disabled until a peer is present.
+  /// from both Macs, so the Send button is disabled until a peer is present.
   /// Matches the handoff gate used elsewhere (e.g. `prepareForSleep`).
   private var hasActivePeer: Bool {
     networkStore.networkDevices.contains { $0.isActive }
   }
 
-  /// The peer this Mac hands peripherals to, for the "Releasing to …" line.
+  /// The peer this Mac hands peripherals to, for the "Sending to …" line.
   private var peerName: String? {
     networkStore.networkDevices.first?.name
   }
@@ -245,11 +245,11 @@ private struct PeripheralRowView: View {
       }
 
       // Name the destination Mac while a handoff is in flight — the button
-      // only shows "Releasing…", which doesn't say where it's going.
+      // only shows "Sending…", which doesn't say where it's going.
       if connectionState == .releasing {
         Text(
-          peerName.map { String(localized: "Releasing to \($0)…") }
-            ?? String(localized: "Releasing…")
+          peerName.map { String(localized: "Sending to \($0)…") }
+            ?? String(localized: "Sending…")
         )
         .font(.caption)
         .foregroundColor(.secondary)
@@ -321,17 +321,17 @@ private struct PeripheralRowView: View {
   private var connectionButton: some View {
     switch connectionState {
     case .connected:
-      Button(action: primaryAction) { actionLabel(String(localized: "Release")) }
+      Button(action: primaryAction) { actionLabel(String(localized: "Send")) }
         .disabled(!hasActivePeer)
         .help(
           hasActivePeer
             ? String(
               localized:
-                "Release this peripheral from this Mac. The other Mac will take ownership automatically."
+                "Send this peripheral to the other Mac, which takes it over automatically."
             )
             : String(
               localized:
-                "No other Mac is currently available to take this peripheral. Releasing is disabled so it isn't left disconnected from both Macs."
+                "The other Mac isn't reachable to take this peripheral. Sending is disabled so it isn't left disconnected from both Macs."
             )
         )
     case .connecting:
@@ -339,13 +339,13 @@ private struct PeripheralRowView: View {
         .disabled(true)
         .help("Pairing in progress…")
     case .releasing:
-      Button(action: {}) { actionLabel(String(localized: "Releasing…")) }
+      Button(action: {}) { actionLabel(String(localized: "Sending…")) }
         .disabled(true)
-        .help("Handing this peripheral to the other Mac…")
+        .help("Sending this peripheral to the other Mac…")
     case .disconnected:
-      Button(action: primaryAction) { actionLabel(String(localized: "Connect")) }
+      Button(action: primaryAction) { actionLabel(String(localized: "Take")) }
         .help(
-          "Connect this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
+          "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first."
         )
     }
   }

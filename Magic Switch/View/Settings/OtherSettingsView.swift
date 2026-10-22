@@ -58,7 +58,7 @@ struct OtherSettingsView: View {
           help:
             String(
               localized:
-                "Press anywhere in macOS to hand every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
+                "Press anywhere in macOS to send every registered peripheral to the other Mac. Pressing it again once they're there does nothing."
             )
         )
         ShortcutRecorderRow(
@@ -67,7 +67,7 @@ struct OtherSettingsView: View {
           help:
             String(
               localized:
-                "Press anywhere in macOS to bring every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
+                "Press anywhere in macOS to take every registered peripheral to this Mac — it works even while the other Mac is asleep. Pressing it again once they're here does nothing."
             )
         )
         ShortcutRecorderRow(

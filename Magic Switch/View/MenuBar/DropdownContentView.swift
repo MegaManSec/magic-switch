@@ -373,7 +373,7 @@ final class DropdownContentView: NSView {
     case .connecting:
       top.addArrangedSubview(caption(String(localized: "Pairing…"), color: .secondaryLabelColor))
     case .releasing:
-      top.addArrangedSubview(caption(String(localized: "Releasing…"), color: .secondaryLabelColor))
+      top.addArrangedSubview(caption(String(localized: "Sending…"), color: .secondaryLabelColor))
     case .disconnected:
       break
     }
@@ -400,16 +400,16 @@ final class DropdownContentView: NSView {
     case .connecting:
       row.toolTip = String(localized: "Pairing \(peripheral.name)… Click to cancel.")
     case .releasing:
-      row.toolTip = String(localized: "Releasing \(peripheral.name) to the other Mac…")
+      row.toolTip = String(localized: "Sending \(peripheral.name) to the other Mac…")
     case .connected:
       row.toolTip =
         canSwitch
-        ? String(localized: "On this Mac — click to hand \(peripheral.name) to the other Mac.")
-        : String(localized: "On this Mac. No other Mac is reachable to hand it to.")
+        ? String(localized: "On this Mac — click to send \(peripheral.name) to the other Mac.")
+        : String(localized: "On this Mac. No other Mac is reachable to send it to.")
     case .disconnected:
       row.toolTip =
         canSwitch
-        ? String(localized: "Click to bring \(peripheral.name) to this Mac.")
+        ? String(localized: "Click to take \(peripheral.name) to this Mac.")
         : String(localized: "Click to connect \(peripheral.name) to this Mac over Bluetooth.")
     }
     // Each variant is one whole localized sentence, so translators control
@@ -423,7 +423,7 @@ final class DropdownContentView: NSView {
         stateLabel = String(localized: "\(peripheral.name), on this Mac")
       }
     case .connecting: stateLabel = String(localized: "\(peripheral.name), pairing")
-    case .releasing: stateLabel = String(localized: "\(peripheral.name), releasing")
+    case .releasing: stateLabel = String(localized: "\(peripheral.name), sending")
     case .disconnected: stateLabel = peripheral.name
     }
     if let error = bluetoothStore.peripheralOperationError[peripheral.id] {
