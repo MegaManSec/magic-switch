@@ -202,7 +202,7 @@ struct NetworkDeviceManagementView: View {
           "Send a test message over the secure channel — confirms both Macs can reach each other.")
     static let add = String(localized: "Add this Mac as your other Mac.")
     static let sync = String(
-      localized: "Send your peripheral list to this Mac so it knows about them.")
+      localized: "Sync your peripheral list to this Mac so both Macs manage the same peripherals.")
     static let remove = String(localized: "Remove this Mac from Magic Switch.")
     static let refresh = String(
       localized: "Re-scan the network for other Macs running Magic Switch.")
@@ -612,7 +612,7 @@ private struct NetworkDeviceListView: View {
                 ? NetworkDeviceManagementView.Help.needsPairing
                 : NetworkDeviceManagementView.Help.sync
             )
-            .accessibilityLabel("Send peripheral list to \(device.name)")
+            .accessibilityLabel("Sync peripheral list to \(device.name)")
           }
 
           if let onDelete = onDelete {
