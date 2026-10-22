@@ -902,7 +902,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         self.endTransfer()
         NotificationManager.showNotification(
           title: String(localized: "Couldn't Switch"),
-          body: String(localized: "Couldn't disconnect Bluetooth peripherals from this Mac."),
+          body: String(localized: "Couldn't disconnect the peripherals from this Mac."),
           identifier: "switch-disconnect-local-failed"
         )
         return

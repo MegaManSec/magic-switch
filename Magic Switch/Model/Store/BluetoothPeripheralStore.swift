@@ -1235,8 +1235,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           notifyBody:
             String(
               localized:
-                "\(peripheral.name) isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first.",
-              comment: "System Settings → Bluetooth is a macOS UI name"
+                "Magic Switch couldn't find \(peripheral.name). Remove it and add it again from Available Peripherals."
             ),
           attempt: attempt
         )
@@ -1683,7 +1682,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           id: address, name: name,
           inline: String(localized: "Pairing failed."),
           notifyBody: String(
-            localized: "Couldn't pair \(name). Turn it off and on, then try switching again."),
+            localized: "Couldn't pair \(name). Turn it off and on, then try again."),
           attempt: attempt
         )
         return
@@ -1718,7 +1717,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             notifyBody:
               String(
                 localized:
-                  "Paired \(name), but couldn't open a connection. Try turning it off and on."
+                  "Paired \(name), but it didn't connect. Turn it off and on, then try again."
               ),
             attempt: attempt
           )
@@ -2059,7 +2058,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         ? Self.bondResetBody(name)
         : String(
           localized:
-            "Couldn't pair \(name). It may currently be connected to your other Mac — try the menu-bar switch action instead."
+            "Couldn't pair \(name) in time. It may be off, out of range, or connected to your other Mac."
         ),
       identifier: bondWasReset ? "pair-failed-\(address)" : "pair-timeout-\(address)"
     )

@@ -97,9 +97,6 @@
         }
       }
     },
-    "%@ isn't known to this Mac's Bluetooth stack. Pair it in System Settings → Bluetooth first." : {
-      "comment" : "System Settings → Bluetooth is a macOS UI name"
-    },
     "%@ isn't reachable on the network right now." : {
 
     },
@@ -318,7 +315,7 @@
     "Couldn't connect." : {
 
     },
-    "Couldn't disconnect Bluetooth peripherals from this Mac." : {
+    "Couldn't disconnect the peripherals from this Mac." : {
 
     },
     "Couldn't establish a secure connection (possible tampering)." : {
@@ -327,10 +324,10 @@
     "Couldn't establish a secure connection. Make sure your other Mac is paired with the same code (Settings → Pairing)." : {
 
     },
-    "Couldn't pair %@. It may currently be connected to your other Mac — try the menu-bar switch action instead." : {
+    "Couldn't pair %@ in time. It may be off, out of range, or connected to your other Mac." : {
 
     },
-    "Couldn't pair %@. Turn it off and on, then try switching again." : {
+    "Couldn't pair %@. Turn it off and on, then try again." : {
 
     },
     "Couldn't reach the other Mac on the network." : {
@@ -495,6 +492,9 @@
     "Magic Switch can't switch peripherals while Bluetooth is off." : {
 
     },
+    "Magic Switch couldn't find %@. Remove it and add it again from Available Peripherals." : {
+
+    },
     "Magic Switch couldn't release %@ from this Mac. Try Forget This Device in System Settings → Bluetooth." : {
       "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names"
     },
@@ -643,7 +643,7 @@
     "Paired" : {
 
     },
-    "Paired %@, but couldn't open a connection. Try turning it off and on." : {
+    "Paired %@, but it didn't connect. Turn it off and on, then try again." : {
 
     },
     "Pairing" : {
