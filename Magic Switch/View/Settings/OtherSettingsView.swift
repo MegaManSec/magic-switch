@@ -122,6 +122,15 @@ struct OtherSettingsView: View {
             action: openLatestRelease
           )
         }
+        #if !APP_STORE
+          SettingsRowView(
+            title: String(localized: "Sponsor on GitHub"),
+            help: String(
+              localized:
+                "Support Magic Switch's development. Opens GitHub Sponsors in your browser."),
+            action: openSponsorPage
+          )
+        #endif
         HStack {
           Text("Version")
           Spacer()
@@ -148,13 +157,6 @@ struct OtherSettingsView: View {
             Spacer()
             updateStatus
           }
-          SettingsRowView(
-            title: String(localized: "Sponsor on GitHub"),
-            help: String(
-              localized:
-                "Support Magic Switch's development. Opens GitHub Sponsors in your browser."),
-            action: openSponsorPage
-          )
         #endif
       }
     }
