@@ -2,10 +2,24 @@
   "sourceLanguage" : "en",
   "strings" : {
     "\"%@\" now answers as \"%@\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "\"%1$@\" now answers as \"%2$@\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed."
+          }
+        }
+      }
     },
     "%@ Enter %@, port %@ there." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Enter %2$@, port %3$@ there."
+          }
+        }
+      }
     },
     "%@ Peripherals reconnected to this Mac." : {
 
@@ -67,6 +81,16 @@
     "%@ isn't responding. It may be off, out of range, or connected to your other Mac." : {
 
     },
+    "%@ or %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ or %2$@"
+          }
+        }
+      }
+    },
     "%@ proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code." : {
 
     },
@@ -74,7 +98,14 @@
 
     },
     "%@, error: %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, error: %2$@"
+          }
+        }
+      }
     },
     "%@, on this Mac" : {
 
@@ -104,9 +135,6 @@
     "A newer version of Magic Switch is available. Opens the release page in your browser." : {
 
     },
-    "A newer version of Magic Switch is available. Opens the release page." : {
-
-    },
     "About" : {
 
     },
@@ -125,7 +153,7 @@
     "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar." : {
 
     },
-    "Add this Mac to your registered list." : {
+    "Add this Mac as your other Mac." : {
 
     },
     "Add this peripheral to Magic Switch's list." : {
@@ -234,28 +262,29 @@
     "Couldn't Connect" : {
 
     },
-    "Couldn't connect %@. It may be off, out of range, or connected to your other Mac." : {
-
-    },
     "Couldn't Reach Your Other Mac" : {
 
     },
     "Couldn't Release Peripheral" : {
 
     },
-    "Couldn't remove the pairing key from this Mac." : {
-
-    },
-    "Couldn't save the pairing key on this Mac." : {
-
-    },
     "Couldn't Switch" : {
 
     },
     "Couldn't ask %@ to release %@: %@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't ask %1$@ to release %2$@: %3$@"
+          }
+        }
+      }
     },
     "Couldn't check" : {
+
+    },
+    "Couldn't connect %@. It may be off, out of range, or connected to your other Mac." : {
 
     },
     "Couldn't connect." : {
@@ -280,7 +309,14 @@
 
     },
     "Couldn't reach %@ (%@) — keeping %@ on this Mac." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't reach %1$@ (%2$@) — keeping %3$@ on this Mac."
+          }
+        }
+      }
     },
     "Couldn't reach the other Mac on the network." : {
 
@@ -289,6 +325,12 @@
 
     },
     "Couldn't release." : {
+
+    },
+    "Couldn't remove the pairing key from this Mac." : {
+
+    },
+    "Couldn't save the pairing key on this Mac." : {
 
     },
     "Couldn't send %@ to %@: %@" : {
@@ -347,6 +389,12 @@
     "Enter this code on your other Mac. Order doesn't matter — both Macs derive the same key from the same code." : {
 
     },
+    "Ethernet" : {
+
+    },
+    "External Display" : {
+
+    },
     "Failed to save pairing key." : {
 
     },
@@ -401,7 +449,7 @@
     "It will be removed from Magic Switch's list. Bluetooth pairing with your Mac is not affected; you can add it again from Available Peripherals." : {
 
     },
-    "It will be removed from your registered list. You can add it again from \"Macs Found on the Network\"." : {
+    "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
 
     },
     "Key %lld" : {
@@ -414,9 +462,6 @@
 
     },
     "License Information" : {
-
-    },
-    "License and other settings." : {
 
     },
     "Macs" : {
@@ -435,12 +480,32 @@
 
     },
     "Magic Switch reset this Mac's pairing for %@ and couldn't pair it again. Turn %@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Magic Switch reset this Mac's pairing for %1$@ and couldn't pair it again. Turn %2$@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+          }
+        }
+      }
     },
     "Magic Switch v%@ is available (you have v%@). Click to open the release page." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Magic Switch v%1$@ is available (you have v%2$@). Click to open the release page."
+          }
+        }
+      }
     },
     "Magic Switch will stop accepting commands from your other Mac until you pair again." : {
+
+    },
+    "Magic Switch works with one other Mac at a time. Remove %@ first." : {
+
+    },
+    "Magic Switch works with one other Mac at a time. Remove the current one first." : {
 
     },
     "Magic Switch: Bluetooth is off." : {
@@ -482,10 +547,10 @@
     "No Bluetooth peripherals to add. Pair a keyboard, mouse, or trackpad with this Mac in System Settings first." : {
 
     },
-    "No Mac is registered — pick one in Settings → Macs." : {
+    "No external displays connected." : {
 
     },
-    "No external displays connected." : {
+    "No other Mac is set up — add one in Settings → Macs." : {
 
     },
     "No registered peripheral matches '%@'." : {
@@ -501,9 +566,6 @@
 
     },
     "Not responding." : {
-
-    },
-    "Notification from %@" : {
 
     },
     "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications." : {
@@ -531,12 +593,6 @@
     "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified %@ has changed." : {
 
     },
-    "Only one Mac can be connected at a time. Remove %@ first." : {
-
-    },
-    "Only one Mac can be connected at a time. Remove the existing one first." : {
-
-    },
     "Open at Login" : {
 
     },
@@ -545,6 +601,9 @@
     },
     "Other" : {
       "comment" : "Settings tab title: other settings (plural noun phrase)"
+    },
+    "Other Mac Renamed" : {
+
     },
     "Other Mac unreachable." : {
 
@@ -624,6 +683,9 @@
     "Ping" : {
 
     },
+    "Ping from %@" : {
+
+    },
     "Pinging %@…" : {
 
     },
@@ -678,9 +740,6 @@
     "Refresh connected displays" : {
 
     },
-    "Registered Mac Renamed" : {
-
-    },
     "Registered Peripherals" : {
 
     },
@@ -708,7 +767,7 @@
     "Remove the saved pairing key. This Mac will stop accepting commands." : {
 
     },
-    "Remove this Mac from the registered list." : {
+    "Remove this Mac from Magic Switch." : {
 
     },
     "Remove this peripheral from Magic Switch's list." : {
@@ -729,16 +788,10 @@
     "Send a test message over the secure channel — confirms both Macs can reach each other." : {
 
     },
-    "Send peripheral list to %@" : {
-
-    },
     "Send peripherals to the other Mac" : {
 
     },
     "Send this peripheral to the other Mac, which takes it over automatically." : {
-
-    },
-    "Send your peripheral list to this Mac so it knows about them." : {
 
     },
     "Sending %@ to the other Mac…" : {
@@ -757,9 +810,6 @@
 
     },
     "Sending…" : {
-
-    },
-    "Sent via Magic Switch." : {
 
     },
     "Set the icon for %@" : {
@@ -786,6 +836,9 @@
     "Start Magic Switch automatically when you log in to this Mac." : {
 
     },
+    "Startup, peripheral handling, shortcuts, display triggers, and updates." : {
+
+    },
     "Support Magic Switch's development. Opens GitHub Sponsors in your browser." : {
 
     },
@@ -799,6 +852,12 @@
 
     },
     "Switch peripherals between this Mac and %@." : {
+
+    },
+    "Sync peripheral list to %@" : {
+
+    },
+    "Sync your peripheral list to this Mac so both Macs manage the same peripherals." : {
 
     },
     "Synced %lld peripherals to %@." : {
@@ -848,13 +907,16 @@
     "Take" : {
 
     },
+    "Take Peripherals When a Display Connects" : {
+
+    },
     "Take peripherals to this Mac" : {
 
     },
-    "Take peripherals when a display connects" : {
+    "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
 
     },
-    "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
+    "Test message received. Both Macs can reach each other." : {
 
     },
     "That address is this Mac." : {
@@ -887,7 +949,7 @@
     "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first." : {
 
     },
-    "The other Mac you're switching with. Discovered on the local network." : {
+    "The other Mac you switch peripherals with." : {
 
     },
     "This Mac accepts connections on port %@." : {
@@ -924,6 +986,9 @@
 
     },
     "Trust new pairing key for %@?" : {
+
+    },
+    "Unknown Device" : {
 
     },
     "Unknown parameter '%@'. Supported: 'peripheral' and 'direction'." : {
@@ -964,6 +1029,9 @@
       }
     },
     "When this Mac sleeps, release its peripherals so your other Mac can take them. A sleeping Mac can't be asked to release them over the network, so Magic Switch releases them just before sleeping. Turn off to keep a peripheral bonded to this Mac while it sleeps." : {
+
+    },
+    "Wi-Fi" : {
 
     },
     "Your Other Mac" : {
