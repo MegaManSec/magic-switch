@@ -25,10 +25,8 @@ private enum Constants {
       )
     static let bluetoothHint = String(
       localized:
-        "If your network won't let the Macs reach each other at all, turn on the Bluetooth option below."
+        "If your network won't let the Macs reach each other at all, turn on Connect over Bluetooth in Settings → Other."
     )
-    static let bluetooth = String(localized: "Bluetooth")
-    static let bluetoothToggle = String(localized: "Connect over Bluetooth when the network can't")
     static let connectionLimitMessage =
       String(
         localized: "Magic Switch works with one other Mac at a time. Remove the current one first.")
@@ -140,7 +138,6 @@ struct NetworkDeviceManagementView: View {
         onDeviceRegister: handleDeviceRegistration
       )
 
-      BluetoothTransportSectionView()
     }
     // Clear stale Ping/Sync *results* whenever the user comes back to this
     // tab (or first opens it). Keeps "<device> responded." / failure lines
@@ -248,10 +245,6 @@ struct NetworkDeviceManagementView: View {
         localized:
           "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac.")
     static let needsPairing = String(localized: "Pair this Mac in the Pairing tab first.")
-    static let bluetoothToggle = String(
-      localized:
-        "Reach your other Mac over Bluetooth when the network can't carry the connection. Turn it on for both Macs. Magic Switch goes back to the network as soon as it works again."
-    )
   }
 
   var body: some View {
@@ -419,51 +412,6 @@ private struct AvailableDevicesSectionView: View {
         .help(NetworkDeviceManagementView.Help.refresh)
         .accessibilityLabel("Refresh Macs found on the network")
       }
-    }
-  }
-}
-
-private struct BluetoothTransportSectionView: View {
-  @ObservedObject private var bluetoothTransport = BLETransport.shared
-
-  var body: some View {
-    Section {
-      Toggle(
-        Constants.Strings.bluetoothToggle,
-        isOn: Binding(
-          get: { bluetoothTransport.isEnabled },
-          set: { bluetoothTransport.setEnabled($0) }
-        )
-      )
-      .help(NetworkDeviceManagementView.Help.bluetoothToggle)
-
-      if bluetoothTransport.isEnabled, let problem = radioProblem {
-        Label(problem, systemImage: "exclamationmark.triangle.fill")
-          .font(.callout)
-          .foregroundColor(.secondary)
-      }
-    } header: {
-      Text(Constants.Strings.bluetooth)
-        .font(.headline)
-    }
-  }
-
-  /// Why the enabled transport can't run right now, if it can't.
-  private var radioProblem: String? {
-    switch bluetoothTransport.radioState {
-    case .poweredOff:
-      return String(
-        localized:
-          "Bluetooth is off. Turn it on in Control Center to reach your other Mac this way.")
-    case .unauthorized:
-      return String(
-        localized:
-          "Magic Switch isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth."
-      )
-    case .unsupported:
-      return String(localized: "This Mac doesn't support Bluetooth Low Energy.")
-    default:
-      return nil
     }
   }
 }

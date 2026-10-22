@@ -230,9 +230,6 @@
     "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network." : {
 
     },
-    "Bluetooth" : {
-      "comment" : "Section header on the Macs tab for the Bluetooth transport toggle"
-    },
     "Bluetooth Off" : {
 
     },
@@ -491,7 +488,7 @@
     "Identity Mismatch Resolved" : {
 
     },
-    "If your network won't let the Macs reach each other at all, turn on the Bluetooth option below." : {
+    "If your network won't let the Macs reach each other at all, turn on Connect over Bluetooth in Settings → Other." : {
 
     },
     "Invalid Switch Command" : {

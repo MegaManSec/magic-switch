@@ -7,6 +7,7 @@ struct OtherSettingsView: View {
 
   @Environment(\.openURL) private var openURL
   @ObservedObject private var updateChecker = UpdateChecker.shared
+  @ObservedObject private var bluetoothTransport = BLETransport.shared
   @ObservedObject private var displayMonitor = DisplayMonitor.shared
   @ObservedObject private var hotkey = HotkeyManager.shared
   @State private var launchAtLogin: Bool = false
@@ -34,11 +35,26 @@ struct OtherSettingsView: View {
           .foregroundColor(.secondary)
         }
       }
-      if #available(macOS 13.0, *) {
-        Section(header: Text("General")) {
+      Section(header: Text("General")) {
+        if #available(macOS 13.0, *) {
           Toggle("Open at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin, perform: setLaunchAtLogin)
             .help("Start Magic Switch automatically when you log in to this Mac.")
+        }
+        Toggle(
+          "Connect over Bluetooth when the network can't",
+          isOn: Binding(
+            get: { bluetoothTransport.isEnabled },
+            set: { bluetoothTransport.setEnabled($0) }
+          )
+        )
+        .help(
+          "Reach your other Mac over Bluetooth when the network can't carry the connection. Turn it on for both Macs. Magic Switch goes back to the network as soon as it works again."
+        )
+        if bluetoothTransport.isEnabled, let problem = bluetoothRadioProblem {
+          Label(problem, systemImage: "exclamationmark.triangle.fill")
+            .font(.callout)
+            .foregroundColor(.secondary)
         }
       }
       Section(header: Text("Peripheral Handling")) {
@@ -239,6 +255,25 @@ struct OtherSettingsView: View {
       get: { displayMonitor.triggerDisplays[row.id] != nil },
       set: { displayMonitor.setTriggerEnabled($0, id: row.id, name: row.name) }
     )
+  }
+
+  /// Why the enabled Bluetooth transport can't run right now, if it can't.
+  private var bluetoothRadioProblem: String? {
+    switch bluetoothTransport.radioState {
+    case .poweredOff:
+      return String(
+        localized:
+          "Bluetooth is off. Turn it on in Control Center to reach your other Mac this way.")
+    case .unauthorized:
+      return String(
+        localized:
+          "Magic Switch isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth."
+      )
+    case .unsupported:
+      return String(localized: "This Mac doesn't support Bluetooth Low Energy.")
+    default:
+      return nil
+    }
   }
 
   /// Trailing status beside the Check-for-Updates button. The "Update
