@@ -322,7 +322,8 @@ private struct EnterCodeSheet: View {
   private func startPair() {
     let normalized = PairingStore.normalize(input)
     guard PairingStore.isValid(normalized) else {
-      errorMessage = String(localized: "Code must be 12 characters from the pairing alphabet.")
+      errorMessage = String(
+        localized: "Enter all \(PairingStore.codeLength) characters of the code.")
       return
     }
     isPairing = true
@@ -337,7 +338,7 @@ private struct EnterCodeSheet: View {
         case .invalidCode:
           errorMessage = String(localized: "Invalid code.")
         case .derivationFailed:
-          errorMessage = String(localized: "Couldn't derive a key from that code.")
+          errorMessage = String(localized: "Couldn't use that code. Try entering it again.")
         case .keychainFailed(let status):
           Log.app.error("Pairing: keychain save failed: \(status)")
           errorMessage = String(localized: "Couldn't save the pairing key on this Mac.")
