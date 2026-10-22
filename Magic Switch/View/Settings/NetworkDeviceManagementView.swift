@@ -376,11 +376,13 @@ private struct AvailableDevicesSectionView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.borderless)
-        .disabled(!pairing.isPaired)
+        .disabled(!pairing.isPaired || !networkStore.networkDevices.isEmpty)
         .help(
-          pairing.isPaired
-            ? NetworkDeviceManagementView.Help.addByAddress
-            : NetworkDeviceManagementView.Help.needsPairing
+          !networkStore.networkDevices.isEmpty
+            ? Constants.Strings.connectionLimitMessage
+            : pairing.isPaired
+              ? NetworkDeviceManagementView.Help.addByAddress
+              : NetworkDeviceManagementView.Help.needsPairing
         )
         .accessibilityLabel("Add a Mac by address")
         .sheet(isPresented: $showingAddByAddress) {
