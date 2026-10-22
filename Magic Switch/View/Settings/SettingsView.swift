@@ -41,7 +41,7 @@ struct SettingsView: View {
       NetworkDeviceManagementView()
         .tabItem {
           Label(TabItem.mac.text, systemImage: TabItem.mac.image)
-            .help("The other Mac you're switching with. Discovered on the local network.")
+            .help("The other Mac you switch peripherals with.")
         }
         .tag(1)
 
@@ -57,7 +57,7 @@ struct SettingsView: View {
       OtherSettingsView()
         .tabItem {
           Label(TabItem.other.text, systemImage: TabItem.other.image)
-            .help("License and other settings.")
+            .help("Startup, peripheral handling, shortcuts, display triggers, and updates.")
         }
         .tag(3)
     }
