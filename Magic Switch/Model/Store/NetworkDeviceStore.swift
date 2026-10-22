@@ -19,7 +19,31 @@ protocol NetworkDeviceManageable {
   func updateNetworkDevice(_ device: NetworkDevice)
 }
 
-/// A user-initiated Device-tab operation currently in flight to a peer.
+/// Why no switch can run right now; `userMessage` is the sentence shown for it.
+enum SwitchBlocker {
+  case noOtherMac
+  case notPaired
+  case pendingTrust(NetworkDevice)
+  case unreachable(NetworkDevice)
+
+  var userMessage: String {
+    switch self {
+    case .noOtherMac:
+      return String(localized: "No other Mac is set up — add one in Settings → Macs.")
+    case .notPaired:
+      return OutgoingFailure.notPaired.userMessage
+    case .pendingTrust(let device):
+      return String(
+        localized:
+          "\(device.name) has a new pairing key. Switching is paused until you choose Trust in Settings → Macs."
+      )
+    case .unreachable(let device):
+      return String(localized: "\(device.name) isn't reachable on the network right now.")
+    }
+  }
+}
+
+/// A user-initiated Macs-tab operation currently in flight to a peer.
 /// Tracked in `NetworkDeviceStore` (not the view) so the row can disable its
 /// buttons and keep rendering progress across Settings tab switches — the
 /// view's local `@State` is reset when the tab is left and re-entered.
@@ -225,9 +249,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         prior != incoming
       {
         NotificationManager.showNotification(
-          title: "Identity Mismatch",
+          title: String(localized: "Identity Mismatch"),
           body:
-            "\(device.name) is advertising a new pairing key. Open Settings → Macs and choose Trust if you re-paired the other Mac yourself.",
+            String(
+              localized:
+                "\(device.name) has a new pairing key. If you re-paired the other Mac yourself, open Settings → Macs and choose Trust."
+            ),
           identifier: "identity-mismatch-\(device.id)"
         )
       }
@@ -371,9 +398,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     Log.network.notice(
       "Migrated registered Mac \"\(old.name)\" -> \"\(discovered.name)\" (proved the pairing key)")
     NotificationManager.showNotification(
-      title: "Registered Mac Renamed",
+      title: String(localized: "Other Mac Renamed"),
       body:
-        "\"\(old.name)\" now answers as \"\(discovered.name)\", so its entry in Settings → Macs was updated. If you didn't rename that Mac, open Settings → Macs and check which Mac is listed.",
+        String(
+          localized:
+            "\(old.name) is now called \(discovered.name), so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there."
+        ),
       identifier: "peer-renamed-\(discovered.id)"
     )
   }
@@ -432,6 +462,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     // un-grey the menu row.
     deviceReachability[deviceID] = true
     saveNetworkDevices()
+    NotificationManager.removeNotification(identifier: "identity-mismatch-\(deviceID)")
   }
 
   /// A peer just completed a secure-channel handshake, proving it holds the
@@ -482,9 +513,12 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
       )
       NotificationManager.showNotification(
-        title: "Identity Mismatch Resolved",
+        title: String(localized: "Identity Mismatch Resolved"),
         body:
-          "\(networkDevices[index].name) proved it holds this Mac's current pairing key, so the identity warning was cleared and switching resumed. If you didn't re-pair both Macs yourself, re-pair them with a fresh code.",
+          String(
+            localized:
+              "\(networkDevices[index].name) proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code."
+          ),
         identifier: "identity-mismatch-\(networkDevices[index].id)"
       )
     }
@@ -502,8 +536,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     pollReachability()
   }
 
-  /// The port this Mac accepts peer connections on. Shown in Add by Address
-  /// so the value can be read off this screen when setting up the other Mac.
+  /// The port this Mac accepts peer connections on. Shown in the Add a Mac by
+  /// Address sheet so the value can be read off this screen when setting up the other Mac.
   var localListeningPort: UInt16? { servicePublisher.currentIdentity()?.port }
 
   /// Both names this Mac answers to: its device name and (when mDNS renamed
@@ -579,11 +613,21 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// `true`, and the first poll confirms it.
   func isReachable(_ id: String) -> Bool { deviceReachability[id] ?? false }
 
-  /// A device is switchable when it's reachable *and* not parked behind a
-  /// pending TOFU identity mismatch (which the user must Trust first). Drives
-  /// the menu's Mac-row enablement and tooltip.
+  /// Why no switch can run right now, or nil when one can. The menu, the
+  /// Peripherals tab and the switch guards all explain a refusal from this,
+  /// so one state is never described two ways. Main-only.
+  func switchBlocker() -> SwitchBlocker? {
+    guard let device = networkDevices.first else { return .noOtherMac }
+    guard PairingStore.shared.isPaired else { return .notPaired }
+    if device.pendingFingerprint != nil { return .pendingTrust(device) }
+    return isReachable(device.id) ? nil : .unreachable(device)
+  }
+
+  /// A device is switchable when both Macs are paired, it's reachable, and
+  /// it isn't parked behind a pending TOFU identity mismatch (which the user
+  /// must Trust first). Drives the menu's Mac-row enablement and tooltip.
   func isSwitchable(_ device: NetworkDevice) -> Bool {
-    device.pendingFingerprint == nil && isReachable(device.id)
+    PairingStore.shared.isPaired && device.pendingFingerprint == nil && isReachable(device.id)
   }
 
   /// Repeating background probe — runs every `reachabilityInterval` for the
@@ -677,7 +721,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   }
 
   /// One reachability probe against `device`: updates `deviceReachability`
-  /// (which greys the menu/Device-tab rows) and advances the
+  /// (which greys the menu/Macs-tab rows) and advances the
   /// `consecutivePollFailures` streak that triggers peer-vanished adoption.
   /// The probe is an INTRODUCE, so every successful poll also refreshes the
   /// peer's endpoint on both ends — the app's only routing source when
@@ -798,11 +842,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
     }
 
     beginOperation(.ping, for: device.id)
-    let senderName = Host.current().localizedName ?? "another Mac"
+    let senderName = Host.current().localizedName ?? String(localized: "another Mac")
     // Put the sender's name in the title so the receiver's Notification
     // Center entry is informative at a glance.
-    let title = "Notification from \(senderName)"
-    let body = "Sent via Magic Switch."
+    let title = String(localized: "Ping from \(senderName)")
+    let body = String(localized: "Test message received. Both Macs can reach each other.")
     sendNotificationOverSecure(to: device, title: title, message: body) { [weak self] result in
       DispatchQueue.main.async {
         self?.endOperation(for: device.id)
@@ -813,7 +857,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   // MARK: - In-Flight Operation Tracking
 
-  /// Marks a Device-tab operation as running for `deviceID`. Main-thread only.
+  /// Marks a Macs-tab operation as running for `deviceID`. Main-thread only.
   private func beginOperation(_ op: DeviceOperation, for deviceID: String) {
     inFlightOperations[deviceID] = op
   }
@@ -890,14 +934,18 @@ enum ManualAddError: Error {
   var userMessage: String {
     switch self {
     case .selfDial:
-      return "That address is this Mac."
+      return String(localized: "That address is this Mac.")
     case .legacyPeer:
       return
-        "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
+        String(
+          localized:
+            "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first."
+        )
     case .anotherMacRegistered(let name):
-      return "Only one Mac can be connected at a time. Remove \(name) first."
+      return String(
+        localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
-      return "This Mac isn't accepting connections yet. Try again in a moment."
+      return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -908,7 +956,10 @@ enum ManualAddError: Error {
       // is indistinguishable here from a firewall drop, a dead host, or a
       // different service answering on the port.
       return
-        "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port."
+        String(
+          localized:
+            "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port."
+        )
     case .outgoing(let failure):
       return failure.userMessage
     }

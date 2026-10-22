@@ -7,10 +7,14 @@ struct SettingsView: View {
   /// Constants for tab items configuration
   private enum TabItem {
     /// Configuration for each tab
-    static let devices = (image: "keyboard", text: "Peripheral")
-    static let mac = (image: "desktopcomputer", text: "Macs")
-    static let pairing = (image: "lock.shield", text: "Pairing")
-    static let other = (image: "ellipsis.circle", text: "Other")
+    static let devices = (image: "keyboard", text: String(localized: "Peripherals"))
+    static let mac = (image: "desktopcomputer", text: String(localized: "Macs"))
+    static let pairing = (image: "lock.shield", text: String(localized: "Pairing"))
+    static let other = (
+      image: "ellipsis.circle",
+      text: String(
+        localized: "Other", comment: "Settings tab title: other settings (plural noun phrase)")
+    )
   }
 
   // MARK: - Properties
@@ -28,16 +32,14 @@ struct SettingsView: View {
       BluetoothPeripheralSettingsView()
         .tabItem {
           Label(TabItem.devices.text, systemImage: TabItem.devices.image)
-            .help(
-              "Pick which paired Bluetooth peripherals Magic Switch should manage. Pair them in System Settings → Bluetooth first; this tab just selects from those."
-            )
+            .help("Choose which Bluetooth peripherals Magic Switch manages.")
         }
         .tag(0)
 
       NetworkDeviceManagementView()
         .tabItem {
           Label(TabItem.mac.text, systemImage: TabItem.mac.image)
-            .help("The other Mac you're switching with. Discovered on the local network.")
+            .help("The other Mac you switch peripherals with.")
         }
         .tag(1)
 
@@ -45,7 +47,7 @@ struct SettingsView: View {
         .tabItem {
           Label(TabItem.pairing.text, systemImage: TabItem.pairing.image)
             .help(
-              "Cryptographic shared key with the other Mac. Required by Magic Switch — separate from the System Settings → Bluetooth pairing of your peripherals."
+              "Link this Mac to your other Mac. Separate from Bluetooth pairing in System Settings."
             )
         }
         .tag(2)
@@ -53,7 +55,7 @@ struct SettingsView: View {
       OtherSettingsView()
         .tabItem {
           Label(TabItem.other.text, systemImage: TabItem.other.image)
-            .help("License and other settings.")
+            .help("Startup, peripheral handling, shortcuts, display triggers, and updates.")
         }
         .tag(3)
     }

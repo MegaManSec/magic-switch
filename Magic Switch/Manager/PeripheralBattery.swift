@@ -4,8 +4,8 @@ import IOKit
 /// Reads battery levels for connected Bluetooth peripherals from the
 /// IORegistry: Apple's Magic devices publish `BatteryPercent` (alongside the
 /// device's Bluetooth `DeviceAddress`) on their HID event-service or trackpad
-/// node while connected to this Mac. Read-at-render, no caching — a registry walk is
-/// cheap, and the value only exists for peripherals currently held here.
+/// node while connected to this Mac. No caching — a registry walk is cheap, and
+/// the value only exists for peripherals currently held here.
 enum PeripheralBattery {
   /// Battery percentage (0–100) for the peripheral with the given Bluetooth
   /// address (IOBluetooth's "aa-bb-cc-dd-ee-ff" format), or nil when the

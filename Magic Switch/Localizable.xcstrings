@@ -1,0 +1,1100 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ %@" : {
+      "comment" : "Two sentences: the Bonjour advisory, then the add-by-address instruction",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ (%@)" : {
+      "comment" : "An IP address followed by the name of its network, e.g. 192.168.1.5 (Wi-Fi)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "%@ Reconnecting your peripherals to this Mac." : {
+      "comment" : "%@ is a whole sentence saying why the switch failed"
+    },
+    "%@ connected — switching your peripherals to this Mac." : {
+
+    },
+    "%@ didn't disconnect from this Mac." : {
+
+    },
+    "%@ didn't release %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ didn't release %2$@. %3$@"
+          }
+        }
+      }
+    },
+    "%@ has a new pairing key. If you re-paired the other Mac yourself, open Settings → Macs and choose Trust." : {
+
+    },
+    "%@ has a new pairing key. Switching is paused until you choose Trust in Settings → Macs." : {
+
+    },
+    "%@ has a new pairing key. Switching is paused until you choose Trust, or until %@ proves it has this Mac's current key." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ has a new pairing key. Switching is paused until you choose Trust, or until %2$@ proves it has this Mac's current key."
+          }
+        }
+      }
+    },
+    "%@ has a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan." : {
+
+    },
+    "%@ is answering at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is answering at %2$@."
+          }
+        }
+      }
+    },
+    "%@ is no longer visible on the network." : {
+
+    },
+    "%@ is now called %@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is now called %2$@, so its entry in Settings → Macs was updated. If you didn't rename that Mac, check which Mac is listed there."
+          }
+        }
+      }
+    },
+    "%@ is visible on the network." : {
+
+    },
+    "%@ isn't connected right now. It still triggers the switch when it next connects. Display ID: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ isn't connected right now. It still triggers the switch when it next connects. Display ID: %2$@."
+          }
+        }
+      }
+    },
+    "%@ isn't reachable on the network right now." : {
+
+    },
+    "%@ isn't responding. It may be off, out of range, or connected to your other Mac." : {
+
+    },
+    "%@ or %@" : {
+      "comment" : "Two IP addresses the other Mac can try, each with its network name in parentheses",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ or %2$@"
+          }
+        }
+      }
+    },
+    "%@ proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code." : {
+
+    },
+    "%@ responded." : {
+
+    },
+    "%@, error: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, error: %2$@"
+          }
+        }
+      }
+    },
+    "%@, on this Mac" : {
+
+    },
+    "%@, on this Mac, battery %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, on this Mac, battery %2$@"
+          }
+        }
+      }
+    },
+    "%@, pairing" : {
+
+    },
+    "%@, sending" : {
+
+    },
+    "%@, waiting for the other Mac" : {
+
+    },
+    "'direction' needs a value: 'take', 'send', or 'toggle'." : {
+      "comment" : "Keep 'direction', 'take', 'send' and 'toggle' as is; they are literal URL parameter name and values"
+    },
+    "'peripheral' needs a value: a type (e.g. 'trackpad'), a name, or a MAC address." : {
+      "comment" : "Keep 'peripheral' and 'trackpad' as is; they are a literal URL parameter and value"
+    },
+    "A newer version of Magic Switch is available. Opens the release page in your browser." : {
+
+    },
+    "About" : {
+
+    },
+    "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac." : {
+
+    },
+    "Add" : {
+
+    },
+    "Add %@ as your other Mac." : {
+
+    },
+    "Add %@ to list" : {
+
+    },
+    "Add a Mac by Address" : {
+
+    },
+    "Add a Mac by address" : {
+
+    },
+    "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar." : {
+
+    },
+    "Add this peripheral to Magic Switch's list." : {
+
+    },
+    "Add your other Mac by IP address — for networks that block Bonjour discovery." : {
+
+    },
+    "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them." : {
+
+    },
+    "Allow Magic Switch in System Settings → Privacy & Security → Bluetooth." : {
+      "comment" : "System Settings → Privacy & Security → Bluetooth is a macOS UI path"
+    },
+    "Asking the other Mac to release %@…" : {
+
+    },
+    "Asking the other Mac to release this peripheral…" : {
+
+    },
+    "Automatic" : {
+
+    },
+    "Available Peripherals" : {
+
+    },
+    "Battery level of %@." : {
+
+    },
+    "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network." : {
+
+    },
+    "Bluetooth Off" : {
+
+    },
+    "Bluetooth Permission Needed" : {
+
+    },
+    "Bluetooth Unsupported" : {
+
+    },
+    "Bluetooth is off." : {
+
+    },
+    "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
+      "comment" : "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting"
+    },
+    "Can't Switch" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancel pairing %@" : {
+
+    },
+    "Change shortcut for %@, currently %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Change shortcut for %1$@, currently %2$@"
+          }
+        }
+      }
+    },
+    "Check GitHub for a newer release right now." : {
+
+    },
+    "Check for Updates" : {
+
+    },
+    "Checking…" : {
+
+    },
+    "Choose which Bluetooth peripherals Magic Switch manages." : {
+
+    },
+    "Click to connect %@ to this Mac over Bluetooth." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS moves the peripherals to whichever Mac doesn't have them, like clicking the other Mac in the menu." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS sends every registered peripheral to the other Mac." : {
+
+    },
+    "Click to record a shortcut. Pressing it anywhere in macOS takes every registered peripheral to this Mac, even while the other Mac is asleep." : {
+
+    },
+    "Click to take %@ to this Mac." : {
+
+    },
+    "Close" : {
+
+    },
+    "Close without adding." : {
+
+    },
+    "Close without pairing." : {
+
+    },
+    "Close. Nothing was saved." : {
+
+    },
+    "Close. The pairing key stays saved on this Mac." : {
+
+    },
+    "Compare with the fingerprint shown on your other Mac — they should match. If they don't, pair both Macs again with the same code." : {
+
+    },
+    "Confirmed: the most recent secure connection between the two Macs used this address." : {
+
+    },
+    "Connect a display to this Mac and it will appear here." : {
+
+    },
+    "Connect to this address and add the Mac that answers." : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy pairing code" : {
+
+    },
+    "Copy the pairing code to the clipboard." : {
+
+    },
+    "Couldn't Connect" : {
+
+    },
+    "Couldn't Reach Your Other Mac" : {
+
+    },
+    "Couldn't Release Peripheral" : {
+
+    },
+    "Couldn't Switch" : {
+
+    },
+    "Couldn't check" : {
+
+    },
+    "Couldn't connect %@. It may be off, out of range, or connected to your other Mac." : {
+
+    },
+    "Couldn't connect." : {
+
+    },
+    "Couldn't disconnect the peripherals from this Mac." : {
+
+    },
+    "Couldn't establish a secure connection (possible tampering)." : {
+
+    },
+    "Couldn't establish a secure connection. Make sure your other Mac is paired with the same code (Settings → Pairing)." : {
+
+    },
+    "Couldn't pair %@ in time. It may be off, out of range, or connected to your other Mac." : {
+
+    },
+    "Couldn't pair %@. Turn it off and on, then try again." : {
+
+    },
+    "Couldn't reach the other Mac on the network." : {
+
+    },
+    "Couldn't reach the other Mac securely. Check that it's running Magic Switch and paired with the same code (Settings → Pairing), and that no firewall is blocking the port." : {
+
+    },
+    "Couldn't release." : {
+
+    },
+    "Couldn't remove the pairing key from this Mac." : {
+
+    },
+    "Couldn't save the pairing key on this Mac." : {
+
+    },
+    "Couldn't send %@ to %@. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@. %3$@"
+          }
+        }
+      }
+    },
+    "Couldn't send %@ to %@. Reconnecting it to this Mac." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn't send %1$@ to %2$@. Reconnecting it to this Mac."
+          }
+        }
+      }
+    },
+    "Couldn't start pairing with %@. Turn it off and on, then try again." : {
+
+    },
+    "Couldn't use that code. Try entering it again." : {
+
+    },
+    "Create a new pairing code to enter on your other Mac." : {
+
+    },
+    "Didn't disconnect." : {
+
+    },
+    "Discard" : {
+
+    },
+    "Display Connected" : {
+
+    },
+    "Done" : {
+
+    },
+    "Enter Code" : {
+
+    },
+    "Enter Pairing Code" : {
+
+    },
+    "Enter a pairing code generated by your other Mac." : {
+
+    },
+    "Enter all %lld characters of the code." : {
+
+    },
+    "Enter this code on your other Mac. It doesn't matter which Mac generates the code." : {
+
+    },
+    "Ethernet" : {
+
+    },
+    "Every Bluetooth peripheral paired with this Mac is already added." : {
+
+    },
+    "External Display" : {
+
+    },
+    "For networks that block Bonjour. Pair both Macs with the same code first, then enter the other Mac's IP address." : {
+
+    },
+    "Forget %@" : {
+
+    },
+    "Forget %@ — it will no longer trigger a switch when it connects." : {
+
+    },
+    "General" : {
+
+    },
+    "Generate Code" : {
+
+    },
+    "Generate a new code and try saving the key again." : {
+
+    },
+    "Headphones" : {
+
+    },
+    "IP address" : {
+
+    },
+    "Identity Mismatch" : {
+
+    },
+    "Identity Mismatch Resolved" : {
+
+    },
+    "Invalid Switch Command" : {
+
+    },
+    "Invalid code." : {
+
+    },
+    "Invalid direction '%@'. Use 'take', 'send', or 'toggle'." : {
+      "comment" : "Keep 'take', 'send' and 'toggle' as is; they are literal URL parameter values"
+    },
+    "It will be removed from Magic Switch's list. Its Bluetooth pairing is not affected. You can add it again from Available Peripherals while it's paired with this Mac." : {
+
+    },
+    "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"." : {
+
+    },
+    "Keep trying for up to 10 minutes to reconnect a peripheral that dropped from this Mac, and take over the ones your other Mac leaves behind when it sleeps. Never takes a peripheral your other Mac is using." : {
+
+    },
+    "Kept %@ on this Mac. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Kept %1$@ on this Mac. %2$@"
+          }
+        }
+      }
+    },
+    "Key %lld" : {
+      "comment" : "Shown in a keyboard shortcut for a key with no character; %lld is its key code"
+    },
+    "Keyboard" : {
+
+    },
+    "Keyboard Shortcuts" : {
+
+    },
+    "License Information" : {
+
+    },
+    "Link this Mac to your other Mac. Separate from Bluetooth pairing in System Settings." : {
+
+    },
+    "Macs" : {
+
+    },
+    "Macs Found on the Network" : {
+
+    },
+    "Magic Switch can't switch peripherals while Bluetooth is off." : {
+
+    },
+    "Magic Switch couldn't find %@. Remove it and add it again from Available Peripherals." : {
+
+    },
+    "Magic Switch couldn't release %@ from this Mac. Try Forget This Device in System Settings → Bluetooth." : {
+      "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names"
+    },
+    "Magic Switch needs attention" : {
+
+    },
+    "Magic Switch reset this Mac's pairing for %@ and couldn't pair it again. Turn %@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth." : {
+      "comment" : "System Settings → Bluetooth is a macOS UI name",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Magic Switch reset this Mac's pairing for %1$@ and couldn't pair it again. Turn %2$@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
+          }
+        }
+      }
+    },
+    "Magic Switch v%@ is available (you have v%@). Click to open the release page." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Magic Switch v%1$@ is available (you have v%2$@). Click to open the release page."
+          }
+        }
+      }
+    },
+    "Magic Switch works with one other Mac at a time. Remove %@ first." : {
+
+    },
+    "Magic Switch works with one other Mac at a time. Remove the current one first." : {
+
+    },
+    "Magic Switch: Bluetooth is off." : {
+
+    },
+    "Magic Switch: Bluetooth is resetting." : {
+
+    },
+    "Magic Switch: Bluetooth not supported on this Mac." : {
+
+    },
+    "Magic Switch: Bluetooth permission denied." : {
+
+    },
+    "Magic Switch: no peripherals connected to this Mac." : {
+
+    },
+    "Magic Switch: not paired. Open Settings → Pairing." : {
+
+    },
+    "Magic Switch: peripherals connected to this Mac." : {
+
+    },
+    "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour." : {
+
+    },
+    "Mark a display and your peripherals switch to this Mac whenever it connects." : {
+
+    },
+    "Microphone" : {
+
+    },
+    "Mouse" : {
+
+    },
+    "New fingerprint: %@" : {
+
+    },
+    "New pairing key detected." : {
+
+    },
+    "No Bluetooth peripherals are paired with this Mac. Pair one in System Settings → Bluetooth first." : {
+
+    },
+    "No external displays connected." : {
+
+    },
+    "No other Mac is set up — add one in Settings → Macs." : {
+
+    },
+    "No registered peripheral matches '%@'." : {
+
+    },
+    "Not connected" : {
+
+    },
+    "Not found." : {
+
+    },
+    "Not paired" : {
+
+    },
+    "Not responding." : {
+
+    },
+    "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications." : {
+
+    },
+    "Now pick the other Mac in Settings → Macs to start switching." : {
+
+    },
+    "On this Mac — click to send %@ to the other Mac." : {
+
+    },
+    "On this Mac. %@" : {
+      "comment" : "Two sentences: where the peripheral is, then why it can't be sent"
+    },
+    "On your other Mac, add this Mac as %@, port %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "On your other Mac, add this Mac as %1$@, port %2$@."
+          }
+        }
+      }
+    },
+    "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified %@ has changed." : {
+
+    },
+    "Open at Login" : {
+
+    },
+    "Open the project license in your browser." : {
+
+    },
+    "Other" : {
+      "comment" : "Settings tab title: other settings (plural noun phrase)"
+    },
+    "Other Mac Renamed" : {
+
+    },
+    "Pair" : {
+
+    },
+    "Pair both Macs in the Pairing tab to enable Ping, Sync, and the menu-bar switch." : {
+
+    },
+    "Pair this Mac in the Pairing tab first." : {
+
+    },
+    "Pair this Mac with your other Mac to start switching peripherals." : {
+
+    },
+    "Paired" : {
+
+    },
+    "Paired %@, but it didn't connect. Turn it off and on, then try again." : {
+
+    },
+    "Pairing" : {
+
+    },
+    "Pairing %@… Click to cancel." : {
+
+    },
+    "Pairing Code" : {
+
+    },
+    "Pairing Failed" : {
+
+    },
+    "Pairing Timed Out" : {
+
+    },
+    "Pairing Was Reset" : {
+
+    },
+    "Pairing code" : {
+
+    },
+    "Pairing code: %@" : {
+
+    },
+    "Pairing codes don't match. Re-pair both Macs with the same code." : {
+
+    },
+    "Pairing failed." : {
+
+    },
+    "Pairing in progress. Click to cancel." : {
+
+    },
+    "Pairing key fingerprint" : {
+
+    },
+    "Pairing reset." : {
+
+    },
+    "Pairing timed out." : {
+
+    },
+    "Pairing…" : {
+
+    },
+    "Peripheral Handling" : {
+
+    },
+    "Peripherals" : {
+
+    },
+    "Peripherals Split Between Macs" : {
+
+    },
+    "Ping" : {
+      "comment" : "Button: send a test message to the other Mac"
+    },
+    "Ping from %@" : {
+
+    },
+    "Pinging %@…" : {
+
+    },
+    "Port" : {
+
+    },
+    "Press a key with ⌘, ⌥, or ⌃. Esc cancels; ⌫ removes the shortcut." : {
+
+    },
+    "Previous fingerprint: %@" : {
+
+    },
+    "Quit" : {
+
+    },
+    "Re-scan the displays connected to this Mac." : {
+
+    },
+    "Re-scan the network for other Macs running Magic Switch." : {
+
+    },
+    "Received a ping from the other Mac" : {
+
+    },
+    "Receiving peripherals from the other Mac" : {
+
+    },
+    "Receiving peripherals from the other Mac…" : {
+
+    },
+    "Reconnect peripherals if they drop" : {
+
+    },
+    "Record shortcut for %@" : {
+
+    },
+    "Recording shortcut for %@" : {
+
+    },
+    "Refresh Macs found on the network" : {
+
+    },
+    "Refresh connected displays" : {
+
+    },
+    "Registered Peripherals" : {
+
+    },
+    "Release peripherals when this Mac sleeps" : {
+
+    },
+    "Release the peripherals just before this Mac sleeps so your other Mac can take them. Turn off to keep them paired with this Mac while it sleeps." : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove %@" : {
+
+    },
+    "Remove %@ from Magic Switch." : {
+
+    },
+    "Remove %@ from list" : {
+
+    },
+    "Remove %@?" : {
+
+    },
+    "Remove shortcut: %@" : {
+
+    },
+    "Remove the saved key from this Mac and close." : {
+
+    },
+    "Remove the saved pairing key. Switching with your other Mac stops until you pair again." : {
+
+    },
+    "Remove this peripheral from Magic Switch's list." : {
+
+    },
+    "Remove this shortcut." : {
+
+    },
+    "Save the entered code as the pairing key on this Mac." : {
+
+    },
+    "Saving…" : {
+
+    },
+    "Send" : {
+      "comment" : "Button: send this peripheral to the other Mac"
+    },
+    "Send %@ to the other Mac" : {
+
+    },
+    "Send a test message over the secure channel — confirms both Macs can reach each other." : {
+
+    },
+    "Send peripherals to the other Mac" : {
+
+    },
+    "Send this peripheral to the other Mac, which takes it over automatically." : {
+
+    },
+    "Sending %@ to the other Mac…" : {
+
+    },
+    "Sending peripherals to the other Mac" : {
+
+    },
+    "Sending peripherals to the other Mac…" : {
+
+    },
+    "Sending this peripheral to the other Mac…" : {
+
+    },
+    "Sending to %@…" : {
+
+    },
+    "Sending…" : {
+
+    },
+    "Set the icon for %@" : {
+
+    },
+    "Set the icon for %@. Choose Automatic to detect it from the device." : {
+
+    },
+    "Settings" : {
+
+    },
+    "Settings…" : {
+
+    },
+    "Some peripherals are on this Mac, others aren't. In the menu, click the ones that are on the wrong Mac, then click your other Mac to move them all at once." : {
+
+    },
+    "Space" : {
+      "comment" : "The space bar, shown as part of a keyboard shortcut"
+    },
+    "Sponsor on GitHub" : {
+
+    },
+    "Start Magic Switch automatically when you log in to this Mac." : {
+
+    },
+    "Startup, peripheral handling, shortcuts, display triggers, and updates." : {
+
+    },
+    "Support Magic Switch's development. Opens GitHub Sponsors in your browser." : {
+
+    },
+    "Switch failed." : {
+
+    },
+    "Switch peripherals between this Mac and %@." : {
+
+    },
+    "Switch your peripherals to this Mac whenever %@ connects. Display ID: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Switch your peripherals to this Mac whenever %1$@ connects. Display ID: %2$@."
+          }
+        }
+      }
+    },
+    "Sync peripheral list to %@" : {
+
+    },
+    "Sync this Mac's peripheral list to %@ so both Macs manage the same peripherals." : {
+
+    },
+    "Synced %lld peripherals to %@." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "Synced %lld peripheral to %@."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "Synced %lld peripherals to %@."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Syncing %lld peripherals to %@…" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "Syncing %lld peripheral to %@…"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "Syncing %lld peripherals to %@…"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Take" : {
+      "comment" : "Button: take this peripheral to this Mac"
+    },
+    "Take %@ to this Mac" : {
+
+    },
+    "Take Peripherals When a Display Connects" : {
+
+    },
+    "Take peripherals to this Mac" : {
+
+    },
+    "Take this peripheral to this Mac. If the other Mac currently holds it, it will be asked to release it first." : {
+
+    },
+    "Test message received. Both Macs can reach each other." : {
+
+    },
+    "That address is this Mac." : {
+
+    },
+    "The new fingerprint should match the one shown in Settings → Pairing on %@." : {
+
+    },
+    "The other Mac couldn't complete the request. If its peripheral list is out of date, click Sync in Settings → Macs." : {
+
+    },
+    "The other Mac didn't respond in time." : {
+
+    },
+    "The other Mac returned an invalid response." : {
+
+    },
+    "The other Mac runs an older version of Magic Switch that can't be added by address. Update it first." : {
+
+    },
+    "The other Mac stopped responding before it finished." : {
+
+    },
+    "The other Mac you switch peripherals with." : {
+
+    },
+    "This Mac accepts connections on port %@." : {
+
+    },
+    "This Mac couldn't search the network for other Macs. If your other Mac doesn't appear, use the + button to add it by address." : {
+
+    },
+    "This Mac does not support the Bluetooth features Magic Switch needs." : {
+
+    },
+    "This Mac isn't accepting connections yet. Try again in a moment." : {
+
+    },
+    "This Mac isn't paired with your other Mac. Open Settings → Pairing." : {
+
+    },
+    "This Mac's Bonjour advertisements aren't reaching the network, so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
+
+    },
+    "Toggle peripherals between Macs" : {
+
+    },
+    "Too many failed attempts to reach the other Mac. Try again in a minute." : {
+
+    },
+    "Trackpad" : {
+
+    },
+    "Trust" : {
+
+    },
+    "Trust new key for %@" : {
+
+    },
+    "Trust new pairing key for %@?" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Unknown Device" : {
+
+    },
+    "Unknown parameter '%@'. Supported: 'peripheral' and 'direction'." : {
+      "comment" : "Keep 'peripheral' and 'direction' as is; they are literal URL parameter names"
+    },
+    "Unpair" : {
+
+    },
+    "Unpair this Mac?" : {
+
+    },
+    "Unrecognized command URL '%@'. The only command is magicswitch://switch." : {
+      "comment" : "Keep magicswitch://switch as is; it is the literal URL"
+    },
+    "Up to date" : {
+
+    },
+    "Update Available" : {
+
+    },
+    "Update Available — v%@" : {
+
+    },
+    "Update available: version %@" : {
+
+    },
+    "Version" : {
+
+    },
+    "Wait for the pairing key to finish saving." : {
+
+    },
+    "Wait for the peripheral that's switching to finish, then try again." : {
+
+    },
+    "Waiting for the other Mac…" : {
+
+    },
+    "Wi-Fi" : {
+
+    },
+    "You canceled while Magic Switch was pairing %@ again, so it's no longer paired with this Mac. Click it in the menu to pair it again." : {
+
+    },
+    "You won't be able to switch peripherals with your other Mac until you pair again." : {
+
+    },
+    "Your Other Mac" : {
+
+    },
+    "Your other Mac didn't respond. Make sure Magic Switch is running on it." : {
+
+    },
+    "another Mac" : {
+
+    },
+    "peripheral.type.other" : {
+      "comment" : "Peripheral type: any other kind of peripheral (singular)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Other"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.3"
+}

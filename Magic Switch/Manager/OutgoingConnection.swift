@@ -23,33 +23,39 @@ enum OutgoingFailure: Error {
   /// block — which is much worse than briefly backing off.
   case tooManyRecentFailures
 
-  /// Short, user-facing reason. Callers prepend the device name.
+  /// User-facing reason, a complete sentence.
   var userMessage: String {
     switch self {
     case .notPaired:
-      return "This Mac isn't paired yet. Open the Pairing tab in Settings."
+      return String(
+        localized: "This Mac isn't paired with your other Mac. Open Settings → Pairing.")
     case .connectionFailed:
-      return "Couldn't reach the other Mac on the network."
-    case .connectTimeout:
-      return "The other Mac didn't respond in time."
+      return String(localized: "Couldn't reach the other Mac on the network.")
+    case .connectTimeout, .handshakeFailed(.handshakeTimeout):
+      return String(localized: "The other Mac didn't respond in time.")
     case .handshakeFailed(.authFailed), .handshakeFailed(.decryptionFailed):
       // A wrong code fails AEAD-open long before the MAC compare, so
       // mismatched codes surface as decryptionFailed, not authFailed.
-      return "Pairing codes don't match. Re-pair both Macs with the same code."
-    case .handshakeFailed(.handshakeTimeout):
-      return "The other Mac didn't respond to the secure handshake."
+      return String(localized: "Pairing codes don't match. Re-pair both Macs with the same code.")
     case .handshakeFailed(.replay):
-      return "Couldn't establish a secure connection (possible tampering)."
+      return String(localized: "Couldn't establish a secure connection (possible tampering).")
     case .handshakeFailed:
-      return "Couldn't establish a secure connection."
+      return String(
+        localized:
+          "Couldn't establish a secure connection. Make sure your other Mac is paired with the same code (Settings → Pairing)."
+      )
     case .remoteOperationFailed:
-      return "The other Mac reported that it couldn't complete the operation."
+      return String(
+        localized:
+          "The other Mac couldn't complete the request. If its peripheral list is out of date, click Sync in Settings → Macs."
+      )
     case .invalidResponse:
-      return "The other Mac returned an invalid response."
+      return String(localized: "The other Mac returned an invalid response.")
     case .bodyFailed:
-      return "The connection dropped mid-message."
+      return String(localized: "The other Mac stopped responding before it finished.")
     case .tooManyRecentFailures:
-      return "Too many recent failures reaching the other Mac — backing off. Try again in a minute."
+      return String(
+        localized: "Too many failed attempts to reach the other Mac. Try again in a minute.")
     }
   }
 }

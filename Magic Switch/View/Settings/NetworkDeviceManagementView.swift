@@ -11,16 +11,24 @@ struct OperationResult {
 
 private enum Constants {
   enum Strings {
-    static let connectedDevices = "Your Other Mac"
-    static let availableDevices = "Macs Found on the Network"
+    static let connectedDevices = String(localized: "Your Other Mac")
+    static let availableDevices = String(localized: "Macs Found on the Network")
     static let noConnectedDevicesHint =
-      "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them."
+      String(
+        localized:
+          "Add your other Mac from \"Macs Found on the Network\" below to start switching peripherals between them."
+      )
     static let noAvailableDevicesHint =
-      "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then tap Refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
+      String(
+        localized:
+          "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
+      )
     static let connectionLimitMessage =
-      "Only one Mac can be connected at a time. Remove the existing one first."
-    static let notify = "Ping"
-    static let add = "Add"
+      String(
+        localized: "Magic Switch works with one other Mac at a time. Remove the current one first.")
+    static let notify = String(
+      localized: "Ping", comment: "Button: send a test message to the other Mac")
+    static let add = String(localized: "Add")
   }
 }
 
@@ -92,8 +100,16 @@ struct NetworkDeviceManagementView: View {
           // unknowable here.
           if let warning = diagnostics.publishWarning {
             if let display = dialback.display(), let port = networkStore.localListeningPort {
-              advisory(warning + " Enter \(display.addresses), port \(String(port)) there.")
-                .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
+              let instruction = String(
+                localized:
+                  "On your other Mac, add this Mac as \(display.addresses), port \(String(port)).")
+              advisory(
+                String(
+                  localized: "\(warning) \(instruction)",
+                  comment:
+                    "Two sentences: the Bonjour advisory, then the add-by-address instruction")
+              )
+              .help(display.proven ? Help.dialbackProven : Help.dialbackGuess)
             } else {
               advisory(warning)
             }
@@ -132,7 +148,7 @@ struct NetworkDeviceManagementView: View {
         return Alert(
           title: Text("Remove \(device.name)?"),
           message: Text(
-            "It will be removed from your registered list. You can add it again from \"Macs Found on the Network\"."
+            "It will no longer be your other Mac. You can add it again from \"Macs Found on the Network\"."
           ),
           primaryButton: .destructive(Text("Remove")) {
             networkStore.removeNetworkDevice(device: device)
@@ -164,15 +180,21 @@ struct NetworkDeviceManagementView: View {
   /// Pairing tab shows after the re-pair. Fingerprints are short hex strings
   /// (see `PairingStore.fingerprint(forKey:)`), fine for an alert body.
   private func trustAlertMessage(for device: NetworkDevice) -> String {
-    var message =
-      "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
+    var message = String(
+      localized:
+        "Only do this if you intentionally re-paired the other Mac. Otherwise this could be an impersonation attempt — the fingerprint that previously identified \(device.name) has changed."
+    )
     if let pending = device.pendingFingerprint {
-      message += "\n\nNew fingerprint: \(pending)"
+      message += "\n\n" + String(localized: "New fingerprint: \(pending)")
       if let pinned = device.fingerprint {
-        message += "\nPrevious fingerprint: \(pinned)"
+        message += "\n" + String(localized: "Previous fingerprint: \(pinned)")
       }
       message +=
-        "\n\nThe new fingerprint should match the one shown in Settings → Pairing on \(device.name)."
+        "\n\n"
+        + String(
+          localized:
+            "The new fingerprint should match the one shown in Settings → Pairing on \(device.name)."
+        )
     }
     return message
   }
@@ -181,20 +203,39 @@ struct NetworkDeviceManagementView: View {
 
   fileprivate enum Help {
     static let notify =
-      "Send a test message over the secure channel — confirms both Macs can reach each other."
-    static let add = "Add this Mac to your registered list."
-    static let sync = "Send your peripheral list to this Mac so it knows about them."
-    static let remove = "Remove this Mac from the registered list."
-    static let refresh = "Re-scan the network for other Macs running Magic Switch."
+      String(
+        localized:
+          "Send a test message over the secure channel — confirms both Macs can reach each other.")
+    static func add(_ name: String) -> String {
+      String(localized: "Add \(name) as your other Mac.")
+    }
+    static func sync(_ name: String) -> String {
+      String(
+        localized:
+          "Sync this Mac's peripheral list to \(name) so both Macs manage the same peripherals.")
+    }
+    static func remove(_ name: String) -> String {
+      String(localized: "Remove \(name) from Magic Switch.")
+    }
+    static let refresh = String(
+      localized: "Re-scan the network for other Macs running Magic Switch.")
     static let addByAddress =
-      "Add your other Mac by IP address — for networks that block Bonjour discovery."
+      String(
+        localized: "Add your other Mac by IP address — for networks that block Bonjour discovery.")
     static let dialbackProven =
-      "Confirmed: the most recent secure connection between the two Macs used this address."
+      String(
+        localized:
+          "Confirmed: the most recent secure connection between the two Macs used this address.")
     static let dialbackGuess =
-      "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network."
+      String(
+        localized:
+          "Best guess from this Mac's active network interfaces. If the other Mac can't connect, check this Mac's address in System Settings → Network."
+      )
     static let trust =
-      "Pin the new pairing key. Only do this if you intentionally re-paired the other Mac."
-    static let needsPairing = "Pair this Mac in the Pairing tab first."
+      String(
+        localized:
+          "Accept the new pairing key. Only do this if you intentionally re-paired the other Mac.")
+    static let needsPairing = String(localized: "Pair this Mac in the Pairing tab first.")
   }
 
   var body: some View {
@@ -216,7 +257,7 @@ struct NetworkDeviceManagementView: View {
       switch result {
       case .success:
         operationResults[device.id] = OperationResult(
-          success: true, message: "\(device.name) responded."
+          success: true, message: String(localized: "\(device.name) responded.")
         )
       case .failure(let err):
         operationResults[device.id] = OperationResult(
@@ -240,7 +281,6 @@ struct NetworkDeviceManagementView: View {
   private func handleSyncPeripherals(_ device: NetworkDevice) {
     let peripherals = bluetoothStore.peripherals
     let count = peripherals.count
-    let noun = count == 1 ? "peripheral" : "peripherals"
     // "Syncing…" progress comes from `networkStore.inFlightOperations`; record
     // only the terminal result here.
     networkStore.sendPeripheralSync(peripherals: peripherals, to: device) { result in
@@ -248,7 +288,7 @@ struct NetworkDeviceManagementView: View {
       case .success:
         operationResults[device.id] = OperationResult(
           success: true,
-          message: "Synced \(count) \(noun) to \(device.name)."
+          message: String(localized: "Synced \(count) peripherals to \(device.name).")
         )
       case .failure(let err):
         operationResults[device.id] = OperationResult(
@@ -281,7 +321,7 @@ private struct RegisteredDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.notify,
-          actionHelp: NetworkDeviceManagementView.Help.notify,
+          actionHelp: { _ in NetworkDeviceManagementView.Help.notify },
           requiresPairing: true,
           operationResults: operationResults,
           action: onDeviceNotify,
@@ -323,7 +363,7 @@ private struct AvailableDevicesSectionView: View {
         NetworkDeviceListView(
           devices: devices,
           buttonTitle: Constants.Strings.add,
-          actionHelp: NetworkDeviceManagementView.Help.add,
+          actionHelp: { NetworkDeviceManagementView.Help.add($0.name) },
           action: onDeviceRegister
         )
       }
@@ -336,11 +376,13 @@ private struct AvailableDevicesSectionView: View {
           Image(systemName: "plus")
         }
         .buttonStyle(.borderless)
-        .disabled(!pairing.isPaired)
+        .disabled(!pairing.isPaired || !networkStore.networkDevices.isEmpty)
         .help(
-          pairing.isPaired
-            ? NetworkDeviceManagementView.Help.addByAddress
-            : NetworkDeviceManagementView.Help.needsPairing
+          !networkStore.networkDevices.isEmpty
+            ? Constants.Strings.connectionLimitMessage
+            : pairing.isPaired
+              ? NetworkDeviceManagementView.Help.addByAddress
+              : NetworkDeviceManagementView.Help.needsPairing
         )
         .accessibilityLabel("Add a Mac by address")
         .sheet(isPresented: $showingAddByAddress) {
@@ -351,7 +393,7 @@ private struct AvailableDevicesSectionView: View {
         }
         .buttonStyle(.borderless)
         .help(NetworkDeviceManagementView.Help.refresh)
-        .accessibilityLabel("Refresh available devices")
+        .accessibilityLabel("Refresh Macs found on the network")
       }
     }
   }
@@ -462,7 +504,7 @@ private struct NetworkDeviceListView: View {
 
   let devices: [NetworkDevice]
   let buttonTitle: String
-  let actionHelp: String
+  let actionHelp: (NetworkDevice) -> String
   let requiresPairing: Bool
   let operationResults: [String: OperationResult]
   let action: (NetworkDevice) -> Void
@@ -476,7 +518,7 @@ private struct NetworkDeviceListView: View {
   init(
     devices: [NetworkDevice],
     buttonTitle: String,
-    actionHelp: String,
+    actionHelp: @escaping (NetworkDevice) -> String,
     requiresPairing: Bool = false,
     operationResults: [String: OperationResult] = [:],
     action: @escaping (NetworkDevice) -> Void,
@@ -499,6 +541,18 @@ private struct NetworkDeviceListView: View {
     requiresPairing && !pairing.isPaired
   }
 
+  /// The same verdict the name's hover text gives: the probe for registered
+  /// rows (only they are polled), Bonjour presence for discovered ones.
+  private func isOnline(_ device: NetworkDevice) -> Bool {
+    onTrustPending != nil ? networkStore.isReachable(device.id) : device.isActive
+  }
+
+  private func offlineHelp(for device: NetworkDevice) -> String {
+    onTrustPending != nil
+      ? String(localized: "\(device.name) isn't reachable on the network right now.")
+      : String(localized: "\(device.name) is no longer visible on the network.")
+  }
+
   /// Hover text for the row's name. Only the registered section has a Trust
   /// affordance and a reachability signal — `pollReachability` probes
   /// `networkDevices` alone — so discovered rows get the weaker claim their
@@ -511,13 +565,19 @@ private struct NetworkDeviceListView: View {
     let canTrust = onTrustPending != nil
     if device.pendingFingerprint != nil {
       return canTrust
-        ? "\(device.name) is advertising a new pairing key. Switching from this Mac is paused until you choose Trust, or until \(device.name) proves over the secure channel that it holds this Mac's current key."
-        : "\(device.name) is advertising a pairing key that doesn't match the one seen earlier, so it can't be added. Use Refresh to re-scan."
+        ? String(
+          localized:
+            "\(device.name) has a new pairing key. Switching is paused until you choose Trust, or until \(device.name) proves it has this Mac's current key."
+        )
+        : String(
+          localized:
+            "\(device.name) has a pairing key that doesn't match the one seen earlier, so it can't be added. Click the ↻ button to re-scan."
+        )
     }
     guard canTrust else {
       return device.isActive
-        ? "\(device.name) is advertising itself on the network."
-        : "\(device.name) has stopped advertising on the network."
+        ? String(localized: "\(device.name) is visible on the network.")
+        : String(localized: "\(device.name) is no longer visible on the network.")
     }
     // Mirror the menu's verdict rather than `isActive`: a fresh-looking
     // Bonjour record only says the peer advertised, while the ping poll is
@@ -526,8 +586,8 @@ private struct NetworkDeviceListView: View {
     // advertised indefinitely, and claiming "reachable" there would
     // contradict the greyed row in the menu.
     return networkStore.isReachable(device.id)
-      ? "\(device.name) is answering at \(endpoint(for: device))."
-      : "\(device.name) isn't reachable on the network right now."
+      ? String(localized: "\(device.name) is answering at \(endpoint(for: device)).")
+      : String(localized: "\(device.name) isn't reachable on the network right now.")
   }
 
   /// `host:port`, with IPv6 bracketed so the address's own colons don't run
@@ -547,6 +607,7 @@ private struct NetworkDeviceListView: View {
       // A Ping/Sync in flight disables both buttons (they share one secure
       // channel and one status line) and drives the progress line below.
       let inFlight = networkStore.inFlightOperations[device.id]
+      let online = isOnline(device)
       VStack(alignment: .leading, spacing: 6) {
         HStack {
           // The buttons each explain themselves, but the name — most of the
@@ -558,15 +619,18 @@ private struct NetworkDeviceListView: View {
           Button(action: { action(device) }) {
             Text(buttonTitle)
           }
-          .disabled(!device.isActive || blockedByPairing || inFlight != nil)
-          .help(blockedByPairing ? NetworkDeviceManagementView.Help.needsPairing : actionHelp)
+          .disabled(!online || blockedByPairing || inFlight != nil)
+          .help(
+            blockedByPairing
+              ? NetworkDeviceManagementView.Help.needsPairing
+              : online ? actionHelp(device) : offlineHelp(for: device))
 
           if let onSync = onSyncPeripherals {
             // An explicit foregroundColor overrides the automatic disabled
             // dimming, so pick the colour from the same condition that
             // disables the button — otherwise an unreachable Mac's sync
             // icon stays bright blue while silently ignoring clicks.
-            let syncEnabled = device.isActive && !blockedByPairing && inFlight == nil
+            let syncEnabled = online && !blockedByPairing && inFlight == nil
             // Not `square.and.arrow.up` — that's the system Share glyph, which
             // misreads as a share sheet. Circular arrows say "sync".
             Button(action: { onSync(device) }) {
@@ -577,9 +641,10 @@ private struct NetworkDeviceListView: View {
             .help(
               blockedByPairing
                 ? NetworkDeviceManagementView.Help.needsPairing
-                : NetworkDeviceManagementView.Help.sync
+                : online
+                  ? NetworkDeviceManagementView.Help.sync(device.name) : offlineHelp(for: device)
             )
-            .accessibilityLabel("Send peripheral list to \(device.name)")
+            .accessibilityLabel("Sync peripheral list to \(device.name)")
           }
 
           if let onDelete = onDelete {
@@ -587,7 +652,7 @@ private struct NetworkDeviceListView: View {
               Image(systemName: "trash")
                 .foregroundColor(.red)
             }
-            .help(NetworkDeviceManagementView.Help.remove)
+            .help(NetworkDeviceManagementView.Help.remove(device.name))
             .accessibilityLabel("Remove \(device.name)")
           }
         }
@@ -597,7 +662,7 @@ private struct NetworkDeviceListView: View {
             Image(systemName: "exclamationmark.triangle.fill")
               .foregroundColor(.yellow)
               .accessibilityHidden(true)
-            Text("New pairing key advertised.")
+            Text("New pairing key detected.")
               .font(.caption)
               .foregroundColor(.secondary)
             Spacer()
@@ -626,10 +691,9 @@ private struct NetworkDeviceListView: View {
   private func progressMessage(for op: DeviceOperation, device: NetworkDevice) -> String {
     switch op {
     case .ping:
-      return "Pinging \(device.name)…"
+      return String(localized: "Pinging \(device.name)…")
     case .sync(let count):
-      let noun = count == 1 ? "peripheral" : "peripherals"
-      return "Syncing \(count) \(noun) to \(device.name)…"
+      return String(localized: "Syncing \(count) peripherals to \(device.name)…")
     }
   }
 }

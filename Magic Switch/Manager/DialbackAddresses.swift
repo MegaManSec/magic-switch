@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 /// The addresses a peer can dial this Mac back at, for the UI spots where
-/// the user must carry them to the other Mac (the Add by Address sheet and
+/// the user must carry them to the other Mac (the Add a Mac by Address sheet and
 /// the not-advertising advisory). Two tiers: the local address an
 /// authenticated connection actually ran over (proven — the peer dialed it,
 /// or will see it as our source), else the addresses of the viable
@@ -71,8 +71,15 @@ final class DialbackAddresses: ObservableObject {
     if entries.isEmpty {
       entries = addresses.filter { $0.isIPv4 && !$0.pointToPoint }.map { Self.entry($0.host, nil) }
     }
-    guard !entries.isEmpty else { return nil }
-    return (entries.prefix(2).joined(separator: " or "), proven: false)
+    guard let first = entries.first else { return nil }
+    let shown =
+      entries.count > 1
+      ? String(
+        localized: "\(first) or \(entries[1])",
+        comment: "Two IP addresses the other Mac can try, each with its network name in parentheses"
+      )
+      : first
+    return (shown, proven: false)
   }
 
   /// Dialable host string of an endpoint — unlike `RateLimiter`'s bucketing
@@ -98,13 +105,17 @@ final class DialbackAddresses: ObservableObject {
   }
 
   private static func entry(_ host: String, _ label: String?) -> String {
-    label.map { "\(host) (\($0))" } ?? host
+    label.map {
+      String(
+        localized: "\(host) (\($0))",
+        comment: "An IP address followed by the name of its network, e.g. 192.168.1.5 (Wi-Fi)")
+    } ?? host
   }
 
   private static func label(for type: NWInterface.InterfaceType) -> String? {
     switch type {
-    case .wifi: return "Wi-Fi"
-    case .wiredEthernet: return "Ethernet"
+    case .wifi: return String(localized: "Wi-Fi")
+    case .wiredEthernet: return String(localized: "Ethernet")
     default: return nil
     }
   }
