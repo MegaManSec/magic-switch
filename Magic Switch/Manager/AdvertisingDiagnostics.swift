@@ -110,7 +110,6 @@ final class AdvertisingDiagnostics: ObservableObject {
   }
 
   private static func notAdvertisingMessage() -> String {
-    // One whole sentence per cause, so translators never see a fragment.
     if advertisingDisabledByPolicy() {
       return String(
         localized:

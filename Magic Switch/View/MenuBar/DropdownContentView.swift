@@ -416,8 +416,6 @@ final class DropdownContentView: NSView {
         ? String(localized: "Click to take \(peripheral.name) to this Mac.")
         : String(localized: "Click to connect \(peripheral.name) to this Mac over Bluetooth.")
     }
-    // Each variant is one whole localized sentence, so translators control
-    // the word order and punctuation instead of getting English fragments.
     let stateLabel: String
     switch state {
     case .connected:
