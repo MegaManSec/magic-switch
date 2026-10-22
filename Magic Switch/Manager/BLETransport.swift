@@ -248,6 +248,7 @@ final class BLETransport: NSObject, ObservableObject {
       link.sessions.removeValue(forKey: session.id)
       link.packets.purge(session: session.id, error: SecureChannelError.connectionClosed)
       enqueue(.close, session: session.id, on: link)
+      releaseIfUnused(link)
       return
     }
     guard let link = outboundLinks[session.peer] else { return }
@@ -408,6 +409,14 @@ final class BLETransport: NSObject, ObservableObject {
       session.peerClosed()
     }
     link.packets.fail(BLETransportError.linkFailed(nil))
+  }
+
+  /// Forgets a link whose central never subscribed once its last session ends.
+  private func releaseIfUnused(_ link: InboundLink) {
+    guard !link.isSubscribed, link.sessions.isEmpty,
+      inboundLinks[link.central.identifier] === link
+    else { return }
+    dropInboundLink(link.central.identifier)
   }
 
   private func startScanning() {
@@ -605,7 +614,7 @@ extension BLETransport: CBPeripheralManagerDelegate {
     didSubscribeTo characteristic: CBCharacteristic
   ) {
     guard peripheral === peripheralManager else { return }
-    _ = inboundLink(for: central)
+    inboundLink(for: central).isSubscribed = true
   }
 
   func peripheralManager(
@@ -614,7 +623,9 @@ extension BLETransport: CBPeripheralManagerDelegate {
     guard peripheral === peripheralManager else { return }
     for request in requests where request.characteristic.uuid == Self.inboxUUID {
       // A write can land before the central's subscription is reported.
-      guard let value = request.value, let (kind, id, payload) = Self.parse(value) else { continue }
+      guard let value = request.value, let (kind, id, payload) = Self.parse(value),
+        kind == .open || inboundLinks[request.central.identifier] != nil
+      else { continue }
       let link = inboundLink(for: request.central)
       switch kind {
       case .open:
@@ -624,6 +635,7 @@ extension BLETransport: CBPeripheralManagerDelegate {
           inboundCount < Self.maxInboundSessions
         else {
           enqueue(.close, session: id, on: link)
+          releaseIfUnused(link)
           continue
         }
         let session = BLESession(
@@ -638,6 +650,7 @@ extension BLETransport: CBPeripheralManagerDelegate {
         link.sessions[id]?.receive(payload)
       case .close:
         link.sessions.removeValue(forKey: id)?.peerClosed()
+        releaseIfUnused(link)
       }
     }
   }
@@ -694,6 +707,7 @@ private final class OutboundLink {
 /// A link a peer dialed into our service, and the sessions riding it.
 private final class InboundLink {
   let central: CBCentral
+  var isSubscribed = false
   var sessions: [UInt8: BLESession] = [:]
   var packets = PacketQueue()
 
