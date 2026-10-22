@@ -33,6 +33,13 @@ struct NetworkDevice: Identifiable, Codable {
   /// (which moves it into `fingerprint`). nil means no mismatch is pending.
   var pendingFingerprint: String?
 
+  /// The device's TCP listener, or nil for a Mac known only over Bluetooth
+  /// (stored with an empty `host` and port 0).
+  var networkRoute: PeerRoute? {
+    guard !host.isEmpty, let port = UInt16(exactly: port), port > 0 else { return nil }
+    return .network(host: host, port: port)
+  }
+
   // MARK: - Initialization
 
   /// Creates a new network device instance

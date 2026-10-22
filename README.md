@@ -71,6 +71,8 @@ Choose the other Mac under **Macs Found on the Network**. It shows up once it's 
 
 If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
 
+If the network won't let the Macs reach each other at all — a VPN that blocks local traffic, or Wi-Fi that keeps devices apart — turn on **Connect over Bluetooth when the network can't** under **Settings → Other → General**, on **both** Macs. They then find each other over Bluetooth whenever they're in range, as long as they're paired with the same code, and a Mac reached that way shows an antenna badge. Magic Switch goes back to the network as soon as it works again, and the Bluetooth link carries the same encrypted channel.
+
 <p align="center">
   <img src="docs/assets/macs-tab.png" alt="Macs tab showing the connected Mac and available Macs" width="600"><br>
   <em>Macs tab — pick the other Mac, sync peripherals to it, and check it's reachable.</em>
@@ -101,7 +103,7 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 
 ### Other tab — preferences
 
-**Open at Login**, recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take Peripherals When a Display Connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
+**Open at Login**, **Connect over Bluetooth when the network can't** (see [step 3](#3-macs-tab--pick-the-other-mac)), recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take Peripherals When a Display Connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing all app preferences" width="600"><br>
@@ -149,7 +151,7 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 - Devices powered on; Bluetooth enabled.
 - Same network; TCP port 41952 not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
-- A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable on the network right now (the other Mac is asleep, off Wi-Fi, or not running Magic Switch). Ping, Sync, and switching stay disabled until it's back online.
+- A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
 - **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
 - **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Peripherals, Macs and Pairing tabs also show their errors inline, so actions taken *there* still report failures either way.)
 - On the **Macs** tab, **Ping** tests whether the two Macs can reach each other over the secure channel.
@@ -176,7 +178,7 @@ This sets `core.hooksPath` to the in-repo `.hooks/` directory, so be aware you'r
 
 ## Architecture
 
-Two Macs discover each other over Bonjour, then exchange short commands over a sealed TCP channel keyed by the shared pairing code. Where Bonjour can't carry advertisements, the channel doubles as discovery: every reachability probe is an INTRODUCE exchange that refreshes both sides' endpoints over the authenticated connection, and a Mac can be bootstrapped by IP address from the Macs tab.
+Two Macs discover each other over Bonjour, then exchange short commands over a sealed TCP channel keyed by the shared pairing code. Where Bonjour can't carry advertisements, the channel doubles as discovery: every reachability probe is an INTRODUCE exchange that refreshes both sides' endpoints over the authenticated connection, and a Mac can be bootstrapped by IP address from the Macs tab. Where the network can't carry the channel at all, it can run over Bluetooth LE instead (opt-in): each Mac publishes a GATT service whose UUID is derived from the pairing key, sessions are multiplexed over the link between them, and the sealed channel runs on top unchanged.
 
 ```
                   Bonjour discovery (_magicswitch._tcp. in local.)

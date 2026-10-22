@@ -23,6 +23,10 @@ private enum Constants {
         localized:
           "Make sure Magic Switch is running on your other Mac and both Macs are on the same Wi-Fi network. Then click the ↻ button to refresh — or use the + button to add the Mac by IP address if your network blocks Bonjour."
       )
+    static let bluetoothHint = String(
+      localized:
+        "If your network won't let the Macs reach each other at all, turn on Connect over Bluetooth in Settings → Other."
+    )
     static let connectionLimitMessage =
       String(
         localized: "Magic Switch works with one other Mac at a time. Remove the current one first.")
@@ -133,6 +137,7 @@ struct NetworkDeviceManagementView: View {
         devices: networkStore.availableNetworkDevices,
         onDeviceRegister: handleDeviceRegistration
       )
+
     }
     // Clear stale Ping/Sync *results* whenever the user comes back to this
     // tab (or first opens it). Keeps "<device> responded." / failure lines
@@ -217,8 +222,12 @@ struct NetworkDeviceManagementView: View {
     static func remove(_ name: String) -> String {
       String(localized: "Remove \(name) from Magic Switch.")
     }
-    static let refresh = String(
-      localized: "Re-scan the network for other Macs running Magic Switch.")
+    static var refresh: String {
+      BLETransport.shared.isEnabled
+        ? String(
+          localized: "Re-scan the network and Bluetooth for other Macs running Magic Switch.")
+        : String(localized: "Re-scan the network for other Macs running Magic Switch.")
+    }
     static let addByAddress =
       String(
         localized: "Add your other Mac by IP address — for networks that block Bonjour discovery.")
@@ -342,6 +351,7 @@ private struct AvailableDevicesSectionView: View {
 
   @ObservedObject private var networkStore = NetworkDeviceStore.shared
   @ObservedObject private var pairing = PairingStore.shared
+  @ObservedObject private var bluetoothTransport = BLETransport.shared
 
   // MARK: - Properties
 
@@ -356,9 +366,16 @@ private struct AvailableDevicesSectionView: View {
         Text(Constants.Strings.connectionLimitMessage)
           .foregroundColor(.secondary)
       } else if devices.isEmpty {
-        Text(Constants.Strings.noAvailableDevicesHint)
-          .font(.callout)
-          .foregroundColor(.secondary)
+        Text(
+          bluetoothTransport.isEnabled
+            ? Constants.Strings.noAvailableDevicesHint
+            : String(
+              localized:
+                "\(Constants.Strings.noAvailableDevicesHint) \(Constants.Strings.bluetoothHint)"
+            )
+        )
+        .font(.callout)
+        .foregroundColor(.secondary)
       } else {
         NetworkDeviceListView(
           devices: devices,
@@ -550,7 +567,7 @@ private struct NetworkDeviceListView: View {
 
   private func offlineHelp(for device: NetworkDevice) -> String {
     onTrustPending != nil
-      ? String(localized: "\(device.name) isn't reachable on the network right now.")
+      ? networkStore.unreachableHelp(for: device)
       : String(localized: "\(device.name) is no longer visible on the network.")
   }
 
@@ -576,6 +593,9 @@ private struct NetworkDeviceListView: View {
         )
     }
     guard canTrust else {
+      if networkStore.isReachedOverBluetooth(device) {
+        return String(localized: "\(device.name) was found nearby over Bluetooth.")
+      }
       return device.isActive
         ? String(localized: "\(device.name) is visible on the network.")
         : String(localized: "\(device.name) is no longer visible on the network.")
@@ -586,17 +606,13 @@ private struct NetworkDeviceListView: View {
     // sleeping behind a Bonjour sleep proxy that answers for it — still looks
     // advertised indefinitely, and claiming "reachable" there would
     // contradict the greyed row in the menu.
-    return networkStore.isReachable(device.id)
-      ? String(localized: "\(device.name) is answering at \(endpoint(for: device)).")
-      : String(localized: "\(device.name) isn't reachable on the network right now.")
-  }
-
-  /// `host:port`, with IPv6 bracketed so the address's own colons don't run
-  /// into the port number.
-  private func endpoint(for device: NetworkDevice) -> String {
-    device.host.contains(":")
-      ? "[\(device.host)]:\(device.port)"
-      : "\(device.host):\(device.port)"
+    guard networkStore.isReachable(device.id) else {
+      return networkStore.unreachableHelp(for: device)
+    }
+    guard let route = device.networkRoute, !networkStore.isReachedOverBluetooth(device) else {
+      return String(localized: "\(device.name) is answering over Bluetooth.")
+    }
+    return String(localized: "\(device.name) is answering at \(route.description).")
   }
 
   var body: some View {
@@ -616,6 +632,12 @@ private struct NetworkDeviceListView: View {
           // row's enablement, since a greyed button gives no clue why.
           Text(device.name)
             .help(nameHelp(for: device))
+          if networkStore.isReachedOverBluetooth(device) {
+            Image(systemName: "antenna.radiowaves.left.and.right")
+              .foregroundColor(.secondary)
+              .help(nameHelp(for: device))
+              .accessibilityLabel("Over Bluetooth")
+          }
           Spacer()
           Button(action: { action(device) }) {
             Text(buttonTitle)

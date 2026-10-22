@@ -15,14 +15,16 @@ The app keeps the following on your Mac so it can work:
 - The pairing key shared by your two Macs, stored in the macOS Keychain. **Unpair** in the Pairing tab deletes it.
 - The peripherals you've registered: each device's name, type and Bluetooth address.
 - Your settings, such as keyboard shortcuts and the display that triggers a switch.
-- The IP addresses of devices that repeatedly fail to authenticate, used only to block them temporarily.
+- The IP addresses (or Bluetooth identifiers) of devices that repeatedly fail to authenticate, used only to block them temporarily.
 - Diagnostic messages in the macOS system log, such as peripheral names and Bluetooth addresses, and your other Mac's name and IP address. They stay on your Mac unless you share them, for example in a bug report.
 
 ## Data shared between your Macs
 
-Magic Switch only talks to the other Mac you paired it with, directly over your local network. The connection is encrypted with the key created during pairing. Your two Macs use it to exchange your list of registered peripherals and switching commands. None of this goes through the developer or any other server.
+Magic Switch only talks to the other Mac you paired it with, directly over your local network or, if you turn it on, Bluetooth. The connection is encrypted with the key created during pairing. Your two Macs use it to exchange your list of registered peripherals and switching commands. None of this goes through the developer or any other server.
 
 So your Macs can find each other, the app announces itself on the local network using Bonjour. The announcement includes your Mac's name and a fingerprint of the pairing key (a hash, not the key itself). Other devices on the same network can see it.
+
+If you turn on **Connect over Bluetooth when the network can't** (off by default), your Macs can also talk over Bluetooth, using the same encrypted connection. While it's on, each Mac broadcasts a Bluetooth identifier derived from the pairing key (not the key itself) so the other can find it. Bluetooth devices nearby can see it, and it stays the same for as long as the two Macs stay paired.
 
 ## Update checks
 
@@ -34,7 +36,7 @@ Links in the app, such as the release page, the license and GitHub Sponsors, ope
 
 ## Permissions
 
-- **Bluetooth:** to connect, disconnect and pair your peripherals.
+- **Bluetooth:** to connect, disconnect and pair your peripherals, and, if you turn it on, to reach your other Mac over Bluetooth.
 - **Local Network:** to find and communicate with your other Mac.
 - **Notifications** (optional): to tell you when a switch fails.
 

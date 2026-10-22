@@ -1,6 +1,5 @@
 import CryptoKit
 import Foundation
-import Network
 
 /// Errors thrown by the secure channel layer.
 enum SecureChannelError: Error {
@@ -14,7 +13,7 @@ enum SecureChannelError: Error {
   case sendFailed(Error)
 }
 
-/// On-wire framing + ChaCha20-Poly1305 session for a single NWConnection.
+/// On-wire framing + ChaCha20-Poly1305 session over a single `TransportConnection`.
 /// Handshake:
 ///   * Each side sends a 32-byte random nonce (length-prefixed cleartext).
 ///   * Both derive HKDF(K, salt=N_C||N_S) -> [sk_c2s | sk_s2c | k_mac] (96 bytes).
@@ -43,7 +42,7 @@ final class SecureChannel {
 
   // MARK: - State
 
-  private let connection: NWConnection
+  private let transport: TransportConnection
   private let role: Role
   private let psk: SymmetricKey
   private let queue: DispatchQueue
@@ -58,8 +57,8 @@ final class SecureChannel {
 
   // MARK: - Init
 
-  init(connection: NWConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
-    self.connection = connection
+  init(transport: TransportConnection, role: Role, psk: SymmetricKey, queue: DispatchQueue) {
+    self.transport = transport
     self.role = role
     self.psk = psk
     self.queue = queue
@@ -74,7 +73,7 @@ final class SecureChannel {
     completion outerCompletion: @escaping (Result<Void, SecureChannelError>) -> Void
   ) {
     // Single-shot latch on the outer completion. The 5-second timeout fires
-    // `connection.cancel()`, which then propagates to any in-flight
+    // `transport.cancel()`, which then propagates to any in-flight
     // `sendRaw`/`receiveRaw` as a connection error and re-enters this
     // completion path with `.connectionClosed` *after* we've already
     // reported `.handshakeTimeout`. The race is by design — `cancel()` is
@@ -104,7 +103,7 @@ final class SecureChannel {
       guard let self = self else { return }
       if !self.receivedAuth {
         self.teardown = true
-        self.connection.cancel()
+        self.transport.cancel()
         completion(.failure(.handshakeTimeout))
       }
     }
@@ -223,7 +222,7 @@ final class SecureChannel {
   /// Closes the underlying connection.
   func cancel() {
     teardown = true
-    connection.cancel()
+    transport.cancel()
   }
 
   // MARK: - Sealed Framing
@@ -323,11 +322,7 @@ final class SecureChannel {
     var frame = Data()
     withUnsafeBytes(of: &lengthBE) { frame.append(contentsOf: $0) }
     frame.append(payload)
-    connection.send(
-      content: frame,
-      completion: .contentProcessed { error in
-        completion(error)
-      })
+    transport.send(frame, completion: completion)
   }
 
   private func receiveRaw(completion: @escaping (Result<Data, SecureChannelError>) -> Void) {
@@ -355,22 +350,7 @@ final class SecureChannel {
   private func receiveExact(
     byteCount: Int, completion: @escaping (Result<Data, SecureChannelError>) -> Void
   ) {
-    connection.receive(minimumIncompleteLength: byteCount, maximumLength: byteCount) {
-      data, _, isComplete, error in
-      if error != nil {
-        completion(.failure(.connectionClosed))
-        return
-      }
-      guard let data = data, data.count == byteCount else {
-        if isComplete {
-          completion(.failure(.connectionClosed))
-        } else {
-          completion(.failure(.framingFailed))
-        }
-        return
-      }
-      completion(.success(data))
-    }
+    transport.receive(exactly: byteCount, completion: completion)
   }
 
   // MARK: - Helpers

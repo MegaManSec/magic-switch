@@ -31,8 +31,9 @@ extension Notification.Name {
     "magicSwitchPeripheralOutgoing")
 }
 
-/// Per-accept handler. Owns the NWConnection, its SecureChannel, idle/total
-/// timers, and the (per-connection) decoder state. Self-retained until the
+/// Per-accept handler. Owns the transport (a TCP connection or a Bluetooth
+/// session), its SecureChannel, idle/total timers, and the (per-connection)
+/// decoder state. Self-retained until the
 /// connection terminates so it doesn't get released mid-flight.
 final class IncomingConnection {
   // MARK: - Constants
@@ -53,8 +54,11 @@ final class IncomingConnection {
 
   // MARK: - Dependencies
 
-  private let connection: NWConnection
+  private let transport: TransportConnection
+  /// The TCP connection behind `transport`; nil for a Bluetooth session.
+  private let connection: NWConnection?
   private let endpoint: NWEndpoint?
+  private let rateLimitBucket: String
   private let rateLimiter: RateLimiter
   private let pairingStore: PairingStore
   private let queue: DispatchQueue
@@ -79,7 +83,7 @@ final class IncomingConnection {
 
   // MARK: - Init
 
-  init(
+  convenience init(
     connection: NWConnection,
     endpoint: NWEndpoint?,
     rateLimiter: RateLimiter,
@@ -87,8 +91,39 @@ final class IncomingConnection {
     queue: DispatchQueue,
     localIdentity: @escaping () -> IntroducedIdentity?
   ) {
+    self.init(
+      transport: connection, connection: connection, endpoint: endpoint,
+      rateLimitBucket: RateLimiter.bucket(for: endpoint), rateLimiter: rateLimiter,
+      pairingStore: pairingStore, queue: queue, localIdentity: localIdentity)
+  }
+
+  convenience init(
+    session: BLESession,
+    rateLimiter: RateLimiter,
+    pairingStore: PairingStore,
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
+  ) {
+    self.init(
+      transport: session, connection: nil, endpoint: nil,
+      rateLimitBucket: RateLimiter.bucket(forBluetoothPeer: session.peer), rateLimiter: rateLimiter,
+      pairingStore: pairingStore, queue: queue, localIdentity: localIdentity)
+  }
+
+  private init(
+    transport: TransportConnection,
+    connection: NWConnection?,
+    endpoint: NWEndpoint?,
+    rateLimitBucket: String,
+    rateLimiter: RateLimiter,
+    pairingStore: PairingStore,
+    queue: DispatchQueue,
+    localIdentity: @escaping () -> IntroducedIdentity?
+  ) {
+    self.transport = transport
     self.connection = connection
     self.endpoint = endpoint
+    self.rateLimitBucket = rateLimitBucket
     self.rateLimiter = rateLimiter
     self.pairingStore = pairingStore
     self.queue = queue
@@ -100,43 +135,36 @@ final class IncomingConnection {
   func start() {
     selfRef = self
 
-    guard rateLimiter.shouldAccept(endpoint: endpoint) else {
+    guard rateLimiter.shouldAccept(bucket: rateLimitBucket) else {
       Log.network.error("Rejecting connection from blocked endpoint")
-      connection.cancel()
+      transport.cancel()
       release()
       return
     }
 
     guard let psk = pairingStore.currentKey() else {
       Log.network.error("Rejecting connection: not paired")
-      connection.cancel()
+      transport.cancel()
       release()
       return
     }
 
-    guard rateLimiter.beginPending(endpoint: endpoint) else {
+    guard rateLimiter.beginPending(bucket: rateLimitBucket) else {
       Log.network.error("Rejecting connection: too many concurrent unauthenticated handshakes")
-      connection.cancel()
+      transport.cancel()
       release()
       return
     }
     pendingCounted = true
 
     let channel = SecureChannel(
-      connection: connection, role: .server, psk: psk, queue: queue
+      transport: transport, role: .server, psk: psk, queue: queue
     )
     self.channel = channel
 
-    connection.stateUpdateHandler = { [weak self] state in
-      guard let self = self else { return }
-      switch state {
-      case .failed, .cancelled:
-        self.teardown()
-      default:
-        break
-      }
+    transport.start(queue: queue) { [weak self] in
+      self?.teardown()
     }
-    connection.start(queue: queue)
 
     startTotalTimer()
     resetIdleTimer()
@@ -158,7 +186,9 @@ final class IncomingConnection {
         let provedFingerprint = PairingStore.fingerprint(forKey: psk)
         self.provedFingerprint = provedFingerprint
         // The peer dialed this address, which proves it dialable.
-        DialbackAddresses.shared.noteProven(path: self.connection.currentPath)
+        if let path = self.connection?.currentPath {
+          DialbackAddresses.shared.noteProven(path: path)
+        }
         DispatchQueue.main.async {
           NetworkDeviceStore.shared.resolvePendingFingerprint(
             provedByHandshake: provedFingerprint)
@@ -172,7 +202,7 @@ final class IncomingConnection {
         // count them we lock out the legitimate peer.
         switch error {
         case .decryptionFailed, .authFailed:
-          self.rateLimiter.recordFailure(endpoint: self.endpoint)
+          self.rateLimiter.recordFailure(bucket: self.rateLimitBucket)
         default:
           break
         }
@@ -343,8 +373,7 @@ final class IncomingConnection {
           (accepted ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
       } catch {
         Log.network.error("syncPeripherals decode failed: \(error)")
-        sendString(DeviceCommand.operationFailed.rawValue)
-        teardown()
+        sendString(DeviceCommand.operationFailed.rawValue) { self.teardown() }
         return
       }
     case .unregisterOne:
@@ -482,12 +511,13 @@ final class IncomingConnection {
 
   // MARK: - Sending
 
-  private func sendString(_ message: String) {
+  private func sendString(_ message: String, then completion: (() -> Void)? = nil) {
     guard let channel = channel else { return }
     channel.send(Data(message.utf8)) { error in
       if let error = error {
         Log.network.error("Sealed send failed: \(error)")
       }
+      completion?()
     }
   }
 
@@ -511,7 +541,7 @@ final class IncomingConnection {
     timer.setEventHandler { [weak self] in
       guard let self = self else { return }
       if !self.authenticated {
-        self.rateLimiter.recordFailure(endpoint: self.endpoint)
+        self.rateLimiter.recordFailure(bucket: self.rateLimitBucket)
       }
       self.teardown()
     }
@@ -540,14 +570,14 @@ final class IncomingConnection {
     idleTimer = nil
     totalTimer = nil
     channel?.cancel()
-    connection.cancel()
+    transport.cancel()
     release()
   }
 
   private func endPendingIfNeeded() {
     guard pendingCounted else { return }
     pendingCounted = false
-    rateLimiter.endPending(endpoint: endpoint)
+    rateLimiter.endPending(bucket: rateLimitBucket)
   }
 
   private func release() {

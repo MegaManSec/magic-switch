@@ -82,6 +82,9 @@
         }
       }
     },
+    "%@ is answering over Bluetooth." : {
+
+    },
     "%@ is no longer visible on the network." : {
 
     },
@@ -108,6 +111,9 @@
         }
       }
     },
+    "%@ isn't reachable on the network or over Bluetooth right now." : {
+
+    },
     "%@ isn't reachable on the network right now." : {
 
     },
@@ -129,6 +135,9 @@
 
     },
     "%@ responded." : {
+
+    },
+    "%@ was found nearby over Bluetooth." : {
 
     },
     "%@, error: %@" : {
@@ -153,6 +162,9 @@
           }
         }
       }
+    },
+    "%@, over Bluetooth" : {
+      "comment" : "VoiceOver label for a Mac in the menu that is reached over Bluetooth; %@ is the Mac's name"
     },
     "%@, pairing" : {
 
@@ -241,6 +253,9 @@
     "Bluetooth is off." : {
 
     },
+    "Bluetooth is off. Turn it on in Control Center to reach your other Mac this way." : {
+
+    },
     "Bonjour advertising is disabled by policy on this Mac (NoMulticastAdvertisements), so your other Mac can't discover it by itself. An already-added Mac still reaches it automatically; otherwise use the + button on the other Mac to add this one by address." : {
       "comment" : "Keep NoMulticastAdvertisements as is; it is the name of a macOS policy setting"
     },
@@ -311,6 +326,9 @@
     "Connect a display to this Mac and it will appear here." : {
 
     },
+    "Connect over Bluetooth when the network can't" : {
+      "comment" : "Toggle label: use Bluetooth to reach the other Mac when the network can't"
+    },
     "Connect to this address and add the Mac that answers." : {
 
     },
@@ -363,6 +381,9 @@
 
     },
     "Couldn't prepare the request on this Mac." : {
+
+    },
+    "Couldn't reach the other Mac on the network or over Bluetooth." : {
 
     },
     "Couldn't reach the other Mac on the network." : {
@@ -475,6 +496,9 @@
     "Identity Mismatch Resolved" : {
 
     },
+    "If your network won't let the Macs reach each other at all, turn on Connect over Bluetooth in Settings → Other." : {
+
+    },
     "Invalid Switch Command" : {
 
     },
@@ -532,6 +556,9 @@
     },
     "Magic Switch couldn't release %@ from this Mac. Try Forget This Device in System Settings → Bluetooth." : {
       "comment" : "Forget This Device and System Settings → Bluetooth are macOS UI names"
+    },
+    "Magic Switch isn't allowed to use Bluetooth. Allow it in System Settings → Privacy & Security → Bluetooth." : {
+
     },
     "Magic Switch needs attention" : {
 
@@ -673,6 +700,9 @@
     "Other Mac Renamed" : {
 
     },
+    "Over Bluetooth" : {
+      "comment" : "VoiceOver label for the antenna badge on a Mac reached over Bluetooth"
+    },
     "Pair" : {
 
     },
@@ -769,7 +799,13 @@
     "Re-scan the displays connected to this Mac." : {
 
     },
+    "Re-scan the network and Bluetooth for other Macs running Magic Switch." : {
+
+    },
     "Re-scan the network for other Macs running Magic Switch." : {
+
+    },
+    "Reach your other Mac over Bluetooth when the network can't carry the connection. Turn it on for both Macs. Magic Switch goes back to the network as soon as it works again." : {
 
     },
     "Received a ping from the other Mac" : {
@@ -907,6 +943,9 @@
     "Switch failed." : {
 
     },
+    "Switch peripherals between this Mac and %@ over Bluetooth." : {
+
+    },
     "Switch peripherals between this Mac and %@." : {
 
     },
@@ -1022,6 +1061,9 @@
 
     },
     "This Mac does not support the Bluetooth features Magic Switch needs." : {
+
+    },
+    "This Mac doesn't support Bluetooth Low Energy." : {
 
     },
     "This Mac isn't accepting connections yet. Try again in a moment." : {

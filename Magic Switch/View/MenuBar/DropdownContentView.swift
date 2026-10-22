@@ -301,17 +301,26 @@ final class DropdownContentView: NSView {
     content.distribution = .fill
     content.spacing = 8
     content.alignment = .centerY
+    let overBluetooth = reachable && networkStore.isReachedOverBluetooth(device)
     content.addArrangedSubview(symbolView("desktopcomputer", color: color))
     content.addArrangedSubview(textLabel(device.name, color: color))
     content.addArrangedSubview(spacer())
+    if overBluetooth {
+      content.addArrangedSubview(
+        symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
+    }
 
     row.toolTip =
       reachable
       ? (busy
         ? String(localized: "Wait for the peripheral that's switching to finish, then try again.")
-        : String(localized: "Switch peripherals between this Mac and \(device.name)."))
+        : overBluetooth
+          ? String(
+            localized: "Switch peripherals between this Mac and \(device.name) over Bluetooth.")
+          : String(localized: "Switch peripherals between this Mac and \(device.name)."))
       : (networkStore.switchBlocker() ?? .unreachable(device)).userMessage
-    row.setAccessibilityLabel(device.name)
+    row.setAccessibilityLabel(
+      overBluetooth ? String(localized: "\(device.name), over Bluetooth") : device.name)
     row.setAccessibilityHelp(row.toolTip)
     return clickableRow(row, content: content)
   }

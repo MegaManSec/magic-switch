@@ -2,15 +2,22 @@ import Foundation
 import Network
 import QuartzCore
 
-/// Per-IP failure tracker. Five failures within a 60s window block the IP for
-/// 15 minutes; blocked endpoints are rejected before any handshake work.
+/// Per-peer failure tracker, bucketed by IP (or by Bluetooth identifier for
+/// sessions over `BLETransport`). Five failures within a 60s window block the
+/// bucket for 15 minutes; blocked peers are rejected before any handshake work.
+/// Bluetooth buckets also share one budget: five failures among them in the
+/// window refuse every Bluetooth session until the window slides.
 /// Blocks persist to UserDefaults so a process restart can't reset the counter.
+/// One instance serves both transports, since blocks persist under a single
+/// defaults key.
 ///
 /// Live tracking uses `CACurrentMediaTime()` (monotonic) so wall-clock
 /// manipulation can't shorten an active block or reset the failure window.
 /// Persistence still uses `Date` (necessary for cross-restart durability);
 /// converted at the boundary.
 final class RateLimiter {
+  static let shared = RateLimiter()
+
   // MARK: - Constants
 
   private static let windowSeconds: TimeInterval = 60
@@ -19,6 +26,7 @@ final class RateLimiter {
   private static let blocksKey = "com.magicswitch.ratelimiter.blocks"
   private static let maxPendingPerIP = 8
   private static let maxPendingTotal = 64
+  private static let bluetoothBucketPrefix = "bluetooth:"
 
   // MARK: - State
 
@@ -30,31 +38,36 @@ final class RateLimiter {
   /// In-flight pre-auth connection counts, per IP and in total.
   private var pendingByIP: [String: Int] = [:]
   private var pendingTotal = 0
+  /// Monotonic timestamps of recent failures across every Bluetooth bucket.
+  private var bluetoothFailures: [CFTimeInterval] = []
 
   // MARK: - Init
 
-  init() {
+  private init() {
     blocksByIP = Self.loadBlocks()
   }
 
   // MARK: - Public API
 
-  /// Returns whether the connection from `endpoint` should be accepted now.
-  func shouldAccept(endpoint: NWEndpoint?) -> Bool {
-    let key = Self.bucket(for: endpoint)
-    return queue.sync {
+  /// Returns whether a connection from `bucket` should be accepted now.
+  func shouldAccept(bucket key: String) -> Bool {
+    queue.sync {
       gc(key: key)
-      if let until = blocksByIP[key], until > CACurrentMediaTime() {
+      let now = CACurrentMediaTime()
+      if let until = blocksByIP[key], until > now {
         return false
+      }
+      if key.hasPrefix(Self.bluetoothBucketPrefix) {
+        bluetoothFailures.removeAll { $0 <= now - Self.windowSeconds }
+        return bluetoothFailures.count < Self.failureThreshold
       }
       return true
     }
   }
 
   /// Reserve a pre-auth connection slot; false if the per-IP or global cap is hit.
-  func beginPending(endpoint: NWEndpoint?) -> Bool {
-    let key = Self.bucket(for: endpoint)
-    return queue.sync {
+  func beginPending(bucket key: String) -> Bool {
+    queue.sync {
       guard pendingTotal < Self.maxPendingTotal,
         pendingByIP[key, default: 0] < Self.maxPendingPerIP
       else { return false }
@@ -65,8 +78,7 @@ final class RateLimiter {
   }
 
   /// Release a slot reserved by `beginPending`.
-  func endPending(endpoint: NWEndpoint?) {
-    let key = Self.bucket(for: endpoint)
+  func endPending(bucket key: String) {
     queue.sync {
       if let count = pendingByIP[key] {
         if count <= 1 { pendingByIP.removeValue(forKey: key) } else { pendingByIP[key] = count - 1 }
@@ -75,11 +87,13 @@ final class RateLimiter {
     }
   }
 
-  /// Record an authentication failure for `endpoint`.
-  func recordFailure(endpoint: NWEndpoint?) {
-    let key = Self.bucket(for: endpoint)
+  /// Record an authentication failure for `bucket`.
+  func recordFailure(bucket key: String) {
     queue.sync {
       let now = CACurrentMediaTime()
+      if key.hasPrefix(Self.bluetoothBucketPrefix) {
+        bluetoothFailures.append(now)
+      }
       var list = failuresByIP[key, default: []]
       list.append(now)
       list = list.filter { $0 > now - Self.windowSeconds }
@@ -100,6 +114,7 @@ final class RateLimiter {
     queue.sync {
       failuresByIP.removeAll()
       blocksByIP.removeAll()
+      bluetoothFailures.removeAll()
       UserDefaults.standard.removeObject(forKey: Self.blocksKey)
     }
   }
@@ -151,11 +166,15 @@ final class RateLimiter {
     }
   }
 
+  static func bucket(forBluetoothPeer peer: UUID) -> String {
+    bluetoothBucketPrefix + peer.uuidString
+  }
+
   /// Canonicalizes an endpoint to a single per-IP key. IPv4-mapped IPv6
   /// addresses (`::ffff:1.2.3.4`) collapse to their IPv4 form so an attacker
   /// cannot get two failure budgets by alternating stacks. IPv6 scope
   /// suffixes (`%enX`) are stripped.
-  private static func bucket(for endpoint: NWEndpoint?) -> String {
+  static func bucket(for endpoint: NWEndpoint?) -> String {
     guard let endpoint = endpoint else { return "unknown" }
     guard case .hostPort(let host, _) = endpoint else { return "unknown" }
     switch host {
