@@ -1709,11 +1709,18 @@ extension NetworkDeviceStore {
             provedFingerprint: proved)
           if let registered = self.networkDevices.first(where: { $0.id == identity.name }) {
             completion(.success(registered))
+          } else if let candidateID = self.renameCandidateID(forFingerprint: proved),
+            let index = self.networkDevices.firstIndex(where: { $0.id == candidateID })
+          {
+            // The handshake on this very connection is the proof the Bonjour
+            // path has to fetch with a ping first.
+            self.commitRenameMigration(
+              at: index,
+              to: NetworkDevice(
+                id: identity.name, name: identity.name, host: host, port: Int(identity.port)),
+              fingerprint: proved)
+            completion(.success(self.networkDevices[index]))
           } else if let other = self.networkDevices.first {
-            // `other` may be this same peer under a stale name: the ingest
-            // above already started the rename migration, whose proof ping
-            // outlives this completion. The list self-corrects moments after
-            // this error shows.
             completion(.failure(.anotherMacRegistered(other.name)))
           } else {
             // Register from the exchange itself, not the merged discovered
