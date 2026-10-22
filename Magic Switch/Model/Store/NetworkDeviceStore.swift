@@ -244,9 +244,13 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       // indication the peer is up; a mismatch (isActive == false) keeps it
       // greyed. The `.ping` poll refines this between Bonjour events.
       deviceReachability[device.id] = networkDevices[index].isActive
+      // A proven update carrying this Mac's own current key is the far side
+      // of a mutual re-pair: the resolve that follows clears the park in the
+      // same tick, so there is no warning for the user to see.
       if let prior = priorFingerprint,
         let incoming = device.fingerprint,
-        prior != incoming
+        prior != incoming,
+        !(proven && incoming == PairingStore.shared.fingerprint)
       {
         NotificationManager.showNotification(
           title: String(localized: "Identity Mismatch"),
@@ -281,12 +285,14 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       isActive: true,
       fingerprint: provedFingerprint
     )
+    let wasPending = networkDevices.first { $0.id == name }?.pendingFingerprint != nil
     addDiscoveredNetworkDevice(device)
     updateNetworkDevice(device, proven: true)
     // After the update: if it just parked this record pending exactly the
     // proved key, the proof supersedes the warning in the same tick (the
-    // handshake-time resolve hooks fired before these frames existed).
-    resolvePendingFingerprint(provedByHandshake: provedFingerprint)
+    // handshake-time resolve hooks fired before these frames existed). Only
+    // a park the user could already have seen is worth announcing.
+    resolvePendingFingerprint(provedByHandshake: provedFingerprint, announce: wasPending)
   }
 
   /// A Mac's Bonjour service name follows its computer name, and `id` *is*
@@ -490,7 +496,8 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// handshake is mutual, each side verifies the other's transcript MAC
   /// before reporting success) — so whichever Mac's reachability poll fires
   /// first heals both ends of a symmetric mutual-re-pair park.
-  func resolvePendingFingerprint(provedByHandshake provedFingerprint: String) {
+  func resolvePendingFingerprint(provedByHandshake provedFingerprint: String, announce: Bool = true)
+  {
     guard let currentFingerprint = PairingStore.shared.fingerprint,
       provedFingerprint == currentFingerprint
     else { return }
@@ -512,6 +519,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
       Log.network.notice(
         "Resolved identity mismatch for \"\(networkDevices[index].name)\" (peer proved the current pairing key)"
       )
+      guard announce else { continue }
       NotificationManager.showNotification(
         title: String(localized: "Identity Mismatch Resolved"),
         body:
@@ -926,6 +934,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 /// Address sheet.
 enum ManualAddError: Error {
   case selfDial
+  case sameName(String)
   case legacyPeer
   case anotherMacRegistered(String)
   case listenerNotReady
@@ -935,6 +944,11 @@ enum ManualAddError: Error {
     switch self {
     case .selfDial:
       return String(localized: "That address is this Mac.")
+    case .sameName(let name):
+      return String(
+        localized:
+          "That Mac has the same name as this one (\(name)). Rename one of them in System Settings → General → About, then try again."
+      )
     case .legacyPeer:
       return
         String(
@@ -945,7 +959,7 @@ enum ManualAddError: Error {
       return String(
         localized: "Magic Switch works with one other Mac at a time. Remove \(name) first.")
     case .listenerNotReady:
-      return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
+      return OutgoingFailure.listenerNotReady.userMessage
     case .outgoing(.connectTimeout), .outgoing(.connectionFailed(_)),
       .outgoing(.handshakeFailed(.handshakeTimeout)),
       .outgoing(.handshakeFailed(.connectionClosed)),
@@ -1208,7 +1222,7 @@ extension NetworkDeviceStore {
       let jsonString = String(data: data, encoding: .utf8)
     else {
       Log.network.error("sendPeripheralSync: failed to encode peripherals")
-      completion?(.failure(.connectionFailed("encode failed")))
+      completion?(.failure(.encodingFailed))
       return
     }
 
@@ -1327,7 +1341,7 @@ extension NetworkDeviceStore {
       return
     }
     guard let local = servicePublisher.currentIdentity() else {
-      completion(.failure(.connectionFailed("listener not ready")))
+      completion(.failure(.listenerNotReady))
       return
     }
     let outgoing = OutgoingConnection(
@@ -1408,10 +1422,14 @@ extension NetworkDeviceStore {
         case .success(.peer(let identity, let proved)):
           // The handshake happily completes against our own listener (same
           // key, both roles), and `registerNetworkDevice` has no self-guard.
-          guard !self.isLocalName(identity.name),
-            !Self.localAddresses().contains(Self.normalizeHost(host))
-          else {
+          guard !Self.localAddresses().contains(Self.normalizeHost(host)) else {
             completion(.failure(.selfDial))
+            return
+          }
+          // Records are keyed by name, so a peer with this Mac's own name
+          // would fight it over one entry (see `ingestIntroducedPeer`).
+          guard !self.isLocalName(identity.name) else {
+            completion(.failure(.sameName(identity.name)))
             return
           }
           self.ingestIntroducedPeer(

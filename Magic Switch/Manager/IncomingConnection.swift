@@ -290,7 +290,7 @@ final class IncomingConnection {
         let releases = DispatchGroup()
         peripherals.forEach { peripheral in
           releases.enter()
-          store.unregisterFromPC(peripheral) { releases.leave() }
+          store.unregisterFromPC(peripheral) { _ in releases.leave() }
         }
         releases.notify(queue: .main) {
           self.replyOnceDisconnected(peripherals.map(\.id))
@@ -338,8 +338,9 @@ final class IncomingConnection {
       }
       do {
         let peripherals = try JSONDecoder().decode([BluetoothPeripheral].self, from: data)
-        bluetoothStore.updatePeripherals(peripherals)
-        sendString(DeviceCommand.operationSuccess.rawValue)
+        let accepted = bluetoothStore.updatePeripherals(peripherals)
+        sendString(
+          (accepted ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed).rawValue)
       } catch {
         Log.network.error("syncPeripherals decode failed: \(error)")
         sendString(DeviceCommand.operationFailed.rawValue)
@@ -364,7 +365,7 @@ final class IncomingConnection {
           self.replyOnceDisconnected([address])
           return
         }
-        store.unregisterFromPC(peripheral) {
+        store.unregisterFromPC(peripheral) { _ in
           self.replyOnceDisconnected([address])
         }
       }

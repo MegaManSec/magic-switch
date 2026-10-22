@@ -17,6 +17,11 @@ enum OutgoingFailure: Error {
   /// current command.
   case invalidResponse
   case bodyFailed
+  /// This Mac's own listener isn't up yet, so it can't state a dial-back
+  /// endpoint; nothing was sent.
+  case listenerNotReady
+  /// The request couldn't be encoded on this Mac; nothing was sent.
+  case encodingFailed
   /// Self-throttled because of recent repeated failures to this host.
   /// Prevents a runaway retry loop from racking up failures the peer's
   /// inbound `RateLimiter` would eventually translate into a 15-minute
@@ -53,6 +58,10 @@ enum OutgoingFailure: Error {
       return String(localized: "The other Mac returned an invalid response.")
     case .bodyFailed:
       return String(localized: "The other Mac stopped responding before it finished.")
+    case .listenerNotReady:
+      return String(localized: "This Mac isn't accepting connections yet. Try again in a moment.")
+    case .encodingFailed:
+      return String(localized: "Couldn't prepare the request on this Mac.")
     case .tooManyRecentFailures:
       return String(
         localized: "Too many failed attempts to reach the other Mac. Try again in a minute.")

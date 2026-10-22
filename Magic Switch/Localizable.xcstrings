@@ -185,6 +185,9 @@
     "Add a paired Bluetooth peripheral from \"Available Peripherals\" below to manage it from the menu bar." : {
 
     },
+    "Add a peripheral to Magic Switch first." : {
+
+    },
     "Add this peripheral to Magic Switch's list." : {
 
     },
@@ -349,6 +352,9 @@
 
     },
     "Couldn't pair %@. Turn it off and on, then try again." : {
+
+    },
+    "Couldn't prepare the request on this Mac." : {
 
     },
     "Couldn't reach the other Mac on the network." : {
@@ -962,6 +968,9 @@
 
     },
     "Test message received. Both Macs can reach each other." : {
+
+    },
+    "That Mac has the same name as this one (%@). Rename one of them in System Settings → General → About, then try again." : {
 
     },
     "That address is this Mac." : {

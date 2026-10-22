@@ -711,18 +711,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// - Parameter completion: Fires on main after the release has been issued
   ///   and its state change applied (a `.releasing` row is left as-is — the
   ///   handoff that painted it owns the row), for callers that sequence on it.
-  func unregisterFromPC(_ peripheral: BluetoothPeripheral, completion: (() -> Void)? = nil) {
+  ///   `false` means nothing was released; the failure has already been
+  ///   reported inline, so the caller only has to stop.
+  func unregisterFromPC(_ peripheral: BluetoothPeripheral, completion: ((Bool) -> Void)? = nil) {
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
-      self.performUnregisterFromPC(peripheral)
-      if let completion { DispatchQueue.main.async(execute: completion) }
+      let released = self.performUnregisterFromPC(peripheral)
+      if let completion { DispatchQueue.main.async { completion(released) } }
     }
   }
 
   /// The IOBluetooth side of `unregisterFromPC`; runs on `bluetoothQueue`.
-  private func performUnregisterFromPC(_ peripheral: BluetoothPeripheral) {
-    guard validateBluetoothState() else { return }
-    guard let btDevice = getBluetoothDevice(for: peripheral) else { return }
+  @discardableResult
+  private func performUnregisterFromPC(_ peripheral: BluetoothPeripheral) -> Bool {
+    guard validateBluetoothState() else {
+      setPeripheralError(String(localized: "Bluetooth is off."), for: peripheral.id)
+      return false
+    }
+    guard let btDevice = getBluetoothDevice(for: peripheral) else {
+      setPeripheralError(String(localized: "Not found."), for: peripheral.id)
+      return false
+    }
 
     // Deliberate release: stop any auto-reconnect attempt for it.
     disarmReconnect(peripheral.id)
@@ -730,7 +739,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
-      return
+      return true
     }
 
     if btDevice.responds(to: Selector(("remove"))) {
@@ -740,7 +749,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       btDevice.perform(Selector(("remove")))
       Log.bluetooth.notice("Device information removed: \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
-      return
+      return true
     }
 
     // Fallback path: a future macOS that renames or removes the private
@@ -752,6 +761,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if result == kIOReturnSuccess {
       Log.bluetooth.notice("Fell back to closeConnection() for \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
+      return true
     } else {
       // The release didn't happen, so no disconnect notification will arrive
       // to consume the flag — clear it so it can't suppress a later genuine
@@ -770,6 +780,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           ),
         identifier: "unregister-failed-\(peripheral.id)"
       )
+      return false
     }
   }
 
@@ -1025,8 +1036,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private func performSendHandoff(_ peripheral: BluetoothPeripheral, to device: NetworkDevice) {
     // Peripheral is leaving this Mac for the peer — flash the sending arrow.
     NotificationCenter.default.post(name: .magicSwitchPeripheralOutgoing, object: nil)
-    unregisterFromPC(peripheral) { [weak self] in
-      self?.continueSendHandoff(peripheral, to: device)
+    unregisterFromPC(peripheral) { [weak self] released in
+      guard let self else { return }
+      // Nothing left this Mac, so there is nothing for the peer to take; the
+      // release path has already said why.
+      guard released else {
+        self.setConnectionState(.connected, for: peripheral.id)
+        return
+      }
+      self.continueSendHandoff(peripheral, to: device)
     }
   }
 
@@ -1625,21 +1643,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Updates the peripheral list with new data from sync
   /// - Parameter newPeripherals: Array of peripherals to update with
-  func updatePeripherals(_ newPeripherals: [BluetoothPeripheral]) {
+  /// Returns `false` when the list was rejected, so the sender can be told.
+  @discardableResult
+  func updatePeripherals(_ newPeripherals: [BluetoothPeripheral]) -> Bool {
     // Cap inbound list size; reject larger payloads outright.
     guard newPeripherals.count <= 64 else {
       Log.bluetooth.error("Rejecting peripheral sync: list exceeds cap of 64")
-      return
+      return false
     }
 
     if !Thread.isMainThread {
       DispatchQueue.main.async { [weak self] in
         self?.updatePeripherals(newPeripherals)
       }
-      return
+      return true
     }
 
     peripherals = newPeripherals
+    return true
   }
 
   // MARK: - Pair Delegate & Connection Tracking
