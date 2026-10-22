@@ -332,15 +332,8 @@ private struct PeripheralRowView: View {
     .help("Set the icon for \(peripheral.name). Choose Automatic to detect it from the device.")
   }
 
-  /// Shared fixed-width label so the pill is the same size across its
-  /// clickable states ("Send" 31pt, "Take" 28pt, "Cancel" 42pt at the 13pt
-  /// control font) instead of hugging each title, so rows align and a flip
-  /// between them doesn't nudge. Only the disabled "Sending…" (60pt) grows
-  /// past the floor; sizing the floor to it would leave the resting titles
-  /// swimming in dead space, and the brief growth during a send reads as
-  /// activity rather than jitter.
   private func actionLabel(_ title: String) -> some View {
-    Text(title).frame(minWidth: 54)
+    Text(title)
   }
 
   @ViewBuilder
