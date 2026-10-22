@@ -976,12 +976,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     // A transfer arrow outranks the bell: mid-transfer the user is watching
     // the icon for exactly that state, and the 3s flash would blank it out.
     guard transferState == .idle else { return }
-    let flash = NSImage(
-      systemSymbolName: "bell.badge.fill",
-      accessibilityDescription: String(localized: "Received a ping from the other Mac")
-    )
+    let description = String(localized: "Received a ping from the other Mac")
+    let flash = NSImage(systemSymbolName: "bell.badge.fill", accessibilityDescription: description)
     flash?.isTemplate = true
     button.image = flash
+    button.toolTip = description
+    button.setAccessibilityLabel(description)
     pingFlashTimer?.cancel()
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
     timer.schedule(deadline: .now() + 3.0)
