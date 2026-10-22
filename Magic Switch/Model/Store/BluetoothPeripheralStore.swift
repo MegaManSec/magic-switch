@@ -688,7 +688,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Adds a peripheral to the managed list in connected state
   /// - Parameter peripheral: The peripheral to add
   func addPeripheral(_ peripheral: BluetoothPeripheral) {
-    guard validateBluetoothState() else { return }
+    guard validateBluetoothState() else {
+      setPeripheralError(String(localized: "Bluetooth is off."), for: peripheral.id)
+      return
+    }
     guard validateDeviceExists(peripheral) else { return }
 
     let newPeripheral = peripheral
