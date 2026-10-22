@@ -111,17 +111,6 @@ struct OtherSettingsView: View {
           help: String(localized: "Open the project license in your browser."),
           action: showLicenseInfo
         )
-        if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
-          SettingsRowView(
-            title: String(localized: "Update Available — v\(latest)"),
-            help:
-              String(
-                localized:
-                  "A newer version of Magic Switch is available. Opens the release page in your browser."
-              ),
-            action: openLatestRelease
-          )
-        }
         #if !APP_STORE
           SettingsRowView(
             title: String(localized: "Sponsor on GitHub"),
@@ -139,6 +128,24 @@ struct OtherSettingsView: View {
           #endif
           Text(updateChecker.currentVersion)
             .foregroundColor(.secondary)
+          if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
+            Button(action: openLatestRelease) {
+              HStack(spacing: 5) {
+                Image(systemName: "arrow.up")
+                  .font(.system(size: 11, weight: .semibold))
+                Text(latest)
+              }
+              .padding(.horizontal, 11)
+              .padding(.vertical, 5)
+              .background(Capsule().fill(Color.secondary.opacity(0.22)))
+              .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help(
+              "A newer version of Magic Switch is available. Opens the release page in your browser."
+            )
+            .accessibilityLabel(String(localized: "Update to version \(latest) available"))
+          }
           #if !APP_STORE
             Button {
               updateChecker.checkNow()
