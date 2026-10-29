@@ -316,10 +316,14 @@ final class DropdownContentView: NSView {
         symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
     }
 
+    let busyHelp =
+      bluetoothStore.isFullSetSwitchPending
+      ? String(localized: "Wait for the current switch to finish, then try again.")
+      : String(localized: "Wait for the peripheral that's switching to finish, then try again.")
     row.toolTip =
       reachable
       ? (busy
-        ? String(localized: "Wait for the peripheral that's switching to finish, then try again.")
+        ? busyHelp
         : overBluetooth
           ? String(
             localized: "Switch peripherals between this Mac and \(device.name) over Bluetooth.")

@@ -3378,6 +3378,16 @@
         }
       }
     },
+    "Wait for the current switch to finish, then try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera a que termine el cambio en curso y prueba de nuevo."
+          }
+        }
+      }
+    },
     "Wait for the pairing key to finish saving." : {
       "localizations" : {
         "es" : {

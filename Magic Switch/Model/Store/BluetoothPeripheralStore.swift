@@ -914,8 +914,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Whether `cancelConnect` would act on `id`: pairing, with no take release
   /// round trip still on the wire (see `takeReleasesInFlight`). Main-only.
   func canCancelConnect(_ id: String) -> Bool {
-    !isFullSetSwitchPending
-      && connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
+    connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
   }
 
   /// Asks the peer to release just this peripheral, then pairs it
