@@ -28,6 +28,12 @@ final class MenuRowControl: NSControl {
     didSet { setAccessibilityEnabled(isEnabled) }
   }
 
+  override func accessibilityPerformPress() -> Bool {
+    guard isEnabled else { return false }
+    onClick()
+    return true
+  }
+
   @available(*, unavailable)
   required init?(coder: NSCoder) { fatalError() }
 
