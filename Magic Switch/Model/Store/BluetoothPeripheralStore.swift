@@ -315,6 +315,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// release, and the first to finish must not clear the guard for the rest.
   @Published private(set) var takeReleasesInFlight: [String: Int] = [:]
 
+  /// Reserves the set while a full-set switch awaits preflight or peer release,
+  /// before individual peripherals enter a transition. Main-only.
+  @Published var isFullSetSwitchPending = false
+
   // MARK: - Computed Properties
 
   var availablePeripherals: [BluetoothPeripheral] {
@@ -327,15 +331,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     connectionStates[peripheralID] ?? .disconnected
   }
 
-  /// True while any registered peripheral is mid-transition (`.connecting` or
-  /// `.releasing`). The full-set switch is blocked while this holds so it can't
+  /// True while a full-set request is pending or any registered peripheral is
+  /// mid-transition (`.connecting` or `.releasing`). Switching is blocked so it can't
   /// issue a re-entrant connect/release on a peripheral that's already pairing
   /// or being handed off. Reads `connectionStates`; main-thread only.
   var isAnyPeripheralTransitioning: Bool {
-    peripherals.contains { peripheral in
-      let state = connectionState(for: peripheral.id)
-      return state == .connecting || state == .releasing
-    }
+    isFullSetSwitchPending
+      || peripherals.contains { peripheral in
+        let state = connectionState(for: peripheral.id)
+        return state == .connecting || state == .releasing
+      }
   }
 
   enum PeripheralPresence {
@@ -601,6 +606,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// using is left alone — and silent throughout: a miss just times out into
   /// `.disconnected` and leaves the watcher probing.
   private func directReclaimAfterWake(_ released: Set<String>) {
+    guard !isFullSetSwitchPending else { return }
     for id in released {
       guard let peripheral = peripherals.first(where: { $0.id == id }),
         connectionState(for: id) == .disconnected
@@ -626,6 +632,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // `.success` = peer holds it (in use over there) → leave it.
           // Any `.failure` (peer says no, or unreachable) → take it back.
           guard case .failure = result,
+            !self.isFullSetSwitchPending,
             self.connectionState(for: id) == .disconnected
           else { return }
           self.connectPeripheral(
@@ -802,6 +809,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Falls back to a plain local pair when there's no switchable peer to take
   /// from.
   func switchPeripheral(_ peripheral: BluetoothPeripheral, direction: SwitchDirection) {
+    guard !isFullSetSwitchPending else { return }
     let networkStore = NetworkDeviceStore.shared
     let blocker = networkStore.switchBlocker()
     let canSwitch = blocker == nil
@@ -873,7 +881,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Whether `cancelConnect` would act on `id`: pairing, with no take release
   /// round trip still on the wire (see `takeReleasesInFlight`). Main-only.
   func canCancelConnect(_ id: String) -> Bool {
-    connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
+    !isFullSetSwitchPending
+      && connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
   }
 
   /// Asks the peer to release just this peripheral, then pairs it
@@ -891,6 +900,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// keeps trying, gated by `HOLDS_ONE` so it never grabs a device the peer is
   /// actually holding.
   func takePeripheralFromPeer(_ peripheral: BluetoothPeripheral) {
+    guard !isFullSetSwitchPending else { return }
     let networkStore = NetworkDeviceStore.shared
     guard let device = networkStore.networkDevices.first,
       PairingStore.shared.isPaired,
@@ -979,6 +989,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// it's rolled back onto this Mac rather than left stranded — via the
   /// `HOLDS_ONE`-gated watcher.
   func sendPeripheralToPeer(_ peripheral: BluetoothPeripheral) {
+    guard !isFullSetSwitchPending else { return }
     let networkStore = NetworkDeviceStore.shared
     guard let device = networkStore.networkDevices.first, PairingStore.shared.isPaired else {
       // No peer to hand off to — releasing locally is the only thing we can do.
@@ -2201,6 +2212,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// peer-gated reclaim. Iterates a snapshot because
   /// `disarmReconnect` mutates `reconnectWatchlist`.
   private func reconnectTick() {
+    guard !isFullSetSwitchPending else { return }
     guard autoReconnect else {
       // Toggled off mid-flight — stand down.
       reconnectWatchlist.removeAll()
@@ -2265,6 +2277,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard let self = self else { return }
         // Bail if it left the watchlist or changed state while we probed.
         guard self.reconnectWatchlist[id] != nil,
+          !self.isFullSetSwitchPending,
           self.connectionState(for: id) == .disconnected
         else {
           self.reconnectInFlight.remove(id)
@@ -2337,6 +2350,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.disarmReconnect(id)
         case .failure(let failure):
           guard self.reconnectWatchlist[id] != nil,
+            !self.isFullSetSwitchPending,
             self.connectionState(for: id) == .disconnected
           else { return }
           if self.adoptionProgress[id] != nil {

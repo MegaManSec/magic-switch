@@ -360,7 +360,7 @@ final class DropdownContentView: NSView {
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
-    row.isEnabled = enabled
+    row.isEnabled = enabled && !bluetoothStore.isFullSetSwitchPending
     // Dim only the "nowhere to send it" case; a pairing row keeps its normal
     // colour alongside the "Pairing…" label.
     let dimmed = state == .connected && !canSwitch

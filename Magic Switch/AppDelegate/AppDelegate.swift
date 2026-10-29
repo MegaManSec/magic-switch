@@ -680,6 +680,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     // that's already transitioning. The dropdown disables the Mac row for this
     // too; this guard closes the brief click-race before the row re-renders.
     guard !bluetoothStore.isAnyPeripheralTransitioning else { return }
+    bluetoothStore.isFullSetSwitchPending = true
     device.checkHealth { [weak self] result in
       // `checkHealth` can complete off-main. Hop to main before any UI or
       // store mutations, and before calling `checkActualConnectionStatusAsync`
@@ -689,15 +690,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         switch result {
         case .success:
           self.bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
-            self?.handleSwitchAction(status: status, device: device, direction: direction)
+            guard let self = self else { return }
+            self.bluetoothStore.isFullSetSwitchPending = false
+            guard !self.bluetoothStore.isAnyPeripheralTransitioning else { return }
+            self.handleSwitchAction(status: status, device: device, direction: direction)
           }
         case .failure(let error):
+          self.bluetoothStore.isFullSetSwitchPending = false
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
             body: error,
             identifier: "switch-preflight-failed"
           )
         case .timeout:
+          self.bluetoothStore.isFullSetSwitchPending = false
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Reach Your Other Mac"),
             body: String(
@@ -745,12 +751,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// some peripherals are already on this Mac: the peer only releases what it
   /// holds, and `connectPeripheralFromPeer` adopts an already-live connection.
   private func takeAllPeripherals(from device: NetworkDevice) {
+    guard !bluetoothStore.isAnyPeripheralTransitioning else { return }
+    bluetoothStore.isFullSetSwitchPending = true
     beginTransfer(.receiving)
     networkStore.executeCommand(.unregisterAll, on: device) { [weak self] result in
       // `executeCommand`'s completion fires on the outgoing-connection queue;
       // hop to main before touching the status-bar icon or the stores.
       DispatchQueue.main.async {
         guard let self = self else { return }
+        self.bluetoothStore.isFullSetSwitchPending = false
         switch result {
         case .success, .failure(.connectionFailed), .failure(.connectTimeout):
           // The transfer is nowhere near done: the peer has only *released*
@@ -771,6 +780,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           // `takePeripheralFromPeer`'s success + unreachable arms, at full-set
           // scope.
           self.bluetoothStore.peripherals.forEach { peripheral in
+            let state = self.bluetoothStore.connectionState(for: peripheral.id)
+            guard state != .connecting, state != .releasing else { return }
             self.bluetoothStore.connectPeripheralFromPeer(peripheral)
             self.bluetoothStore.armReconnectForTakeover(peripheral.id)
           }
@@ -848,8 +859,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       // just means CoreBluetooth hasn't reported yet, e.g. right at launch).
       BluetoothManager.shared.state == .poweredOn || BluetoothManager.shared.state == .unknown
     else { return }
+    bluetoothStore.isFullSetSwitchPending = true
     bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
-      guard let self = self, status != .allConnected else { return }
+      guard let self = self else { return }
+      self.bluetoothStore.isFullSetSwitchPending = false
+      guard status != .allConnected,
+        !self.bluetoothStore.isAnyPeripheralTransitioning
+      else { return }
       onTake()
       // Same trusted-peer rule as the sleep handoff: registered and not
       // parked behind an identity mismatch. Reachability isn't pre-checked:
