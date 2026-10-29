@@ -1298,7 +1298,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
         guard refreshStaleBondOnFailedOpen,
           btDevice.responds(to: Selector(("remove"))),
-          btDevice.remoteNameRequest(nil) == kIOReturnSuccess
+          self.answersPage(btDevice)
         else {
           // Bonded but didn't come up (still booting / out of range / link
           // failure). macOS or the watcher's next probe may still bring it
