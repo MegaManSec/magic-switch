@@ -902,9 +902,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// only honor one host at a time, so `IOBluetoothDevicePair.start()`
   /// would hang otherwise.
   ///
-  /// Falls back to a plain local pair if there's no trusted paired peer or
-  /// the release request can't reach it. Bonjour inactivity alone doesn't
-  /// imply unreachability: the authenticated command can also travel over BLE.
+  /// Falls back to a plain local pair if there's no trusted paired peer, if
+  /// neither Bonjour nor the last reachability probe (which also tries BLE)
+  /// sees it, or if the release request can't reach it. Bonjour inactivity
+  /// alone doesn't imply unreachability: the authenticated command can also
+  /// travel over BLE.
   ///
   /// If the take fails — or the peer releases but the local connect doesn't
   /// take (a stuck device needing a power-cycle) — the auto-reconnect watcher
@@ -915,7 +917,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let networkStore = NetworkDeviceStore.shared
     guard let device = networkStore.networkDevices.first,
       PairingStore.shared.isPaired,
-      device.pendingFingerprint == nil
+      device.pendingFingerprint == nil,
+      device.isActive || networkStore.isReachable(device.id)
     else {
       connectPeripheral(peripheral)
       return
