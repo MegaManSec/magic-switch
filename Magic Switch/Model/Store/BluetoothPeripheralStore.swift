@@ -328,7 +328,22 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Reserves the set while a full-set switch awaits preflight or peer release,
   /// before individual peripherals enter a transition. Main-only.
-  @Published var isFullSetSwitchPending = false
+  @Published var isFullSetSwitchPending = false {
+    didSet {
+      guard !isFullSetSwitchPending, !deferredWakeReclaim.isEmpty else { return }
+      // Async, so the switch that just cleared the flag acts first.
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
+        let released = self.deferredWakeReclaim
+        self.deferredWakeReclaim = []
+        self.directReclaimAfterWake(released)
+      }
+    }
+  }
+
+  /// Sleep-released ids whose `directReclaimAfterWake` landed while a
+  /// full-set switch was pending; rerun once the flag clears. Main-only.
+  private var deferredWakeReclaim: Set<String> = []
 
   // MARK: - Computed Properties
 
@@ -615,9 +630,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// allowing a keypress after opening the lid to wake it. Same
   /// `HOLDS_ONE` guard as every reclaim — a peripheral the peer is actively
   /// using is left alone — and silent throughout: a miss just times out into
-  /// `.disconnected` and leaves the watcher probing.
+  /// `.disconnected` and leaves the watcher probing. A pending full-set switch
+  /// defers it until the flag clears (`deferredWakeReclaim`).
   private func directReclaimAfterWake(_ released: Set<String>) {
-    guard !isFullSetSwitchPending else { return }
+    guard !isFullSetSwitchPending else {
+      deferredWakeReclaim.formUnion(released)
+      return
+    }
     for id in released {
       guard let peripheral = peripherals.first(where: { $0.id == id }),
         connectionState(for: id) == .disconnected
@@ -643,9 +662,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // `.success` = peer holds it (in use over there) → leave it.
           // Any `.failure` (peer says no, or unreachable) → take it back.
           guard case .failure = result,
-            !self.isFullSetSwitchPending,
             self.connectionState(for: id) == .disconnected
           else { return }
+          guard !self.isFullSetSwitchPending else {
+            self.deferredWakeReclaim.insert(id)
+            return
+          }
           self.connectPeripheral(
             peripheral,
             announcePairTimeout: false,
