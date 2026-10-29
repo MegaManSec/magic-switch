@@ -255,6 +255,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// the first is still resolving. Main-only.
   private var reconnectInFlight: Set<String> = []
 
+  /// Set while a `probeAndReclaim` pass is still paging; a tick doesn't start
+  /// another until it ends. Main-only.
+  private var isProbingPresence = false
+
   /// Ids the user asked to take (menu, Settings, hotkey, URL) that the
   /// watcher is still chasing; giving up on one of these is reported, giving
   /// up on a routine drop or adoption is not. Main-only.
@@ -2228,6 +2232,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     let now = Date()
+    var absent: [BluetoothPeripheral] = []
     for (id, armedAt) in reconnectWatchlist {
       if reconnectInFlight.contains(id) { continue }
       guard let peripheral = peripherals.first(where: { $0.id == id }) else {
@@ -2255,21 +2260,34 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       case .connecting, .releasing:
         continue  // an attempt / handoff is already in flight
       case .disconnected:
-        probeAndReclaim(peripheral)
+        absent.append(peripheral)
       }
     }
+    guard !absent.isEmpty, !isProbingPresence else { return }
+    isProbingPresence = true
+    reconnectInFlight.formUnion(absent.map(\.id))
+    probeAndReclaim(absent[...])
   }
 
-  /// Checks live IOBluetooth state for `peripheral` off the main queue. If it's
-  /// already connected, adopts it; if it answers a page, hands off to
-  /// `reclaimIfPeerIsFree`, which consults the peer (`HOLDS_ONE`) before
-  /// reclaiming — a local pairing record outlives the handoff that gave the
-  /// device away, so being paired here does not mean the peer isn't actively
-  /// using it. Marks the id in-flight so overlapping ticks skip it until this
-  /// resolves.
-  private func probeAndReclaim(_ peripheral: BluetoothPeripheral) {
+  /// Checks live IOBluetooth state for each of `peripherals` off the main
+  /// queue, one at a time. One that's already connected is adopted; one that
+  /// answers a page goes to `reclaimIfPeerIsFree`, which consults the peer
+  /// (`HOLDS_ONE`) before reclaiming — a local pairing record outlives the
+  /// handoff that gave the device away, so being paired here does not mean
+  /// the peer isn't actively using it. The caller marks the ids in-flight so
+  /// overlapping ticks skip them until each resolves.
+  ///
+  /// The next page is queued only once the previous one has returned, behind
+  /// whatever reached `bluetoothQueue` meanwhile, so a `HOLDS_ONE` reply (the
+  /// peer reads one that misses its 5s timeout as "not holding") or a
+  /// switch's status check waits out at most one `presencePageTimeout`,
+  /// however many peripherals are watched.
+  private func probeAndReclaim(_ peripherals: ArraySlice<BluetoothPeripheral>) {
+    guard let peripheral = peripherals.first else {
+      isProbingPresence = false
+      return
+    }
     let id = peripheral.id
-    reconnectInFlight.insert(id)
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
       var alreadyConnected = false
@@ -2282,6 +2300,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
       DispatchQueue.main.async { [weak self] in
         guard let self = self else { return }
+        defer { self.probeAndReclaim(peripherals.dropFirst()) }
         // Bail if it left the watchlist or changed state while we probed.
         guard self.reconnectWatchlist[id] != nil,
           !self.isFullSetSwitchPending,
