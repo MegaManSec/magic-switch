@@ -9,7 +9,7 @@ fi
 
 dir=$(mktemp -d) || exit 1
 trap 'rm -rf "$dir"' EXIT
-git checkout-index --prefix="$dir/" -- .swift-format 2>/dev/null
+GIT_LITERAL_PATHSPECS=0 git ls-files -z -- .swift-format "*/.swift-format" | git checkout-index --prefix="$dir/" -z --stdin
 
 while IFS= read -r -d '' file; do
   [[ "$file" == *.swift ]] || continue
