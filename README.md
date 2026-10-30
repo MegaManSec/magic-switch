@@ -162,7 +162,7 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 ## Developer notes
 
-Requirements: Xcode 16.1+ (Swift 5 language mode).
+Requirements: Xcode 26.5, the version CI and release builds use (Swift 5 language mode).
 
 Build:
 ```bash
