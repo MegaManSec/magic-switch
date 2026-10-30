@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   format:
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: read
       pull-requests: write
@@ -21,12 +21,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install swift-format
-        run: brew install swift-format
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: "26.5"
 
       - name: Format Check
         id: format
         run: |
+          swift format --version
           swift format format -r ./Magic\ Switch/ -i
           git diff > format.diff
           if [ -s format.diff ]; then
