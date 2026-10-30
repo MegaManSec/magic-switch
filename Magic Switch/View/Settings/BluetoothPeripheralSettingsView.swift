@@ -236,6 +236,7 @@ private struct PeripheralRowView: View {
       }
       if showConnectionStatus {
         connectionButton
+          .disabled(store.isFullSetSwitchPending)
         Button(action: { secondaryAction?() }) {
           Image(systemName: "minus.circle")
             .foregroundColor(.red)

@@ -1,13 +1,31 @@
 #!/bin/bash
+# Format the staged copy of each Swift file, so unstaged edits never enter the commit.
+export GIT_LITERAL_PATHSPECS=1
 
-# Get staged Swift files (null-delimited)
-git diff --cached --name-only --diff-filter=ACM -z | grep -z '\.swift$' | while IFS= read -r -d '' file; do
-  # Check if file exists
-  if [ -f "$file" ]; then
-    # Format the file
-    swift format -i "$file"
+if ! swift format --version >/dev/null 2>&1; then
+  echo "pre-commit: swift format unavailable; committing unformatted" >&2
+  exit 0
+fi
 
-    # Stage the formatted file
-    git add -- "$file"
+dir=$(mktemp -d) || exit 1
+trap 'rm -rf "$dir"' EXIT
+GIT_LITERAL_PATHSPECS=0 git ls-files -z -- .swift-format "*/.swift-format" | git checkout-index --prefix="$dir/" -z --stdin
+
+while IFS= read -r -d '' file; do
+  [[ "$file" == *.swift ]] || continue
+  read -r mode blob _ < <(git ls-files -s -- "$file")
+  [[ "$mode" == 100* ]] || continue
+  git checkout-index --prefix="$dir/" -- "$file" || exit 1
+  if ! swift format -i -- "$dir/$file"; then
+    echo "pre-commit: couldn't format $file; committing it as staged" >&2
+    continue
   fi
-done
+  formatted=$(git hash-object -w --path="$file" -- "$dir/$file") || exit 1
+  [ "$formatted" = "$blob" ] && continue
+  if git diff --quiet -- "$file"; then
+    cp -- "$dir/$file" "$file" || exit 1
+  else
+    echo "pre-commit: formatted the staged copy of $file; its unstaged edits are untouched" >&2
+  fi
+  git update-index --cacheinfo "$mode,$formatted,$file" || exit 1
+done < <(git diff --cached --name-only --diff-filter=ACM -z)

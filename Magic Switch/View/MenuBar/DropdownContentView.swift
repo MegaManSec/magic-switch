@@ -28,6 +28,12 @@ final class MenuRowControl: NSControl {
     didSet { setAccessibilityEnabled(isEnabled) }
   }
 
+  override func accessibilityPerformPress() -> Bool {
+    guard isEnabled else { return false }
+    onClick()
+    return true
+  }
+
   @available(*, unavailable)
   required init?(coder: NSCoder) { fatalError() }
 
@@ -310,10 +316,14 @@ final class DropdownContentView: NSView {
         symbolView("antenna.radiowaves.left.and.right", color: .secondaryLabelColor))
     }
 
+    let busyHelp =
+      bluetoothStore.isFullSetSwitchPending
+      ? String(localized: "Wait for the current switch to finish, then try again.")
+      : String(localized: "Wait for the peripheral that's switching to finish, then try again.")
     row.toolTip =
       reachable
       ? (busy
-        ? String(localized: "Wait for the peripheral that's switching to finish, then try again.")
+        ? busyHelp
         : overBluetooth
           ? String(
             localized: "Switch peripherals between this Mac and \(device.name) over Bluetooth.")
@@ -354,7 +364,7 @@ final class DropdownContentView: NSView {
     case .connected: enabled = canSwitch
     case .disconnected: enabled = true
     }
-    row.isEnabled = enabled
+    row.isEnabled = enabled && !bluetoothStore.isFullSetSwitchPending
     // Dim only the "nowhere to send it" case; a pairing row keeps its normal
     // colour alongside the "Pairing…" label.
     let dimmed = state == .connected && !canSwitch

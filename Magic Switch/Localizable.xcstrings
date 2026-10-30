@@ -243,16 +243,6 @@
         }
       }
     },
-    "%@ isn't responding. It may be off, out of range, or connected to your other Mac." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ no responde. Puede estar apagado, fuera de alcance o conectado a tu otro Mac."
-          }
-        }
-      }
-    },
     "%@ or %@" : {
       "comment" : "Two IP addresses the other Mac can try, each with its network name in parentheses",
       "localizations" : {
@@ -1884,16 +1874,6 @@
         }
       }
     },
-    "Not responding." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No responde."
-          }
-        }
-      }
-    },
     "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications." : {
       "localizations" : {
         "es" : {
@@ -3374,6 +3354,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Versión"
+          }
+        }
+      }
+    },
+    "Wait for the current switch to finish, then try again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera a que termine el cambio en curso y prueba de nuevo."
           }
         }
       }
