@@ -30,7 +30,7 @@ Or manually:
 
 Then:
 
-3. Approve **Bluetooth** and **Local Network** access when macOS prompts. Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
+3. Approve **Bluetooth** and **Local Network** access when macOS prompts (only macOS 15 and later ask for Local Network; earlier versions allow it without a prompt). Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
 4. Allow **Notifications** when asked. Not strictly required, but it's how Magic Switch reports what happened when no window is open — a switch triggered by hotkey, URL scheme, or dock-on-display that fails does so *silently* without it (see [Troubleshooting](#troubleshooting)). Denied it once? Re-enable under System Settings → Notifications → Magic Switch.
 
 ## Setup
@@ -41,7 +41,7 @@ Magic Switch has four Settings tabs, and two of them use the word "pair" in diff
 
 In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Magic Switch doesn't create those first pairings for you. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it. (Once the first pairings are done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
 
-Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and click the menu-bar icon → **Settings**.
+Then launch Magic Switch, grant **Bluetooth** and (on macOS 15 and later) **Local Network** when prompted, and click the menu-bar icon → **Settings**.
 
 ### 2. Pairing tab — link the two Macs (required)
 
@@ -150,7 +150,7 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
 - Same network; TCP port 41952 (or the port the **+** sheet shows, if 41952 was taken) not blocked by firewall.
-- Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
+- Bluetooth and (on macOS 15 and later) Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
 - **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
 - **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Peripherals, Macs and Pairing tabs also show their errors inline, so actions taken *there* still report failures either way.)
