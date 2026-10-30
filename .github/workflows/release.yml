@@ -83,6 +83,7 @@ jobs:
     # release, overwriting tag history.
     if: needs.version.outputs.new-release-version != ''
     runs-on: macos-latest
+    environment: release
     permissions:
       contents: read
       id-token: write # OIDC token for Sigstore signing
@@ -221,6 +222,7 @@ jobs:
       - release
     if: needs.version.outputs.new-release-version != ''
     runs-on: macos-latest
+    environment: release
     permissions:
       contents: read
     steps:
