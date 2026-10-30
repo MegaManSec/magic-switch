@@ -216,7 +216,9 @@ jobs:
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
   app-store:
-    needs: version
+    needs:
+      - version
+      - release
     if: needs.version.outputs.new-release-version != ''
     runs-on: macos-latest
     permissions:
