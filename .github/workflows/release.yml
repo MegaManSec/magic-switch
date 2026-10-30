@@ -57,6 +57,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::main is at $MAIN_SHA, not $GITHUB_SHA; skipping build & release. The run for the newer commit releases it."
+            exit 0
+          fi
           OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci | tee /dev/stderr)"
           # Extract just the version triple to avoid picking up trailing
           # punctuation if the log format ever changes slightly.
