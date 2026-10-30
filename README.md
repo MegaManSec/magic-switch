@@ -138,7 +138,7 @@ open -g "magicswitch://switch?peripheral=trackpad&peripheral=mouse" # repeat per
 (`-g` keeps your current app focused.) Parameters:
 
 - `peripheral` *(repeatable)* — which peripherals to move; omit it for the whole registered set. Each value is matched as a MAC address (`aa-bb-cc-dd-ee-ff`), else as a type keyword (`keyboard`, `mouse`, `trackpad`, `headphones`, `airpods`, `microphone`), else as a device name (case-insensitive).
-- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: exactly like a menu click, move each to whichever Mac doesn't have it; without `peripheral`, a set split between the two Macs stays put and you get a notification instead). `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
+- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: exactly like a menu click, move each to whichever Mac doesn't have it). Without `peripheral`, `send` and `toggle` leave a set split between the two Macs where it is and show a notification instead; `take` still brings it all here. `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
 
 Run the command on the Mac that should act. `direction=take` works even while the other Mac is asleep or off the network — an unreachable Mac isn't holding the peripherals anymore, so they're grabbed directly. Errors (a mistyped parameter, a peripheral that matches nothing) surface as notifications, and anything mid-handoff is left alone.
 
@@ -165,7 +165,7 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 ## Developer notes
 
-Requirements: Xcode 26.5, the version CI and release builds use (Swift 5 language mode).
+Requirements: Xcode 26.5 or later; CI and release builds use 26.5 (Swift 5 language mode).
 
 Build without code signing, as CI does (the project signs with the maintainer's team, so a plain build fails for anyone else):
 ```bash
@@ -218,8 +218,8 @@ The LAN channel uses a shared symmetric key derived from the twelve-character pa
 Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, switching *to* that peer is paused and the Macs tab asks you to explicitly **Trust** the new identity — so a key change is surfaced rather than silently accepted. The fingerprint is a hash of the *shared* pairing key, not a per-machine identity, so a peer that completes the authenticated handshake has proved strictly more than the advertisement claims: if it proves it holds this Mac's current key while the pending fingerprint is exactly that key's, the warning resolves itself (the state a mutual re-pair leaves behind). A peer that cannot complete the handshake is rejected outright, whatever it advertises.
 
 Known limits:
-- On some systems an ad-hoc-signed build (releases up to v2.25.7; later releases are Developer ID signed and notarized) can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
-- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible), but guesses can be tested offline without capturing any traffic: anyone on the local network can read the 32-bit key fingerprint from the Bonjour TXT record, and with **Connect over Bluetooth when the network can't** turned on, anyone in radio range sees a 128-bit service UUID derived from the key. The PBKDF2 salt is a fixed constant, so one exhaustive search covers every install. It is still impractical — about 2^59 guesses on average, each costing 600k PBKDF2 iterations — but a PAKE would close the gap and is the obvious next step.
+- On some systems an ad-hoc-signed build (releases up to v2.25.7, and local builds made with `CODE_SIGNING_ALLOWED=NO`; later releases are Developer ID signed and notarized) can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
+- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible), but guesses can be tested offline without capturing any traffic: anyone on the local network can connect and receive a Mac's handshake MAC before proving anything (the 32-bit key fingerprint in the Bonjour TXT record also narrows guesses), and with **Connect over Bluetooth when the network can't** turned on, anyone in radio range sees a 128-bit service UUID derived from the key. The PBKDF2 salt is a fixed constant, so one exhaustive search covers every install. It is still impractical — about 2^59 guesses on average, each costing 600k PBKDF2 iterations — but a PAKE would close the gap and is the obvious next step.
 
 ## Support
 
