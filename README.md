@@ -26,6 +26,9 @@ brew install --cask megamansec/tap/magic-switch
 Or manually:
 
 1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
+
+   **Verify the download** (optional): `gh attestation verify app.zip --repo MegaManSec/magic-switch`, using the [GitHub CLI](https://cli.github.com), checks that the downloaded `app.zip` was built by GitHub Actions in this repository.
+
 2. Unzip and move `Magic Switch.app` to `/Applications`.
 
 Then:
