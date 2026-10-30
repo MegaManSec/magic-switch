@@ -215,7 +215,7 @@ The LAN channel uses a shared symmetric key derived from the twelve-character pa
 Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, switching *to* that peer is paused and the Macs tab asks you to explicitly **Trust** the new identity — so a key change is surfaced rather than silently accepted. The fingerprint is a hash of the *shared* pairing key, not a per-machine identity, so a peer that completes the authenticated handshake has proved strictly more than the advertisement claims: if it proves it holds this Mac's current key while the pending fingerprint is exactly that key's, the warning resolves itself (the state a mutual re-pair leaves behind). A peer that cannot complete the handshake is rejected outright, whatever it advertises.
 
 Known limits:
-- On some systems an ad-hoc-signed build can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
+- On some systems an ad-hoc-signed build (releases up to v2.25.7; later releases are Developer ID signed and notarized) can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
 - Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
 
 ## Support
