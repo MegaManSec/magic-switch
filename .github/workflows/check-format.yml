@@ -37,10 +37,12 @@ jobs:
       - name: Comment PR
         if: steps.format.outputs.format_has_issues == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          FORMAT_DIFF_BASE64: ${{ steps.format.outputs.diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const diff = Buffer.from('${{ steps.format.outputs.diff }}', 'base64').toString();
+            const diff = Buffer.from(process.env.FORMAT_DIFF_BASE64, 'base64').toString();
 
             // Split diff by files
             const files = diff.split('diff --git').slice(1);
