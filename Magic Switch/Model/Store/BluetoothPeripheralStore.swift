@@ -2312,6 +2312,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     let id = peripheral.id
+    guard isAwaitingReclaim(id) else {
+      reconnectInFlight.remove(id)
+      probeAndReclaim(peripherals.dropFirst())
+      return
+    }
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
       var alreadyConnected = false
@@ -2326,10 +2331,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         guard let self = self else { return }
         defer { self.probeAndReclaim(peripherals.dropFirst()) }
         // Bail if it left the watchlist or changed state while we probed.
-        guard self.reconnectWatchlist[id] != nil,
-          !self.isFullSetSwitchPending,
-          self.connectionState(for: id) == .disconnected
-        else {
+        guard self.isAwaitingReclaim(id) else {
           self.reconnectInFlight.remove(id)
           return
         }
@@ -2356,6 +2358,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.reclaimIfPeerIsFree(peripheral)
       }
     }
+  }
+
+  /// Whether the watcher still acts on `id`: watched, idle, and not reserved
+  /// by a pending full-set switch. Main-only.
+  private func isAwaitingReclaim(_ id: String) -> Bool {
+    reconnectWatchlist[id] != nil && !isFullSetSwitchPending
+      && connectionState(for: id) == .disconnected
   }
 
   /// Whether `device` answers a page within `Constants.presencePageTimeout`.
