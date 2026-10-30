@@ -42,6 +42,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
+          node-version: 22
           cache: pnpm
           cache-dependency-path: .github/release/pnpm-lock.yaml
 
@@ -53,10 +54,16 @@ jobs:
 
       - name: Determine version
         id: determine_version
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci)"
+          MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::main is at $MAIN_SHA, not $GITHUB_SHA; skipping build & release. The run for the newer commit releases it."
+            exit 0
+          fi
+          OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci | tee /dev/stderr)"
           # Extract just the version triple to avoid picking up trailing
           # punctuation if the log format ever changes slightly.
           NEW_RELEASE_VERSION=$(echo "$OUTPUT" \
@@ -76,7 +83,8 @@ jobs:
     # empty extraction to "0.0.0", which then built and tagged a v0.0.0
     # release, overwriting tag history.
     if: needs.version.outputs.new-release-version != ''
-    runs-on: macos-latest
+    runs-on: macos-26
+    environment: release
     permissions:
       contents: read
       id-token: write # OIDC token for Sigstore signing
@@ -102,7 +110,7 @@ jobs:
           echo "Version $VERSION, build $BUILD"
 
       - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: "26.5"
 
@@ -197,7 +205,6 @@ jobs:
         run: |
           mkdir -p artifacts
           cp "Magic Switch.app.zip" artifacts/app.zip
-          cp "Magic Switch.xcodeproj/project.pbxproj" artifacts/project.pbxproj
 
       - name: Upload Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -210,9 +217,12 @@ jobs:
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
   app-store:
-    needs: version
+    needs:
+      - version
+      - release
     if: needs.version.outputs.new-release-version != ''
-    runs-on: macos-latest
+    runs-on: macos-26
+    environment: release
     permissions:
       contents: read
     steps:
@@ -233,7 +243,7 @@ jobs:
           echo "Version $VERSION, build $BUILD"
 
       - name: Set up Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: "26.5"
 
@@ -324,6 +334,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
+          node-version: 22
           cache: pnpm
           cache-dependency-path: .github/release/pnpm-lock.yaml
 
@@ -337,6 +348,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./.github/release/node_modules/.bin/semantic-release
+
+      - name: Verify release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new-release-version }}
+        run: |
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null; then
+            echo "::error::semantic-release did not publish v$VERSION."
+            exit 1
+          fi
 
   homebrew-tap:
     needs:
