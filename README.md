@@ -164,9 +164,9 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 Requirements: Xcode 26.5, the version CI and release builds use (Swift 5 language mode).
 
-Build:
+Build without code signing, as CI does (the project signs with the maintainer's team, so a plain build fails for anyone else):
 ```bash
-xcodebuild -project "Magic Switch.xcodeproj" -scheme "Magic Switch" -configuration Debug build
+xcodebuild -project "Magic Switch.xcodeproj" -scheme "Magic Switch" -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
 Format on commit (optional):
