@@ -344,6 +344,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./.github/release/node_modules/.bin/semantic-release
 
+      - name: Verify release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.version.outputs.new-release-version }}
+        run: |
+          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null; then
+            echo "::error::semantic-release did not publish v$VERSION."
+            exit 1
+          fi
+
   homebrew-tap:
     needs:
       - version
