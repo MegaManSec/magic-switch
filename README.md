@@ -138,7 +138,7 @@ open -g "magicswitch://switch?peripheral=trackpad&peripheral=mouse" # repeat per
 (`-g` keeps your current app focused.) Parameters:
 
 - `peripheral` *(repeatable)* — which peripherals to move; omit it for the whole registered set. Each value is matched as a MAC address (`aa-bb-cc-dd-ee-ff`), else as a type keyword (`keyboard`, `mouse`, `trackpad`, `headphones`, `airpods`, `microphone`), else as a device name (case-insensitive).
-- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: move each to whichever Mac doesn't have it, exactly like a menu click). `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
+- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: exactly like a menu click, move each to whichever Mac doesn't have it; without `peripheral`, a set split between the two Macs stays put and you get a notification instead). `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
 
 Run the command on the Mac that should act. `direction=take` works even while the other Mac is asleep or off the network — an unreachable Mac isn't holding the peripherals anymore, so they're grabbed directly. Errors (a mistyped parameter, a peripheral that matches nothing) surface as notifications, and anything mid-handoff is left alone.
 
