@@ -82,7 +82,7 @@ jobs:
     # empty extraction to "0.0.0", which then built and tagged a v0.0.0
     # release, overwriting tag history.
     if: needs.version.outputs.new-release-version != ''
-    runs-on: macos-latest
+    runs-on: macos-26
     environment: release
     permissions:
       contents: read
@@ -221,7 +221,7 @@ jobs:
       - version
       - release
     if: needs.version.outputs.new-release-version != ''
-    runs-on: macos-latest
+    runs-on: macos-26
     environment: release
     permissions:
       contents: read
