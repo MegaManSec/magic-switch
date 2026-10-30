@@ -216,7 +216,7 @@ Each Mac pins the other's key fingerprint the first time it sees it (trust on fi
 
 Known limits:
 - On some systems an ad-hoc-signed build (releases up to v2.25.7; later releases are Developer ID signed and notarized) can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
-- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
+- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible), but guesses can be tested offline without capturing any traffic: anyone on the local network can read the 32-bit key fingerprint from the Bonjour TXT record, and with **Connect over Bluetooth when the network can't** turned on, anyone in radio range sees a 128-bit service UUID derived from the key. The PBKDF2 salt is a fixed constant, so one exhaustive search covers every install. It is still impractical — about 2^59 guesses on average, each costing 600k PBKDF2 iterations — but a PAKE would close the gap and is the obvious next step.
 
 ## Support
 
