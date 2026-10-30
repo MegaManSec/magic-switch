@@ -32,8 +32,8 @@ jobs:
           swift format format -r ./Magic\ Switch/ -i
           git diff > format.diff
           if [ -s format.diff ]; then
-            echo "format_has_issues=true" >> $GITHUB_OUTPUT
-            echo "diff=$(base64 -i format.diff)" >> $GITHUB_OUTPUT
+            echo "format_has_issues=true" >> "$GITHUB_OUTPUT"
+            echo "diff=$(base64 -i format.diff)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Report formatting issues
