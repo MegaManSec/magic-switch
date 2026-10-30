@@ -69,7 +69,7 @@ Until this is done, switching and peripheral sync refuse to talk to the peer, an
 
 Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
-If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952** (or a random port if 41952 is taken; the sheet shows the one in use); allow it through any firewall between the two Macs.
 
 If the network won't let the Macs reach each other at all — a VPN that blocks local traffic, or Wi-Fi that keeps devices apart — turn on **Connect over Bluetooth when the network can't** under **Settings → Other → General**, on **both** Macs. They then find each other over Bluetooth whenever they're in range, as long as they're paired with the same code, and a Mac reached that way shows an antenna badge. Magic Switch goes back to the network as soon as it works again, and the Bluetooth link carries the same encrypted channel.
 
@@ -149,7 +149,7 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
-- Same network; TCP port 41952 not blocked by firewall.
+- Same network; TCP port 41952 (or the port the **+** sheet shows, if 41952 was taken) not blocked by firewall.
 - Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
 - **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
