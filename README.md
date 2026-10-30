@@ -26,11 +26,14 @@ brew install --cask megamansec/tap/magic-switch
 Or manually:
 
 1. Grab the latest build from the [releases page](https://github.com/MegaManSec/magic-switch/releases).
+
+   **Verify the download** (optional): `gh attestation verify app.zip --repo MegaManSec/magic-switch`, using the [GitHub CLI](https://cli.github.com), checks that the downloaded `app.zip` was built by GitHub Actions in this repository.
+
 2. Unzip and move `Magic Switch.app` to `/Applications`.
 
 Then:
 
-3. Approve **Bluetooth** and **Local Network** access when macOS prompts. Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
+3. Approve **Bluetooth** and **Local Network** access when macOS prompts (only macOS 15 and later ask for Local Network; earlier versions allow it without a prompt). Both are required — Bluetooth to control the peripherals, Local Network to discover and talk to the other Mac. If you dismiss the prompts, grant them later under System Settings → Privacy & Security.
 4. Allow **Notifications** when asked. Not strictly required, but it's how Magic Switch reports what happened when no window is open — a switch triggered by hotkey, URL scheme, or dock-on-display that fails does so *silently* without it (see [Troubleshooting](#troubleshooting)). Denied it once? Re-enable under System Settings → Notifications → Magic Switch.
 
 ## Setup
@@ -41,7 +44,7 @@ Magic Switch has four Settings tabs, and two of them use the word "pair" in diff
 
 In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Magic Switch doesn't create those first pairings for you. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it. (Once the first pairings are done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
 
-Then launch Magic Switch, grant **Bluetooth** and **Local Network** when prompted, and click the menu-bar icon → **Settings**.
+Then launch Magic Switch, grant **Bluetooth** and (on macOS 15 and later) **Local Network** when prompted, and click the menu-bar icon → **Settings**.
 
 ### 2. Pairing tab — link the two Macs (required)
 
@@ -69,7 +72,7 @@ Until this is done, switching and peripheral sync refuse to talk to the peer, an
 
 Choose the other Mac under **Macs Found on the Network**. It shows up once it's on the same network running Magic Switch; a greyed-out row means it isn't reachable right now.
 
-If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952**; allow it through any firewall between the two Macs.
+If your network blocks Bonjour (some MDM-managed Macs can't advertise; some Wi-Fi networks filter multicast), the other Mac may never appear here. Use the **+** button to add it by IP address instead — the sheet on each Mac shows the address and port to enter on the other one, and one side is enough: the other Mac then lists this one automatically. Adding by address only works once **both Macs are paired** (step 2) and running Magic Switch — an unpaired Mac refuses the connection, and the add fails. Magic Switch listens on TCP port **41952** (or a random port if 41952 is taken; the sheet shows the one in use); allow it through any firewall between the two Macs.
 
 If the network won't let the Macs reach each other at all — a VPN that blocks local traffic, or Wi-Fi that keeps devices apart — turn on **Connect over Bluetooth when the network can't** under **Settings → Other → General**, on **both** Macs. They then find each other over Bluetooth whenever they're in range, as long as they're paired with the same code, and a Mac reached that way shows an antenna badge. Magic Switch goes back to the network as soon as it works again, and the Bluetooth link carries the same encrypted channel.
 
@@ -103,7 +106,7 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 
 ### Other tab — preferences
 
-**Open at Login**, **Connect over Bluetooth when the network can't** (see [step 3](#3-macs-tab--pick-the-other-mac)), recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take Peripherals When a Display Connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
+**Open at Login** (macOS 13 and later), **Connect over Bluetooth when the network can't** (see [step 3](#3-macs-tab--pick-the-other-mac)), recordable **keyboard shortcuts** that send, take, or toggle every peripheral from anywhere in macOS, two peripheral-handling toggles (**Release peripherals when this Mac sleeps** and **Reconnect peripherals if they drop** — see [Troubleshooting](#troubleshooting)), a **Take Peripherals When a Display Connects** list (mark a display to make docking this Mac to it switch your peripherals over automatically — see [Troubleshooting](#troubleshooting)), the installed version, and update notifications (see [Updates](#updates)). A **"Notifications are off"** warning appears at the top of this tab when macOS notifications are disabled for Magic Switch — see [Troubleshooting](#troubleshooting) for why that matters.
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing all app preferences" width="600"><br>
@@ -135,7 +138,7 @@ open -g "magicswitch://switch?peripheral=trackpad&peripheral=mouse" # repeat per
 (`-g` keeps your current app focused.) Parameters:
 
 - `peripheral` *(repeatable)* — which peripherals to move; omit it for the whole registered set. Each value is matched as a MAC address (`aa-bb-cc-dd-ee-ff`), else as a type keyword (`keyboard`, `mouse`, `trackpad`, `headphones`, `airpods`, `microphone`), else as a device name (case-insensitive).
-- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: move each to whichever Mac doesn't have it, exactly like a menu click). `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
+- `direction` — `take` (bring to this Mac), `send` (move to the other Mac), or `toggle` (the default: exactly like a menu click, move each to whichever Mac doesn't have it). Without `peripheral`, `send` and `toggle` leave a set split between the two Macs where it is and show a notification instead; `take` still brings it all here. `take` and `send` are idempotent, so they're the ones to bind to hotkeys — repeating one is a no-op instead of bouncing peripherals back.
 
 Run the command on the Mac that should act. `direction=take` works even while the other Mac is asleep or off the network — an unreachable Mac isn't holding the peripherals anymore, so they're grabbed directly. Errors (a mistyped parameter, a peripheral that matches nothing) surface as notifications, and anything mid-handoff is left alone.
 
@@ -149,8 +152,8 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.
 - Devices powered on; Bluetooth enabled.
-- Same network; TCP port 41952 not blocked by firewall.
-- Bluetooth and Local Network permissions granted in System Settings → Privacy & Security.
+- Same network; TCP port 41952 (or the port the **+** sheet shows, if 41952 was taken) not blocked by firewall.
+- Bluetooth and (on macOS 15 and later) Local Network permissions granted in System Settings → Privacy & Security.
 - A **greyed-out device** — in the Macs tab or the menu — means it isn't reachable right now, on the network or (if turned on) over Bluetooth: the other Mac is asleep, off Wi-Fi or out of range, or not running Magic Switch. Ping, Sync, and switching stay disabled until it's back online.
 - **Both Macs changed IP address at once (Bonjour-blocked networks).** An IP change normally heals itself: a reachability probe that gets through teaches the receiving Mac the dialing Mac's current address from the connection itself, so as long as one Mac can still reach the other, both sides end up with working addresses. But when *both* Macs get new addresses at the same time on a network where Bonjour is blocked — a router reassigning every lease, or both Macs moving to another network — each keeps dialing the other's old address and neither probe ever lands. Re-add the other Mac by IP address (the **+** button on the Macs tab) from either side; one side is enough.
 - **A switch failed and nothing told you.** Failures — a peripheral that won't connect, a Mac that can't be reached, an identity mismatch — are reported via system notifications, because a hotkey, URL-scheme, or automatic switch has no window to show an error in. If macOS notifications are off for Magic Switch, those failures are completely silent; **Settings → Other** shows a **"Notifications are off"** warning when that's the case. Re-enable them under System Settings → Notifications → Magic Switch. (The Peripherals, Macs and Pairing tabs also show their errors inline, so actions taken *there* still report failures either way.)
@@ -162,11 +165,11 @@ Otherwise, Magic Switch tells you when there's a new version — it never update
 
 ## Developer notes
 
-Requirements: Xcode 16.1+ (Swift 5 language mode).
+Requirements: Xcode 26.5 or later; CI and release builds use 26.5 (Swift 5 language mode).
 
-Build:
+Build without code signing, as CI does (the project signs with the maintainer's team, so a plain build fails for anyone else):
 ```bash
-xcodebuild -project "Magic Switch.xcodeproj" -scheme "Magic Switch" -configuration Debug build
+xcodebuild -project "Magic Switch.xcodeproj" -scheme "Magic Switch" -configuration Debug build CODE_SIGNING_ALLOWED=NO
 ```
 
 Format on commit (optional):
@@ -215,8 +218,8 @@ The LAN channel uses a shared symmetric key derived from the twelve-character pa
 Each Mac pins the other's key fingerprint the first time it sees it (trust on first use). If a later advertisement carries a *different* fingerprint, switching *to* that peer is paused and the Macs tab asks you to explicitly **Trust** the new identity — so a key change is surfaced rather than silently accepted. The fingerprint is a hash of the *shared* pairing key, not a per-machine identity, so a peer that completes the authenticated handshake has proved strictly more than the advertisement claims: if it proves it holds this Mac's current key while the pending fingerprint is exactly that key's, the warning resolves itself (the state a mutual re-pair leaves behind). A peer that cannot complete the handshake is rejected outright, whatever it advertises.
 
 Known limits:
-- On some systems an ad-hoc-signed build can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
-- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible) but theoretically grindable offline if someone captures ciphertext. PBKDF2 stretching pushes the cost up but doesn't eliminate it; a PAKE would close the gap and is the obvious next step.
+- On some systems an ad-hoc-signed build (releases up to v2.25.7, and local builds made with `CODE_SIGNING_ALLOWED=NO`; later releases are Developer ID signed and notarized) can't register with Notification Center at all, so failure notifications never fire no matter what the permission says; the Peripherals, Macs and Pairing tabs surface their errors inline as a fallback.
+- Sixty bits of entropy in the pairing code is fine against an online attacker (rate limit makes brute force infeasible), but guesses can be tested offline without capturing any traffic: anyone on the local network can connect and receive a Mac's handshake MAC before proving anything (the 32-bit key fingerprint in the Bonjour TXT record also narrows guesses), and with **Connect over Bluetooth when the network can't** turned on, anyone in radio range sees a 128-bit service UUID derived from the key. The PBKDF2 salt is a fixed constant, so one exhaustive search covers every install. It is still impractical — about 2^59 guesses on average, each costing 600k PBKDF2 iterations — but a PAKE would close the gap and is the obvious next step.
 
 ## Support
 
