@@ -53,10 +53,11 @@ jobs:
 
       - name: Determine version
         id: determine_version
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci)"
+          OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci | tee /dev/stderr)"
           # Extract just the version triple to avoid picking up trailing
           # punctuation if the log format ever changes slightly.
           NEW_RELEASE_VERSION=$(echo "$OUTPUT" \
