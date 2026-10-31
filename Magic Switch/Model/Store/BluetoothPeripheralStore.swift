@@ -925,9 +925,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///
   /// Falls back to a plain local pair if there's no trusted paired peer, if
   /// neither Bonjour nor the last reachability probe (which also tries BLE)
-  /// sees it, or if the release request can't reach it. Bonjour inactivity
-  /// alone doesn't imply unreachability: the authenticated command can also
-  /// travel over BLE.
+  /// sees it, or if the release request can't reach it.
   ///
   /// If the take fails — or the peer releases but the local connect doesn't
   /// take (a stuck device needing a power-cycle) — the auto-reconnect watcher
@@ -1238,15 +1236,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///   and re-paired within the same attempt. A record that says
   ///   `paired=true` while the device refuses the bonded connect is the
   ///   stale-bond signature: the device actually answers to the other Mac
-  ///   (a handoff outside the app, or desynced state). Every caller
-  ///   additionally requires a successful remote name request — a
-  ///   healthy bond whose device is merely off or out of range must survive,
-  ///   or the automatic reconnect macOS performs when it returns is lost, and
-  ///   an unbonded Magic device stops answering entirely until it is power
-  ///   cycled. An absent peer says nothing about whether the peripheral is
-  ///   present. The watcher's reclaim
-  ///   retries pass `false` and keep retrying the plain open, so a transient
-  ///   link failure in a retry loop can't repeatedly tear bonds down.
+  ///   (a handoff outside the app, or desynced state). The record is only
+  ///   removed when the device answers a page (`answersPage`). The watcher's
+  ///   reclaim retries pass `false` and keep retrying the plain open.
   private func connectPeripheral(
     _ peripheral: BluetoothPeripheral,
     announcePairTimeout: Bool,
@@ -1342,10 +1334,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           )
           return
         }
-        // A synchronous name request pages the device without requiring a
-        // bond. RSSI only works on a live connection and cannot prove a
-        // disconnected device is present. Preserve the bond if macOS
-        // reconnected it while the request was in flight.
+        // Preserve the bond if macOS reconnected it while the request was in
+        // flight.
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
         if btDevice.isConnected() {
           self.setConnectionState(.connected, for: peripheral.id)
@@ -1377,8 +1367,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     device: IOBluetoothDevice,
     attempt: UInt64
   ) {
-    // Disconnected devices have no readable RSSI. Let pairing page them;
-    // the existing watchdog bounds an attempt when a device is absent.
     guard let devicePair = IOBluetoothDevicePair(device: device) else {
       Log.bluetooth.error("Failed to initialize pairing for \(peripheral.name)")
       failConnectAttempt(
@@ -1457,8 +1445,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       completion(btDevice)
       return
     }
-    // Re-checked after the blocking name request the caller just ran: a
-    // cancel landing in that window must not lose the bond it can't re-pair.
     guard isCurrentAttempt(attempt, for: id) else { return }
     btDevice.perform(Selector(("remove")))
     Log.bluetooth.notice("Removed stale local pairing before taking \(name)")
@@ -2368,8 +2354,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Whether `device` answers a page within `Constants.presencePageTimeout`.
-  /// A remote name request needs no bond or live link, unlike `rssi()`, which
-  /// only reads a connected device. Blocks; call on `bluetoothQueue`.
+  /// Blocks; call on `bluetoothQueue`.
   private func answersPage(_ device: IOBluetoothDevice) -> Bool {
     device.remoteNameRequest(nil, withPageTimeout: Constants.presencePageTimeout)
       == kIOReturnSuccess
