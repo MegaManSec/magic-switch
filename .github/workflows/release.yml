@@ -345,6 +345,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Release
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./.github/release/node_modules/.bin/semantic-release
