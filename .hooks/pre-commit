@@ -1,5 +1,5 @@
 #!/bin/bash
-# Format the staged copy of each Swift file, so unstaged edits never enter the commit.
+# Format the staged copy of each Swift file.
 export GIT_LITERAL_PATHSPECS=1
 
 if ! swift format --version >/dev/null 2>&1; then
