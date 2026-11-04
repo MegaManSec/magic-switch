@@ -1207,10 +1207,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// what left, adopt what didn't, and let a later disconnect re-arm the
   /// watcher.
   func rollBackFullSetRelease() {
-    for peripheral in peripherals {
-      clearIntentionalRelease(peripheral.id)
-      connectPeripheral(peripheral)
-    }
+    for peripheral in peripherals { connectPeripheral(peripheral) }
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
@@ -1261,6 +1258,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if let completion = completion {
       addConnectResultWaiter(for: peripheral.id, completion)
     }
+    clearIntentionalRelease(peripheral.id)
     setConnectionState(.connecting, for: peripheral.id)
     let attempt = beginConnectAttempt(for: peripheral.id)
     schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout, attempt: attempt)
