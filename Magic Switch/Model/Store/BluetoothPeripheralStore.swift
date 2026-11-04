@@ -83,7 +83,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// the watcher; a disconnect seen later is treated as a genuine drop. This
     /// stops a release whose disconnect notification never arrived from
     /// leaving a stale flag that suppresses a real reconnect.
-    static let intentionalReleaseGrace: TimeInterval = 30
+    static let intentionalReleaseGrace: TimeInterval = 60
+    /// How long after a take's release fails the watcher reads the peer's
+    /// "holding" as a release still finishing. `intentionalReleaseGrace` must
+    /// cover this plus `releaseDisconnectTimeout`.
+    static let peerReleaseGrace: TimeInterval = 30
     /// Consecutive peer-absent `HOLDS_ONE` probes an *adoption* needs before
     /// it takes a peripheral. Two probes (one extra tick) give Wi-Fi that's
     /// still reassociating after wake a chance to come up — so a peer that's
@@ -267,6 +271,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// watcher is still chasing; giving up on one of these is reported, giving
   /// up on a routine drop or adoption is not. Main-only.
   private var takeArmed: Set<String> = []
+
+  /// Per id, when `Constants.peerReleaseGrace` ends; see `armTakeReconnect`.
+  /// Main-only.
+  private var peerReleaseDeadlines: [String: Date] = [:]
 
   /// Per-id bookkeeping for adoption arms; see `adoptionProgress`.
   private struct AdoptionProgress {
@@ -992,7 +1000,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           // once the peer confirms it isn't holding it — and recovers the case
           // where the peer released but the ack was lost.
           self.setConnectionState(.disconnected, for: peripheral.id)
-          self.armTakeReconnect(peripheral.id)
+          self.armTakeReconnect(peripheral.id, peerMayStillBeReleasing: true)
           self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
@@ -2137,18 +2145,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// peripheral the peer confirms it's holding) and retries for the full
   /// `reconnectMaxWindow`, so a device stuck in the bonded-but-not-connected
   /// state comes back the moment the user power-cycles it.
-  func armReconnectForTakeover(_ id: String) {
+  func armReconnectForTakeover(_ id: String, peerMayStillBeReleasing: Bool = false) {
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { [weak self] in self?.armReconnectForTakeover(id) }
+      DispatchQueue.main.async { [weak self] in
+        self?.armReconnectForTakeover(id, peerMayStillBeReleasing: peerMayStillBeReleasing)
+      }
       return
     }
-    armTakeReconnect(id)
+    armTakeReconnect(id, peerMayStillBeReleasing: peerMayStillBeReleasing)
   }
 
   /// `armReconnect` for an attempt the user started; see `takeArmed`.
-  private func armTakeReconnect(_ id: String) {
+  /// `peerMayStillBeReleasing`: the peer's release failed, so keep watching
+  /// through its "holding" answers for `Constants.peerReleaseGrace`.
+  private func armTakeReconnect(_ id: String, peerMayStillBeReleasing: Bool = false) {
     armReconnect(id)
-    if reconnectWatchlist[id] != nil { takeArmed.insert(id) }
+    guard reconnectWatchlist[id] != nil else { return }
+    takeArmed.insert(id)
+    if peerMayStillBeReleasing {
+      peerReleaseDeadlines[id] = Date().addingTimeInterval(Constants.peerReleaseGrace)
+    }
   }
 
   private static var retryMinutes: Int { Int(Constants.reconnectMaxWindow / 60) }
@@ -2171,6 +2187,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     reconnectInFlight.remove(id)
     adoptionProgress.removeValue(forKey: id)
     takeArmed.remove(id)
+    peerReleaseDeadlines.removeValue(forKey: id)
     guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
     if reconnectWatchlist.isEmpty { stopReconnectTimer() }
   }
@@ -2398,6 +2415,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.reconnectInFlight.remove(id)
         switch result {
         case .success:
+          if let deadline = self.peerReleaseDeadlines[id], Date() < deadline {
+            Log.bluetooth.notice(
+              "Auto-reconnect: \(peripheral.name) still on \(device.name); waiting for its release")
+            return
+          }
           // Peer is actively holding it — leave it there.
           Log.bluetooth.notice(
             "Auto-reconnect: \(peripheral.name) held by \(device.name); leaving it")

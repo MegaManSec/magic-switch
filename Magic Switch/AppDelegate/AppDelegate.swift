@@ -794,7 +794,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           // holding it — and recovers the case where the peer released but
           // the ack was lost.
           self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.armReconnectForTakeover(peripheral.id)
+            self.bluetoothStore.armReconnectForTakeover(
+              peripheral.id, peerMayStillBeReleasing: true)
           }
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
