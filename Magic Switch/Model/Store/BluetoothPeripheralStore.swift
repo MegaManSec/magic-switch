@@ -759,7 +759,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
 
     // Deliberate release: stop any auto-reconnect attempt for it.
-    disarmReconnect(peripheral.id)
+    disarmReconnect(peripheral.id, reason: "released")
 
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
@@ -830,7 +830,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
     peripherals.removeAll { $0.id == peripheral.id }
     // No longer ours — stop watching and forget any pending release flag.
-    disarmReconnect(peripheral.id)
+    disarmReconnect(peripheral.id, reason: "removed")
     intentionalReleases.removeValue(forKey: peripheral.id)
     Log.bluetooth.notice("\(peripheral.name) has been removed from the list")
   }
@@ -894,7 +894,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard canCancelConnect(id) else { return }
     _ = beginConnectAttempt(for: id)
     tearDownPairAttempt(for: id)
-    disarmReconnect(id)
+    disarmReconnect(id, reason: "pairing canceled")
     // Standing the watcher down leaves nothing to re-pair a bond this attempt
     // already removed, so that has to be said rather than retried.
     if consumeBondAwaitingRepair(id) {
@@ -1516,7 +1516,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     // Deliberate disconnect: stop watching it and keep the resulting
     // disconnect notification from re-arming the watcher.
-    disarmReconnect(peripheral.id)
+    disarmReconnect(peripheral.id, reason: "disconnected")
     noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
     if result == kIOReturnSuccess {
@@ -1615,7 +1615,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
               // on power-on, surfaced via the global connect observer). Adopt
               // it event-driven and stop watching, instead of waiting for the
               // next probe tick to notice.
-              self.disarmReconnect(id)
+              self.disarmReconnect(id, reason: "connected")
             }
           }
         }
@@ -2159,17 +2159,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Stop watching `id` — it connected, moved to the peer, was removed, or
-  /// timed out. Tears the timer down once nothing is left to watch.
-  private func disarmReconnect(_ id: String) {
+  /// timed out. Tears the timer down once nothing is left to watch. Callers
+  /// that log their own reason omit `reason`.
+  private func disarmReconnect(_ id: String, reason: String? = nil) {
     // Main-only state; see `armReconnect`.
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { [weak self] in self?.disarmReconnect(id) }
+      DispatchQueue.main.async { [weak self] in self?.disarmReconnect(id, reason: reason) }
       return
     }
     reconnectInFlight.remove(id)
     adoptionProgress.removeValue(forKey: id)
     takeArmed.remove(id)
     guard reconnectWatchlist.removeValue(forKey: id) != nil else { return }
+    if let reason { Log.bluetooth.notice("Auto-reconnect: stopped watching \(id) (\(reason))") }
     if reconnectWatchlist.isEmpty { stopReconnectTimer() }
   }
 
@@ -2246,7 +2248,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     for (id, armedAt) in reconnectWatchlist {
       if reconnectInFlight.contains(id) { continue }
       guard let peripheral = peripherals.first(where: { $0.id == id }) else {
-        disarmReconnect(id)
+        disarmReconnect(id, reason: "no longer registered")
         continue
       }
       if now.timeIntervalSince(armedAt) > Constants.reconnectMaxWindow {
@@ -2266,7 +2268,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       }
       switch connectionState(for: id) {
       case .connected:
-        disarmReconnect(id)
+        disarmReconnect(id, reason: "connected")
       case .connecting, .releasing:
         continue  // an attempt / handoff is already in flight
       case .disconnected:
@@ -2333,7 +2335,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           {
             self.registerForDisconnect(device: device, address: id)
           }
-          self.disarmReconnect(id)
+          self.disarmReconnect(id, reason: "already connected")
           return
         }
         guard present else {
@@ -2375,7 +2377,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       if adoptionProgress[id] != nil {
         // No trusted peer to consult and no prior claim on the peripheral —
         // stand down rather than grab one whose holder we can't even ask.
-        disarmReconnect(id)
+        disarmReconnect(id, reason: "no trusted peer")
         return
       }
       // No trusted peer to consult — none registered, or one flagged as a
