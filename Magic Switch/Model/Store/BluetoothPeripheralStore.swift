@@ -2238,6 +2238,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard !isFullSetSwitchPending else { return }
     guard autoReconnect else {
       // Toggled off mid-flight — stand down.
+      Log.bluetooth.notice("Auto-reconnect: turned off; stopped watching")
       reconnectWatchlist.removeAll()
       reconnectInFlight.removeAll()
       stopReconnectTimer()
