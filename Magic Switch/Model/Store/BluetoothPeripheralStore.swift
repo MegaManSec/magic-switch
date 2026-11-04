@@ -1845,6 +1845,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.bondsAwaitingRepair.remove(id)
         NotificationManager.removeNotification(identifier: "pair-failed-\(id)")
         NotificationManager.removeNotification(identifier: "pair-timeout-\(id)")
+        NotificationManager.removeNotification(identifier: "take-failed-\(id)")
         self.completeConnectResultWaiters(for: id, success: true)
       } else if state == .disconnected {
         self.completeConnectResultWaiters(for: id, success: false)
