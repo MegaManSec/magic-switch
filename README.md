@@ -38,7 +38,7 @@ Then:
 
 ## Setup
 
-Magic Switch has four Settings tabs, and two of them use the word "pair" in different senses — which trips people up. **Pairing** is the cryptographic key shared between the two *Macs* (required, and set up inside Magic Switch); the Bluetooth pairing of your *peripherals* is a separate thing, done in System Settings. Do steps 2 and 3 on **both** Macs, and steps 1, 4 and 5 on the Mac your peripherals are paired to.
+Magic Switch has four Settings tabs, and two of them use the word "pair" in different senses — which trips people up. **Pairing** is the cryptographic key shared between the two *Macs* (required, and set up inside Magic Switch); the Bluetooth pairing of your *peripherals* is a separate thing, done in System Settings. Set up Magic Switch on **both** Macs, but pair and register your peripherals (steps 1, 4 and 5) on just one.
 
 ### 1. Pair your peripherals to one Mac (System Settings)
 
