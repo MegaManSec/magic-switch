@@ -42,6 +42,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// How long to let `-remove` settle in the Bluetooth daemon before pairing
     /// again. Re-pairing inside this window races the unbond and fails.
     static let unbondSettle: TimeInterval = 0.5
+    /// How long `waitForLocalDisconnect` waits for a released device to
+    /// disconnect. Must stay under `intentionalReleaseGrace` and the peer's
+    /// `releaseBodyTimeout`, less the time `-remove` itself takes.
+    static let releaseDisconnectTimeout: TimeInterval = 15
     /// How long after wake to wait before deciding whether the peer holds a
     /// peripheral we released for sleep. Gives Wi-Fi time to reassociate so a
     /// peer that's actively using the peripheral doesn't look unreachable and
@@ -79,7 +83,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// the watcher; a disconnect seen later is treated as a genuine drop. This
     /// stops a release whose disconnect notification never arrived from
     /// leaving a stale flag that suppresses a real reconnect.
-    static let intentionalReleaseGrace: TimeInterval = 15
+    static let intentionalReleaseGrace: TimeInterval = 30
     /// Consecutive peer-absent `HOLDS_ONE` probes an *adoption* needs before
     /// it takes a peripheral. Two probes (one extra tick) give Wi-Fi that's
     /// still reassociating after wake a chance to come up — so a peer that's
@@ -1144,17 +1148,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Polls IOBluetooth (not the cached `connectionStates`) every 0.5s up
-  /// to 5 times, waiting for every device in `ids` to actually disconnect.
-  /// Call on main; the completion fires on main.
+  /// Polls IOBluetooth (not the cached `connectionStates`) every 0.5s for up
+  /// to `Constants.releaseDisconnectTimeout`, waiting for every device in
+  /// `ids` to actually disconnect. Call on main; the completion fires on main.
   func waitForLocalDisconnect(
     of ids: [String],
     completion: @escaping (Bool) -> Void
   ) {
-    var attempts = 0
-    let maxAttempts = 5
+    let deadline = Date().addingTimeInterval(Constants.releaseDisconnectTimeout)
     func check() {
-      attempts += 1
       bluetoothQueue.async {
         let anyConnected = ids.contains {
           IOBluetoothDevice(addressString: $0)?.isConnected() ?? false
@@ -1162,7 +1164,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         DispatchQueue.main.async {
           if !anyConnected {
             completion(true)
-          } else if attempts < maxAttempts {
+          } else if Date() < deadline {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { check() }
           } else {
             completion(false)
