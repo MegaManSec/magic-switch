@@ -1102,6 +1102,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       guard success else {
         // It never disconnected, so it's still on this Mac — drop back to
         // connected rather than leave it stuck "Sending…".
+        self.clearIntentionalRelease(peripheral.id)
         self.setConnectionState(.connected, for: peripheral.id)
         self.setPeripheralError(String(localized: "Didn't disconnect."), for: peripheral.id)
         NotificationManager.showNotification(
@@ -1191,22 +1192,24 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// Mark every registered peripheral "Sending…" for the menu-bar full-set
   /// handoff (the per-peripheral send drives its own row in `performSendHandoff`).
-  /// Call after the local releases land; pair with `finishFullSetRelease(success:)`.
+  /// Call after the local releases land; pair with `finishFullSetRelease()` or
+  /// `rollBackFullSetRelease()`.
   func beginFullSetRelease() {
     peripherals.forEach { setConnectionState(.releasing, for: $0.id) }
   }
 
-  /// End the full-set "Sending…" display. On success the peripherals now live
-  /// on the peer, so they read `.disconnected`; on a non-success that didn't
-  /// actually move them (e.g. the local disconnect failed), restore the live
-  /// state. The `CONNECT_ALL`-failure rollback re-pairs locally via
-  /// `connectPeripheral` instead, which clears the row itself — don't call this
-  /// there.
-  func finishFullSetRelease(success: Bool) {
-    if success {
-      peripherals.forEach { setConnectionState(.disconnected, for: $0.id) }
-    } else {
-      fetchConnectedPeripherals(overrideTransient: true)
+  /// End the full-set "Sending…" display once the peripherals live on the peer.
+  func finishFullSetRelease() {
+    peripherals.forEach { setConnectionState(.disconnected, for: $0.id) }
+  }
+
+  /// Bring a full-set send that didn't complete back onto this Mac: re-pair
+  /// what left, adopt what didn't, and let a later disconnect re-arm the
+  /// watcher.
+  func rollBackFullSetRelease() {
+    for peripheral in peripherals {
+      clearIntentionalRelease(peripheral.id)
+      connectPeripheral(peripheral)
     }
   }
 
@@ -1538,15 +1541,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   func fetchConnectedPeripherals() {
-    fetchConnectedPeripherals(overrideTransient: false)
-  }
-
-  /// - Parameter overrideTransient: when `true`, a live read replaces even an
-  ///   in-flight `.connecting`/`.releasing` state. `false` (the usual path)
-  ///   protects those transients from a stale snapshot (the Peripherals tab
-  ///   polls this on a timer); `finishFullSetRelease(success:)` passes `true`
-  ///   to restore the real state after an aborted handoff.
-  private func fetchConnectedPeripherals(overrideTransient: Bool) {
     let runSnapshot: ([String]) -> Void = { [weak self] registeredIDs in
       guard let self = self else { return }
       self.bluetoothQueue.async {
@@ -1602,13 +1596,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           for id in registeredIDs {
             let isConnected = connectedAddresses.contains(id)
             // Don't overwrite an in-flight .connecting/.releasing state with a
-            // stale read (unless a caller explicitly wants the live value).
-            // One exception: a `.connecting` row with no pair pending and a
-            // live connection is a connect made behind our back (System
-            // Settings, macOS auto-reconnect) — adopt it rather than hold
-            // "Pairing…" until the watchdog fires.
-            if !overrideTransient, self.connectionStates[id] == .releasing { continue }
-            if !overrideTransient, self.connectionStates[id] == .connecting,
+            // stale read. One exception: a `.connecting` row with no pair
+            // pending and a live connection is a connect made behind our back
+            // (System Settings, macOS auto-reconnect) — adopt it rather than
+            // hold "Pairing…" until the watchdog fires.
+            if self.connectionStates[id] == .releasing { continue }
+            if self.connectionStates[id] == .connecting,
               self.pendingPairs[id] != nil || !isConnected
             {
               continue
