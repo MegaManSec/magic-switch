@@ -84,9 +84,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// stops a release whose disconnect notification never arrived from
     /// leaving a stale flag that suppresses a real reconnect.
     static let intentionalReleaseGrace: TimeInterval = 60
-    /// How long after a take's release fails the watcher reads the peer's
-    /// "holding" as a release still finishing. `intentionalReleaseGrace` must
-    /// cover this plus `releaseDisconnectTimeout`.
+    /// How long after a take's release fails the watcher (or, with
+    /// auto-reconnect off, `pollPeerRelease`) reads the peer's "holding" as a
+    /// release still finishing. `intentionalReleaseGrace` must cover this plus
+    /// `releaseDisconnectTimeout`.
     static let peerReleaseGrace: TimeInterval = 30
     /// Consecutive peer-absent `HOLDS_ONE` probes an *adoption* needs before
     /// it takes a peripheral. Two probes (one extra tick) give Wi-Fi that's
@@ -273,7 +274,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private var takeArmed: Set<String> = []
 
   /// Per id, when `Constants.peerReleaseGrace` ends; see `armTakeReconnect`.
-  /// Main-only.
+  /// Doubles as `pollPeerRelease`'s token. Main-only.
   private var peerReleaseDeadlines: [String: Date] = [:]
 
   /// Per-id bookkeeping for adoption arms; see `adoptionProgress`.
@@ -2147,13 +2148,59 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   /// `armReconnect` for an attempt the user started; see `takeArmed`.
   /// `peerMayStillBeReleasing`: the peer's release failed, so keep watching
-  /// through its "holding" answers for `Constants.peerReleaseGrace`.
+  /// through its "holding" answers for `Constants.peerReleaseGrace`. With
+  /// auto-reconnect off there is no watcher, so `pollPeerRelease` stands in
+  /// for it over the same window.
   private func armTakeReconnect(_ id: String, peerMayStillBeReleasing: Bool = false) {
     armReconnect(id)
-    guard reconnectWatchlist[id] != nil else { return }
+    let deadline = Date().addingTimeInterval(Constants.peerReleaseGrace)
+    guard reconnectWatchlist[id] != nil else {
+      if peerMayStillBeReleasing {
+        peerReleaseDeadlines[id] = deadline
+        pollPeerRelease(id, deadline: deadline)
+      }
+      return
+    }
     takeArmed.insert(id)
-    if peerMayStillBeReleasing {
-      peerReleaseDeadlines[id] = Date().addingTimeInterval(Constants.peerReleaseGrace)
+    if peerMayStillBeReleasing { peerReleaseDeadlines[id] = deadline }
+  }
+
+  /// Watcher-less `peerReleaseGrace`: ask the peer (`HOLDS_ONE`) every probe
+  /// interval until `deadline`, and connect once it answers an explicit "not
+  /// holding". `peerReleaseDeadlines[id]` must still equal `deadline`, so a
+  /// newer arm or a `disarmReconnect` ends an older poll. Main-only.
+  private func pollPeerRelease(_ id: String, deadline: Date) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + Constants.reconnectProbeInterval) {
+      [weak self] in
+      guard let self, self.peerReleaseDeadlines[id] == deadline else { return }
+      guard self.reconnectWatchlist[id] == nil,
+        !self.isFullSetSwitchPending,
+        self.connectionState(for: id) == .disconnected,
+        let peripheral = self.peripherals.first(where: { $0.id == id }),
+        PairingStore.shared.isPaired,
+        let device = NetworkDeviceStore.shared.networkDevices.first,
+        device.pendingFingerprint == nil
+      else { return }
+      NetworkDeviceStore.shared.executeHoldsOne(address: id, on: device) { [weak self] result in
+        DispatchQueue.main.async {
+          guard let self, self.peerReleaseDeadlines[id] == deadline else { return }
+          if case .failure(.remoteOperationFailed) = result {
+            self.peerReleaseDeadlines.removeValue(forKey: id)
+            guard !self.isFullSetSwitchPending, self.connectionState(for: id) == .disconnected
+            else { return }
+            Log.bluetooth.notice("\(device.name) released \(peripheral.name); connecting it")
+            self.connectPeripheral(peripheral)
+            return
+          }
+          guard Date() < deadline else {
+            self.peerReleaseDeadlines.removeValue(forKey: id)
+            Log.bluetooth.notice(
+              "\(peripheral.name) still on \(device.name) after the release grace; leaving it")
+            return
+          }
+          self.pollPeerRelease(id, deadline: deadline)
+        }
+      }
     }
   }
 
