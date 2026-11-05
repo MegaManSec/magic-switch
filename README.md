@@ -38,13 +38,13 @@ Then:
 
 ## Setup
 
-Magic Switch has four Settings tabs, and two of them use the word "pair" in different senses — which trips people up. **Pairing** is the cryptographic key shared between the two *Macs* (required, and set up inside Magic Switch); the Bluetooth pairing of your *peripherals* is a separate thing, done in System Settings. Do everything below on **both** Macs.
+Magic Switch has four Settings tabs, and two of them use the word "pair" in different senses — which trips people up. **Pairing** is the cryptographic key shared between the two *Macs* (required, and set up inside Magic Switch); the Bluetooth pairing of your *peripherals* is a separate thing, done in System Settings. Set up Magic Switch on **both** Macs, but pair and register your peripherals (steps 1, 4 and 5) on just one.
 
-### 1. Pair your peripherals to each Mac (System Settings)
+### 1. Pair your peripherals to one Mac (System Settings)
 
-In **System Settings → Bluetooth on each Mac**, pair your Magic Keyboard / Mouse / Trackpad to *that* Mac the normal macOS way — **each peripheral has to be paired to both Macs**. Magic Switch doesn't create those first pairings for you. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it. (Once the first pairings are done, you won't re-pair by hand on every switch — Magic Switch handles the handoff.)
+In **System Settings → Bluetooth**, pair your Magic Keyboard / Mouse / Trackpad to **one** of the Macs the normal macOS way. Don't also pair it to the other Mac: that can break the first Mac's pairing ("Forget this device and pair it again"). The other Mac gets your peripherals through **Sync** (step 5) and pairs each one the first time it takes it. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it — you never re-pair by hand.
 
-Then launch Magic Switch, grant **Bluetooth** and (on macOS 15 and later) **Local Network** when prompted, and click the menu-bar icon → **Settings**.
+Then, on **each** Mac, launch Magic Switch, grant **Bluetooth** and (on macOS 15 and later) **Local Network** when prompted, and click the menu-bar icon → **Settings**.
 
 ### 2. Pairing tab — link the two Macs (required)
 
