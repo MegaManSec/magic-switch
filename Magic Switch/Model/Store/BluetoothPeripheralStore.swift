@@ -2241,6 +2241,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       Log.bluetooth.notice("Auto-reconnect: turned off; stopped watching")
       reconnectWatchlist.removeAll()
       reconnectInFlight.removeAll()
+      adoptionProgress.removeAll()
+      takeArmed.removeAll()
       stopReconnectTimer()
       return
     }
