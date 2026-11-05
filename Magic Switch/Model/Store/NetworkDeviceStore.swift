@@ -97,9 +97,10 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
   /// default.
   private static let handoffBodyTimeout: TimeInterval = 75
   /// Body-read timeout for `UNREGISTER_ALL` and `UNREGISTER_ONE`, whose
-  /// receiver acks only once its peripherals have actually disconnected.
+  /// receiver acks only once its peripherals have actually disconnected, or
+  /// after its `releaseDisconnectTimeout` (15s) gives up.
   /// `IncomingConnection.idleTimeout` must stay >= this too.
-  private static let releaseBodyTimeout: TimeInterval = 20
+  private static let releaseBodyTimeout: TimeInterval = 30
 
   /// Consecutive failed `.ping` polls per device id (runtime only). Drives
   /// the peer-vanished adoption trigger: one missed poll is routine (Wi-Fi

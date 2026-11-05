@@ -794,7 +794,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           // holding it — and recovers the case where the peer released but
           // the ack was lost.
           self.bluetoothStore.peripherals.forEach { peripheral in
-            self.bluetoothStore.armReconnectForTakeover(peripheral.id)
+            self.bluetoothStore.armReconnectForTakeover(
+              peripheral.id, peerMayStillBeReleasing: true)
           }
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
@@ -917,7 +918,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     bluetoothStore.waitForLocalDisconnect(of: ids) { [weak self] allDisconnected in
       guard let self = self else { return }
       guard allDisconnected else {
-        self.bluetoothStore.finishFullSetRelease(success: false)
+        self.bluetoothStore.rollBackFullSetRelease()
         self.endTransfer()
         NotificationManager.showNotification(
           title: String(localized: "Couldn't Switch"),
@@ -938,9 +939,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             // locally. Without this the user is left with peripherals paired
             // nowhere. `connectPeripheral` flips each row to `.connecting`,
             // which clears the "Sending…" state on its own.
-            self.bluetoothStore.peripherals.forEach { peripheral in
-              self.bluetoothStore.connectPeripheral(peripheral)
-            }
+            self.bluetoothStore.rollBackFullSetRelease()
             self.endTransfer()
             NotificationManager.showNotification(
               title: String(localized: "Couldn't Switch"),
@@ -950,7 +949,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
               identifier: "switch-connect-failed"
             )
           } else {
-            self.bluetoothStore.finishFullSetRelease(success: true)
+            self.bluetoothStore.finishFullSetRelease()
             self.endTransfer()
           }
         }
