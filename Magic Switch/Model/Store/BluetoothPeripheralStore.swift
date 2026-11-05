@@ -42,6 +42,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// How long to let `-remove` settle in the Bluetooth daemon before pairing
     /// again. Re-pairing inside this window races the unbond and fails.
     static let unbondSettle: TimeInterval = 0.5
+    /// Experiment: `false` never calls the private `-remove`, so every release
+    /// takes the `closeConnection()` fallback and both Macs keep their bond.
+    static let unbindOnRelease = false
     /// How long `waitForLocalDisconnect` waits for a released device to
     /// disconnect. Must stay under `intentionalReleaseGrace` and the peer's
     /// `releaseBodyTimeout`, less the time `-remove` itself takes.
@@ -533,7 +536,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         else { continue }
         connectedIDs.append(peripheral.id)
         guard shouldRelease else { continue }
-        if device.responds(to: Selector(("remove"))) {
+        if Self.canRemoveBond(device) {
           device.perform(Selector(("remove")))
         } else {
           _ = device.closeConnection()
@@ -741,6 +744,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     fetchConnectedPeripherals()
   }
 
+  private static func canRemoveBond(_ device: IOBluetoothDevice) -> Bool {
+    Constants.unbindOnRelease && device.responds(to: Selector(("remove")))
+  }
+
   /// Removes peripheral information from the system while maintaining it in
   /// the list. The IOBluetooth work runs on `bluetoothQueue` — `remove` and
   /// `closeConnection` are synchronous bluetoothd IPC, seconds in the worst
@@ -780,7 +787,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return true
     }
 
-    if btDevice.responds(to: Selector(("remove"))) {
+    if Self.canRemoveBond(btDevice) {
       // Suppress the imminent disconnect notification from re-arming the
       // watcher — we're handing this peripheral away on purpose.
       noteIntentionalRelease(peripheral.id)
@@ -1323,7 +1330,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // teardown the stopped attempt can never pair back.
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
         guard refreshStaleBondOnFailedOpen,
-          btDevice.responds(to: Selector(("remove"))),
+          Self.canRemoveBond(btDevice),
           self.answersPage(btDevice)
         else {
           // Bonded but didn't come up (still booting / out of range / link
@@ -1450,7 +1457,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     of btDevice: IOBluetoothDevice, id: String, name: String, attempt: UInt64,
     completion: @escaping (IOBluetoothDevice) -> Void
   ) {
-    guard btDevice.responds(to: Selector(("remove"))) else {
+    guard Self.canRemoveBond(btDevice) else {
       Log.bluetooth.error("Cannot refresh stale pairing for \(name): remove selector unavailable")
       completion(btDevice)
       return
