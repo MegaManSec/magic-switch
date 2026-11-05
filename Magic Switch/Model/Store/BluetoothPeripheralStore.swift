@@ -2421,6 +2421,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             !self.isFullSetSwitchPending,
             self.connectionState(for: id) == .disconnected
           else { return }
+          if let deadline = self.peerReleaseDeadlines[id], Date() < deadline {
+            guard case .remoteOperationFailed = failure else {
+              Log.bluetooth.notice(
+                "Auto-reconnect: couldn't ask \(device.name) about \(peripheral.name); waiting for its release"
+              )
+              return
+            }
+          }
           if self.adoptionProgress[id] != nil {
             self.continueAdoption(of: peripheral, after: failure)
             return
