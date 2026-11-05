@@ -1100,11 +1100,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     waitForLocalDisconnect(of: [peripheral.id]) { [weak self] success in
       guard let self = self else { return }
       guard success else {
-        // It never disconnected, so it's still on this Mac — drop back to
-        // connected rather than leave it stuck "Sending…".
-        self.clearIntentionalRelease(peripheral.id)
-        self.setConnectionState(.connected, for: peripheral.id)
-        self.setPeripheralError(String(localized: "Didn't disconnect."), for: peripheral.id)
+        // It never disconnected, so it's still on this Mac — adopt it (or
+        // re-pair it if it dropped meanwhile), as the full-set rollback does.
+        self.connectPeripheral(peripheral)
         NotificationManager.showNotification(
           title: String(localized: "Couldn't Switch"),
           body: String(localized: "\(peripheral.name) didn't disconnect from this Mac."),
