@@ -1,0 +1,137 @@
+name: Test build
+
+# Signed, notarized build of any ref, uploaded as a workflow artifact. No
+# release, App Store upload or Homebrew update. Run it from main so the
+# `release` environment's branch policy admits it.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or SHA to build
+        required: true
+        default: main
+
+concurrency:
+  group: test-build-${{ inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    environment: release
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set version
+        run: |
+          VERSION="$(git describe --tags --abbrev=0 --match 'v*' | sed 's/^v//')"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          PROJECT_FILE="Magic Switch.xcodeproj/project.pbxproj"
+          sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $VERSION;/g" "$PROJECT_FILE"
+          sed -i '' "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $GITHUB_RUN_NUMBER;/g" "$PROJECT_FILE"
+          echo "ARTIFACT_NAME=Magic-Switch-$VERSION-test-$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "Version $VERSION, build $GITHUB_RUN_NUMBER, commit $SHORT_SHA"
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: "26.5"
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          CERT_PATH="$RUNNER_TEMP/signing.p12"
+
+          printf '%s' "$MACOS_CERT_P12" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      - name: Build
+        run: |
+          xcodebuild clean archive \
+            -project "Magic Switch.xcodeproj" \
+            -scheme "Magic Switch" \
+            -configuration Release \
+            -archivePath "Magic Switch.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=LA3A27SJGR \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp"
+
+      - name: Verify signature
+        run: |
+          APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          DETAILS="$(codesign -dvv "$APP" 2>&1)"
+          echo "$DETAILS"
+          grep -q '^Authority=Developer ID Application: .*(LA3A27SJGR)$' <<< "$DETAILS"
+          grep -q '^TeamIdentifier=LA3A27SJGR$' <<< "$DETAILS"
+          grep -q '^Timestamp=' <<< "$DETAILS"
+
+      - name: Notarize
+        env:
+          NOTARY_API_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          KEY_PATH="$RUNNER_TEMP/notary.p8"
+          SUBMISSION_ZIP="$RUNNER_TEMP/notarize.zip"
+          AUTH=(--key "$KEY_PATH" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID")
+
+          printf '%s\n' "$NOTARY_API_KEY_P8" > "$KEY_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$SUBMISSION_ZIP"
+
+          RESULT="$(xcrun notarytool submit "$SUBMISSION_ZIP" "${AUTH[@]}" --wait --timeout 2h --output-format json || true)"
+          echo "$RESULT"
+          STATUS="$(plutil -extract status raw -o - - <<< "$RESULT" 2>/dev/null || true)"
+          SUBMISSION_ID="$(plutil -extract id raw -o - - <<< "$RESULT" 2>/dev/null || true)"
+          if [ "$STATUS" != "Accepted" ]; then
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" "${AUTH[@]}" || true
+            fi
+            rm -f "$KEY_PATH"
+            exit 1
+          fi
+          rm -f "$KEY_PATH"
+
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          spctl -a -vvv -t exec "$APP"
+
+      - name: Create ZIP
+        run: |
+          mkdir -p artifacts
+          cd "Magic Switch.xcarchive/Products/Applications"
+          ditto -c -k --sequesterRsrc --keepParent "Magic Switch.app" "$GITHUB_WORKSPACE/artifacts/Magic Switch.app.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts/
+          retention-days: 30
+
+      - name: Delete signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
