@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOBluetooth
 import SwiftUI
@@ -1759,6 +1760,40 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         "Bluetooth pairing confirmation for \(address) (\(numericValue)): "
           + (initiated ? "accept" : "refuse"))
       pair.replyUserConfirmation(initiated)
+    }
+  }
+
+  /// Legacy Apple Wireless Keyboards use Bluetooth Secure Simple Pairing's
+  /// passkey-entry flow: macOS provides a six-digit value that must be typed
+  /// on the keyboard itself. `IOBluetoothDevicePair` does not present the
+  /// system pairing panel, so surface the passkey and instructions here.
+  @objc func devicePairingUserPasskeyNotification(
+    _ sender: Any!,
+    passkey: BluetoothPasskey
+  ) {
+    guard let pair = sender as? IOBluetoothDevicePair,
+      let device = pair.device(),
+      let address = device.addressString
+    else {
+      return
+    }
+
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, self.pendingPairs[address] === pair else { return }
+
+      let code = String(format: "%06u", passkey)
+      let alert = NSAlert()
+      alert.messageText = String(localized: "Enter the Bluetooth passkey")
+      let instructions = String(
+        format: String(
+          localized: "Type this passkey on %@, then press Return on the keyboard."),
+        device.name ?? BluetoothPeripheral.unknownName)
+      alert.informativeText = "\(instructions)\n\n\(code)"
+      alert.alertStyle = .informational
+      alert.addButton(withTitle: String(localized: "Done"))
+
+      NSApp.activate(ignoringOtherApps: true)
+      alert.runModal()
     }
   }
 
