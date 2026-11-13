@@ -316,7 +316,7 @@ final class BLETransport: NSObject, ObservableObject {
   }
 
   private func drain(_ link: InboundLink) {
-    guard let manager = peripheralManager, let outbox = outbox else { return }
+    guard link.isSubscribed, let manager = peripheralManager, let outbox = outbox else { return }
     link.packets.drain {
       manager.updateValue($0, for: outbox, onSubscribedCentrals: [link.central])
     }
@@ -612,7 +612,9 @@ extension BLETransport: CBPeripheralManagerDelegate {
     didSubscribeTo characteristic: CBCharacteristic
   ) {
     guard peripheral === peripheralManager else { return }
-    inboundLink(for: central).isSubscribed = true
+    let link = inboundLink(for: central)
+    link.isSubscribed = true
+    drain(link)
   }
 
   func peripheralManager(
