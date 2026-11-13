@@ -230,3 +230,5 @@ If Magic Switch is useful to you, you can support its development by [sponsoring
 ## License
 
 GNU GPL v3.0. See [LICENSE](LICENSE).
+
+<!-- temporary: docs-only CI gate test -->
