@@ -16,6 +16,8 @@ struct OtherSettingsView: View {
   private var releaseOnSleep: Bool = true
   @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
   private var autoReconnect: Bool = true
+  @AppStorage(DisplayMonitor.takeOnWakeDefaultsKey)
+  private var takeOnWake: Bool = false
 
   // MARK: - View Content
 
@@ -106,6 +108,13 @@ struct OtherSettingsView: View {
             displayRow(for: row)
           }
         }
+        Toggle(
+          "Take peripherals when this Mac wakes with a marked display connected", isOn: $takeOnWake
+        )
+        .disabled(displayMonitor.triggerDisplays.isEmpty)
+        .help(
+          "Switch your peripherals to this Mac when it wakes with a marked display connected, even if your other Mac is using them."
+        )
       } header: {
         HStack {
           Text("Take Peripherals When a Display Connects")

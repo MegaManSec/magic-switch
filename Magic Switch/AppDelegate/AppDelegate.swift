@@ -812,8 +812,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// `takeAllPeripheralsIfAway` — never a send, and it works while the other
   /// Mac sleeps.
   private func setupDisplayTrigger() {
-    displayMonitor.onTriggerDisplaysConnected = { [weak self] names in
-      self?.handleTriggerDisplaysConnected(names) ?? false
+    displayMonitor.onTriggerDisplaysConnected = { [weak self] names, onWake in
+      self?.handleTriggerDisplaysConnected(names, onWake: onWake) ?? false
     }
     displayMonitor.start()
   }
@@ -828,16 +828,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     HotkeyManager.shared.start()
   }
 
-  /// A trigger display just connected (runs on main). Announce it, then take
-  /// the full set through the shared external-claim engine below.
-  private func handleTriggerDisplaysConnected(_ names: [String]) -> Bool {
+  /// A trigger display just connected, or this Mac woke with one connected
+  /// (runs on main). Announce it, then take the full set through the shared
+  /// external-claim engine below.
+  private func handleTriggerDisplaysConnected(_ names: [String], onWake: Bool) -> Bool {
+    let displays = ListFormatter.localizedString(byJoining: names)
     return takeAllPeripheralsIfAway {
       NotificationManager.showNotification(
-        title: String(localized: "Display Connected"),
-        body: String(
-          localized:
-            "\(ListFormatter.localizedString(byJoining: names)) connected — switching your peripherals to this Mac."
-        ),
+        title: onWake
+          ? String(localized: "Display Connected at Wake") : String(localized: "Display Connected"),
+        body: onWake
+          ? String(
+            localized: "Woke with \(displays) connected — switching your peripherals to this Mac.")
+          : String(localized: "\(displays) connected — switching your peripherals to this Mac."),
         identifier: "display-trigger-switch"
       )
     }

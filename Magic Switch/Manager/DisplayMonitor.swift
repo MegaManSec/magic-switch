@@ -26,6 +26,9 @@ import SwiftUI
 ///   peripherals from a peer the user switched to meanwhile. A display that
 ///   was *not* present at sleep still fires normally, which is exactly the
 ///   carry-the-MacBook-over, plug-in, lid-opens flow the feature exists for.
+///
+/// With `takeOnWake` on, waking with a trigger display connected fires too —
+/// the one deliberate non-edge.
 final class DisplayMonitor: ObservableObject {
   // MARK: - Singleton
 
@@ -54,6 +57,10 @@ final class DisplayMonitor: ObservableObject {
     /// Generous on purpose: it never delays a genuine trigger (a display
     /// absent at sleep is exempt); it only shields re-appearances.
     static let wakeSettleWindow: TimeInterval = 30
+    /// How long after wake a `takeOnWake` take waits, so peripherals still
+    /// bonded to this Mac can reconnect on their own first. Matches the
+    /// store's `wakeReclaimDelay`.
+    static let wakeTakeDelay: TimeInterval = 5
     /// Upper bound for `CGGetOnlineDisplayList`.
     static let maxDisplays: UInt32 = 16
   }
@@ -62,6 +69,10 @@ final class DisplayMonitor: ObservableObject {
   /// last-known name). Referenced by the Other settings tab too, so the key
   /// string lives here as the single source of truth.
   static let triggerDisplaysDefaultsKey = "displayTriggerDisplays"
+
+  /// `@AppStorage` key for also firing when this Mac wakes with a trigger
+  /// display connected. Off by default.
+  static let takeOnWakeDefaultsKey = "displayTriggerTakeOnWake"
 
   // MARK: - Properties
 
@@ -79,11 +90,15 @@ final class DisplayMonitor: ObservableObject {
   @AppStorage(DisplayMonitor.triggerDisplaysDefaultsKey)
   private var triggerDisplaysData: Data = Data()
 
+  @AppStorage(DisplayMonitor.takeOnWakeDefaultsKey)
+  private var takeOnWake: Bool = false
+
   /// Called on the main run loop with the names of trigger displays that
-  /// just connected (usually one; a dock can bring up several at once).
-  /// Returns `false` when the take can't start; within the wake settle window
-  /// it's retried until the window closes.
-  var onTriggerDisplaysConnected: (([String]) -> Bool)?
+  /// just connected (usually one; a dock can bring up several at once), and
+  /// whether they fired because this Mac woke with them connected. Returns
+  /// `false` when the take can't start; within the wake settle window it's
+  /// retried until the window closes.
+  var onTriggerDisplaysConnected: ((_ names: [String], _ onWake: Bool) -> Bool)?
 
   /// Display UUIDs believed present. The trigger fires only for additions to
   /// this set. Deliberately *not* rebuilt from scratch on wake — see the
@@ -104,6 +119,13 @@ final class DisplayMonitor: ObservableObject {
   /// Trigger displays refused during the wake settle window, retried until it
   /// closes. Main-only.
   private var retryDocks: Set<String> = []
+
+  /// Set at wake; cleared once a take starts within the settle window.
+  /// Main-only.
+  private var wakeTakePending = false
+
+  /// Earliest a `takeOnWake` take may start. Main-only.
+  private var wakeTakeNotBefore: Date = .distantPast
 
   /// Debounce timer for `reconcile()`; see `Constants.reconcileDebounce`.
   private var reconcileTimer: DispatchSourceTimer?
@@ -228,18 +250,26 @@ final class DisplayMonitor: ObservableObject {
     if connectedDisplays != online { connectedDisplays = online }
     refreshTriggerNames(from: online)
 
-    guard !appeared.isEmpty else { return }
-    let triggered = online.filter { display in
+    let docked = online.filter { display in
       appeared.contains(display.id)
         && triggerDisplays[display.id] != nil
         && !(settling && presentAtSleep.contains(display.id))
     }
+    let onWake = docked.isEmpty && settling && wakeTakePending && takeOnWake
+    if onWake, Date() < wakeTakeNotBefore {
+      scheduleReconcile()
+      return
+    }
+    let triggered = onWake ? online.filter { triggerDisplays[$0.id] != nil } : docked
     guard !triggered.isEmpty else { return }
-    Log.app.notice("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
-    if onTriggerDisplaysConnected?(triggered.map { $0.name }) == true {
+    Log.app.notice(
+      "DisplayMonitor: trigger display(s) \(onWake ? "present at wake" : "connected"): \(triggered.map { $0.name })"
+    )
+    if onTriggerDisplaysConnected?(triggered.map { $0.name }, onWake) == true {
       retryDocks = []
+      wakeTakePending = false
     } else if settling {
-      retryDocks = Set(triggered.map { $0.id })
+      retryDocks = Set(docked.map { $0.id })
       scheduleReconcile()
     }
   }
@@ -265,6 +295,8 @@ final class DisplayMonitor: ObservableObject {
   /// and a reconcile cancelled by `noteWillSleep` must not stay lost.
   private func noteDidWake() {
     isAsleep = false
+    wakeTakePending = true
+    wakeTakeNotBefore = Date().addingTimeInterval(Constants.wakeTakeDelay)
     wakeSettleDeadline = Date().addingTimeInterval(Constants.wakeSettleWindow)
     scheduleReconcile()
   }

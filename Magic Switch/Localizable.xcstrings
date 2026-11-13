@@ -1206,6 +1206,16 @@
         }
       }
     },
+    "Display Connected at Wake" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalla conectada al salir del reposo"
+          }
+        }
+      }
+    },
     "Done" : {
       "localizations" : {
         "es" : {
@@ -2816,6 +2826,16 @@
         }
       }
     },
+    "Switch your peripherals to this Mac when it wakes with a marked display connected, even if your other Mac is using them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasa tus periféricos a este Mac cuando salga del reposo con una pantalla marcada conectada, aunque tu otro Mac los esté usando."
+          }
+        }
+      }
+    },
     "Switch your peripherals to this Mac whenever %@ connects. Display ID: %@." : {
       "localizations" : {
         "en" : {
@@ -2981,6 +3001,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Traer periféricos a este Mac"
+          }
+        }
+      }
+    },
+    "Take peripherals when this Mac wakes with a marked display connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer periféricos cuando este Mac salga del reposo con una pantalla marcada conectada"
           }
         }
       }
@@ -3404,6 +3434,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Wi-Fi"
+          }
+        }
+      }
+    },
+    "Woke with %@ connected — switching your peripherals to this Mac." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión detectada al salir del reposo (%@): pasando tus periféricos a este Mac."
           }
         }
       }
