@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://apps.apple.com/us/app/magic-switch/id6816653452"><img src="docs/assets/logos/app-store.svg" width="48" height="48" alt="Mac App Store"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/MegaManSec/magic-switch/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/logos/github-dark.svg"><img src="docs/assets/logos/github.svg" width="48" height="48" alt="GitHub Releases"></picture></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/MegaManSec/magic-switch/releases/latest"><img src="docs/assets/logos/github.svg" width="48" height="48" alt="GitHub Releases"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://github.com/MegaManSec/homebrew-tap"><img src="docs/assets/logos/homebrew.svg" width="48" height="48" alt="Homebrew"></a>
 </p>
 
