@@ -96,6 +96,9 @@ final class DisplayMonitor: ObservableObject {
   /// End of the post-wake settle window. Main-only.
   private var wakeSettleDeadline: Date = .distantPast
 
+  /// Between `willSleep` and `didWake`; dark wakes post neither. Main-only.
+  private var isAsleep = false
+
   /// Debounce timer for `reconcile()`; see `Constants.reconcileDebounce`.
   private var reconcileTimer: DispatchSourceTimer?
 
@@ -206,7 +209,7 @@ final class DisplayMonitor: ObservableObject {
     reconcileTimer?.cancel()
     reconcileTimer = nil
 
-    guard let online = Self.onlineExternalDisplays() else { return }
+    guard !isAsleep, let online = Self.onlineExternalDisplays() else { return }
     let onlineIDs = Set(online.map { $0.id })
     let appeared = onlineIDs.subtracting(presentUUIDs)
     presentUUIDs = onlineIDs
@@ -228,14 +231,15 @@ final class DisplayMonitor: ObservableObject {
   // MARK: - Sleep Handling
 
   /// Snapshot what's present *before* the sleep transition churns it, and
-  /// drop any pending reconcile — acting between here and the actual sleep
-  /// would race the radio/network teardown. Whatever really changed is
-  /// re-observed by the wake reconcile; that includes a display plugged in
-  /// moments before the lid closed, which (correctly) fires at wake because
-  /// this pre-churn snapshot doesn't contain it.
+  /// hold reconciles until wake — acting before then would race the
+  /// radio/network teardown. Whatever really changed is re-observed by the
+  /// wake reconcile; that includes a display plugged in moments before the
+  /// lid closed, which (correctly) fires at wake because this pre-churn
+  /// snapshot doesn't contain it.
   private func noteWillSleep() {
     reconcileTimer?.cancel()
     reconcileTimer = nil
+    isAsleep = true
     presentAtSleep = presentUUIDs
   }
 
@@ -243,6 +247,7 @@ final class DisplayMonitor: ObservableObject {
   /// changed while we slept there may be no further callback to prompt one,
   /// and a reconcile cancelled by `noteWillSleep` must not stay lost.
   private func noteDidWake() {
+    isAsleep = false
     wakeSettleDeadline = Date().addingTimeInterval(Constants.wakeSettleWindow)
     scheduleReconcile()
   }
