@@ -82,7 +82,7 @@ final class DisplayMonitor: ObservableObject {
   /// Called on the main run loop with the names of trigger displays that
   /// just connected (usually one; a dock can bring up several at once).
   /// Returns `false` when the take can't start; within the wake settle window
-  /// they fire again on the next reconcile.
+  /// it's retried until the window closes.
   var onTriggerDisplaysConnected: (([String]) -> Bool)?
 
   /// Display UUIDs believed present. The trigger fires only for additions to
@@ -100,6 +100,10 @@ final class DisplayMonitor: ObservableObject {
 
   /// Between `willSleep` and `didWake`; dark wakes post neither. Main-only.
   private var isAsleep = false
+
+  /// Trigger displays refused during the wake settle window, retried until it
+  /// closes. Main-only.
+  private var retryDocks: Set<String> = []
 
   /// Debounce timer for `reconcile()`; see `Constants.reconcileDebounce`.
   private var reconcileTimer: DispatchSourceTimer?
@@ -216,14 +220,15 @@ final class DisplayMonitor: ObservableObject {
       scheduleReconcile()
       return
     }
+    let settling = Date() < wakeSettleDeadline
+    if !settling { retryDocks.removeAll() }
     let onlineIDs = Set(online.map { $0.id })
-    let appeared = onlineIDs.subtracting(presentUUIDs)
+    let appeared = onlineIDs.subtracting(presentUUIDs).union(retryDocks)
     presentUUIDs = onlineIDs
     if connectedDisplays != online { connectedDisplays = online }
     refreshTriggerNames(from: online)
 
     guard !appeared.isEmpty else { return }
-    let settling = Date() < wakeSettleDeadline
     let triggered = online.filter { display in
       appeared.contains(display.id)
         && triggerDisplays[display.id] != nil
@@ -231,8 +236,11 @@ final class DisplayMonitor: ObservableObject {
     }
     guard !triggered.isEmpty else { return }
     Log.app.notice("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
-    if onTriggerDisplaysConnected?(triggered.map { $0.name }) == false, settling {
-      presentUUIDs.subtract(triggered.map { $0.id })
+    if onTriggerDisplaysConnected?(triggered.map { $0.name }) == true {
+      retryDocks = []
+    } else if settling {
+      retryDocks = Set(triggered.map { $0.id })
+      scheduleReconcile()
     }
   }
 
@@ -248,6 +256,7 @@ final class DisplayMonitor: ObservableObject {
     reconcileTimer?.cancel()
     reconcileTimer = nil
     isAsleep = true
+    retryDocks = []
     presentAtSleep = presentUUIDs
   }
 

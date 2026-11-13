@@ -281,8 +281,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       // a login-item launch), and already-connected peripherals fire no new
       // connect event — re-resolve connection states now that it's up.
       bluetoothStore.fetchConnectedPeripherals()
-      // Retries a display trigger refused while the radio was still off.
-      displayMonitor.refreshNow()
     case .resetting, .unknown:
       break
     @unknown default:
