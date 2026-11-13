@@ -771,8 +771,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return false
     }
 
-    // Deliberate release: stop any auto-reconnect attempt for it.
+    // Deliberate release: stop the watcher and any connect still in flight.
     disarmReconnect(peripheral.id, reason: "released")
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, self.canCancelConnect(peripheral.id) else { return }
+      _ = self.beginConnectAttempt(for: peripheral.id)
+      self.tearDownPairAttempt(for: peripheral.id)
+      self.bondsAwaitingRepair.remove(peripheral.id)
+    }
 
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
