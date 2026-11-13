@@ -742,9 +742,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Removes peripheral information from the system while maintaining it in
-  /// the list. The IOBluetooth work runs on `bluetoothQueue` — `remove` and
-  /// `closeConnection` are synchronous bluetoothd IPC, seconds in the worst
-  /// case against a dead or out-of-range device, and must never stall main.
+  /// the list. Main-only; the IOBluetooth work runs on `bluetoothQueue` —
+  /// `remove` and `closeConnection` are synchronous bluetoothd IPC, seconds in
+  /// the worst case against a dead or out-of-range device, and must never
+  /// stall main.
   /// - Parameter peripheral: The peripheral to unregister
   /// - Parameter completion: Fires on main after the release has been issued
   ///   and its state change applied (a `.releasing` row is left as-is — the
@@ -752,6 +753,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///   `false` means nothing was released; the failure has already been
   ///   reported inline, so the caller only has to stop.
   func unregisterFromPC(_ peripheral: BluetoothPeripheral, completion: ((Bool) -> Void)? = nil) {
+    stopConnectAttempt(peripheral.id)
+    bondsAwaitingRepair.remove(peripheral.id)
     bluetoothQueue.async { [weak self] in
       guard let self = self else { return }
       let released = self.performUnregisterFromPC(peripheral)
@@ -771,14 +774,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return false
     }
 
-    // Deliberate release: stop the watcher and any connect still in flight.
+    // Deliberate release: stop any auto-reconnect attempt for it.
     disarmReconnect(peripheral.id, reason: "released")
-    DispatchQueue.main.async { [weak self] in
-      guard let self = self, self.canCancelConnect(peripheral.id) else { return }
-      _ = self.beginConnectAttempt(for: peripheral.id)
-      self.tearDownPairAttempt(for: peripheral.id)
-      self.bondsAwaitingRepair.remove(peripheral.id)
-    }
 
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
@@ -910,9 +907,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     let id = peripheral.id
-    guard canCancelConnect(id) else { return }
-    _ = beginConnectAttempt(for: id)
-    tearDownPairAttempt(for: id)
+    guard stopConnectAttempt(id) else { return }
     disarmReconnect(id, reason: "pairing canceled")
     // Standing the watcher down leaves nothing to re-pair a bond this attempt
     // already removed, so that has to be said rather than retried.
@@ -934,6 +929,16 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// round trip still on the wire (see `takeReleasesInFlight`). Main-only.
   func canCancelConnect(_ id: String) -> Bool {
     connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
+  }
+
+  /// Supersedes `id`'s in-flight connect and stops its pair, when
+  /// `canCancelConnect` allows it. Main-only.
+  @discardableResult
+  private func stopConnectAttempt(_ id: String) -> Bool {
+    guard canCancelConnect(id) else { return false }
+    _ = beginConnectAttempt(for: id)
+    tearDownPairAttempt(for: id)
+    return true
   }
 
   /// Asks the peer to release just this peripheral, then pairs it
@@ -1269,7 +1274,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout, attempt: attempt)
 
     bluetoothQueue.async { [weak self] in
-      guard let self = self else { return }
+      guard let self = self, self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
 
       guard let btDevice = IOBluetoothDevice(addressString: peripheral.id) else {
         Log.bluetooth.error("\(peripheral.name) not found")
