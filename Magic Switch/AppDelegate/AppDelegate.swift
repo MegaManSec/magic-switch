@@ -845,28 +845,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   /// Take the full set onto this Mac in response to an automatic or external
   /// claim — the display trigger, the URL scheme's full-set `take` — with the
-  /// same guards as the menu switch, plus two of its own: Bluetooth must be
-  /// healthy — such a trigger must never ask the peer to release peripherals
-  /// this Mac then can't take — and "everything already here" is a silent
-  /// no-op, so a repeated trigger doesn't spam. Unlike the menu there's no
-  /// clicked row to target: use the trusted peer, or fall back to a plain
-  /// local grab when none is registered — the trigger is a claim on the
-  /// peripherals either way. `onTake` fires once a take is actually going to
-  /// happen, so the display trigger can announce itself.
+  /// same guards as the menu switch, plus two of its own: this Mac must be
+  /// awake with Bluetooth healthy — such a trigger must never ask the peer to
+  /// release peripherals this Mac then can't take — and "everything already
+  /// here" is a silent no-op, so a repeated trigger doesn't spam. Unlike the
+  /// menu there's no clicked row to target: use the trusted peer, or fall
+  /// back to a plain local grab when none is registered — the trigger is a
+  /// claim on the peripherals either way. `onTake` fires once a take is
+  /// actually going to happen, so the display trigger can announce itself.
   private func takeAllPeripheralsIfAway(onTake: @escaping () -> Void = {}) {
-    guard !bluetoothStore.peripherals.isEmpty,
-      !bluetoothStore.isAnyPeripheralTransitioning,
-      // The same states the status-bar icon treats as healthy (`.unknown`
-      // just means CoreBluetooth hasn't reported yet, e.g. right at launch).
-      BluetoothManager.shared.state == .poweredOn || BluetoothManager.shared.state == .unknown
-    else { return }
+    guard canTakeAllPeripherals else { return }
     bluetoothStore.isFullSetSwitchPending = true
     bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
       guard let self = self else { return }
       self.bluetoothStore.isFullSetSwitchPending = false
-      guard status != .allConnected,
-        !self.bluetoothStore.isAnyPeripheralTransitioning
-      else { return }
+      guard status != .allConnected, self.canTakeAllPeripherals else { return }
       onTake()
       // Same trusted-peer rule as the sleep handoff: registered and not
       // parked behind an identity mismatch. Reachability isn't pre-checked:
@@ -886,6 +879,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         }
       }
     }
+  }
+
+  /// `takeAllPeripheralsIfAway`'s guards, checked up front and again after
+  /// its status query.
+  private var canTakeAllPeripherals: Bool {
+    !isSystemSleeping && !bluetoothStore.peripherals.isEmpty
+      && !bluetoothStore.isAnyPeripheralTransitioning
+      // The same states the status-bar icon treats as healthy (`.unknown`
+      // just means CoreBluetooth hasn't reported yet, e.g. right at launch).
+      && (BluetoothManager.shared.state == .poweredOn
+        || BluetoothManager.shared.state == .unknown)
   }
 
   /// Disconnect peripherals locally then hand them to the peer. Called only
