@@ -1780,21 +1780,39 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     DispatchQueue.main.async { [weak self] in
       guard let self = self, self.pendingPairs[address] === pair else { return }
-
-      let code = String(format: "%06u", passkey)
-      let alert = NSAlert()
-      alert.messageText = String(localized: "Enter the Bluetooth passkey")
-      let instructions = String(
-        format: String(
-          localized: "Type this passkey on %@, then press Return on the keyboard."),
-        device.name ?? BluetoothPeripheral.unknownName)
-      alert.informativeText = "\(instructions)\n\n\(code)"
-      alert.alertStyle = .informational
-      alert.addButton(withTitle: String(localized: "Done"))
-
-      NSApp.activate(ignoringOtherApps: true)
-      alert.runModal()
+      Log.bluetooth.notice("Bluetooth passkey entry requested for \(address)")
+      self.showKeyboardPairingPrompt(
+        code: String(format: "%06u", passkey),
+        deviceName: device.name ?? BluetoothPeripheral.unknownName,
+        address: address,
+        pair: pair)
     }
+  }
+
+  /// The Bluetooth stack does not present its system pairing panel for
+  /// `IOBluetoothDevicePair`, so show the code and tell the user to type it on
+  /// the peripheral. This covers both the six-digit Secure Simple Pairing
+  /// passkey and legacy fixed-PIN entry used by Apple Wireless Keyboards.
+  private func showKeyboardPairingPrompt(
+    code: String,
+    deviceName: String,
+    address: String,
+    pair: IOBluetoothDevicePair
+  ) {
+    guard pendingPairs[address] === pair else { return }
+
+    let alert = NSAlert()
+    alert.messageText = String(localized: "Enter the Bluetooth pairing code")
+    let instructions = String(
+      format: String(
+        localized: "Type this code on %@, then press Return on the keyboard."),
+      deviceName)
+    alert.informativeText = "\(instructions)\n\n\(code)"
+    alert.alertStyle = .informational
+    alert.addButton(withTitle: String(localized: "Done"))
+
+    NSApp.activate(ignoringOtherApps: true)
+    alert.runModal()
   }
 
   @objc func devicePairingPINCodeRequest(_ sender: Any!) {
@@ -1810,13 +1828,21 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
       Log.bluetooth.notice("Replying to Bluetooth PIN code request for \(address)")
-      // Legacy HID peripherals with no keypad take the all-zero PIN.
+      // Legacy HID peripherals with no keypad take the all-zero PIN. The
+      // user must also enter that PIN on keyboards that request device-side
+      // entry, as Apple documents for this delegate callback.
+      let pin = "0000"
       var code = BluetoothPINCode()
-      let digits = Array("0000".utf8)
+      let digits = Array(pin.utf8)
       withUnsafeMutableBytes(of: &code.data) { raw in
         for (index, byte) in digits.enumerated() { raw[index] = byte }
       }
       pair.replyPINCode(digits.count, pinCode: &code)
+      self.showKeyboardPairingPrompt(
+        code: pin,
+        deviceName: pair.device()?.name ?? BluetoothPeripheral.unknownName,
+        address: address,
+        pair: pair)
     }
   }
 
