@@ -753,6 +753,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   ///   `false` means nothing was released; the failure has already been
   ///   reported inline, so the caller only has to stop.
   func unregisterFromPC(_ peripheral: BluetoothPeripheral, completion: ((Bool) -> Void)? = nil) {
+    // Deliberate release: stop any auto-reconnect attempt for it.
+    disarmReconnect(peripheral.id, reason: "released")
     stopConnectAttempt(peripheral.id)
     bondsAwaitingRepair.remove(peripheral.id)
     bluetoothQueue.async { [weak self] in
@@ -773,9 +775,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       setPeripheralError(String(localized: "Not found."), for: peripheral.id)
       return false
     }
-
-    // Deliberate release: stop any auto-reconnect attempt for it.
-    disarmReconnect(peripheral.id, reason: "released")
 
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
