@@ -81,7 +81,9 @@ final class DisplayMonitor: ObservableObject {
 
   /// Called on the main run loop with the names of trigger displays that
   /// just connected (usually one; a dock can bring up several at once).
-  var onTriggerDisplaysConnected: (([String]) -> Void)?
+  /// Returns `false` when the take can't start; within the wake settle window
+  /// they fire again on the next reconcile.
+  var onTriggerDisplaysConnected: (([String]) -> Bool)?
 
   /// Display UUIDs believed present. The trigger fires only for additions to
   /// this set. Deliberately *not* rebuilt from scratch on wake — see the
@@ -229,7 +231,9 @@ final class DisplayMonitor: ObservableObject {
     }
     guard !triggered.isEmpty else { return }
     Log.app.notice("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
-    onTriggerDisplaysConnected?(triggered.map { $0.name })
+    if onTriggerDisplaysConnected?(triggered.map { $0.name }) == false, settling {
+      presentUUIDs.subtract(triggered.map { $0.id })
+    }
   }
 
   // MARK: - Sleep Handling

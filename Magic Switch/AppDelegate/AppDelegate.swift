@@ -281,6 +281,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       // a login-item launch), and already-connected peripherals fire no new
       // connect event — re-resolve connection states now that it's up.
       bluetoothStore.fetchConnectedPeripherals()
+      // Retries a display trigger refused while the radio was still off.
+      displayMonitor.refreshNow()
     case .resetting, .unknown:
       break
     @unknown default:
@@ -813,7 +815,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// Mac sleeps.
   private func setupDisplayTrigger() {
     displayMonitor.onTriggerDisplaysConnected = { [weak self] names in
-      self?.handleTriggerDisplaysConnected(names)
+      self?.handleTriggerDisplaysConnected(names) ?? false
     }
     displayMonitor.start()
   }
@@ -830,8 +832,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   /// A trigger display just connected (runs on main). Announce it, then take
   /// the full set through the shared external-claim engine below.
-  private func handleTriggerDisplaysConnected(_ names: [String]) {
-    takeAllPeripheralsIfAway {
+  private func handleTriggerDisplaysConnected(_ names: [String]) -> Bool {
+    return takeAllPeripheralsIfAway {
       NotificationManager.showNotification(
         title: String(localized: "Display Connected"),
         body: String(
@@ -853,8 +855,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// back to a plain local grab when none is registered — the trigger is a
   /// claim on the peripherals either way. `onTake` fires once a take is
   /// actually going to happen, so the display trigger can announce itself.
-  private func takeAllPeripheralsIfAway(onTake: @escaping () -> Void = {}) {
-    guard canTakeAllPeripherals else { return }
+  /// Returns `false` when the guards refuse it up front.
+  @discardableResult
+  private func takeAllPeripheralsIfAway(onTake: @escaping () -> Void = {}) -> Bool {
+    guard canTakeAllPeripherals else { return false }
     bluetoothStore.isFullSetSwitchPending = true
     bluetoothStore.checkActualConnectionStatusAsync { [weak self] status in
       guard let self = self else { return }
@@ -879,6 +883,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         }
       }
     }
+    return true
   }
 
   /// `takeAllPeripheralsIfAway`'s guards, checked up front and again after
