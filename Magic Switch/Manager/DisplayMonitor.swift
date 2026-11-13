@@ -116,7 +116,7 @@ final class DisplayMonitor: ObservableObject {
     guard !started else { return }
     started = true
 
-    let online = Self.onlineExternalDisplays()
+    let online = Self.onlineExternalDisplays() ?? []
     connectedDisplays = online
     refreshTriggerNames(from: online)
     scheduleReconcile()
@@ -206,7 +206,7 @@ final class DisplayMonitor: ObservableObject {
     reconcileTimer?.cancel()
     reconcileTimer = nil
 
-    let online = Self.onlineExternalDisplays()
+    guard let online = Self.onlineExternalDisplays() else { return }
     let onlineIDs = Set(online.map { $0.id })
     let appeared = onlineIDs.subtracting(presentUUIDs)
     presentUUIDs = onlineIDs
@@ -253,12 +253,13 @@ final class DisplayMonitor: ObservableObject {
   /// (`CGGetOnlineDisplayList`) deliberately includes mirrored and sleeping
   /// displays — presence is about the cable, not what's drawn. Built-in
   /// panels are excluded: they can't be docked, so they can't be triggers.
-  private static func onlineExternalDisplays() -> [ExternalDisplay] {
+  /// `nil` when the list can't be read.
+  private static func onlineExternalDisplays() -> [ExternalDisplay]? {
     var ids = [CGDirectDisplayID](repeating: 0, count: Int(Constants.maxDisplays))
     var count: UInt32 = 0
     guard CGGetOnlineDisplayList(Constants.maxDisplays, &ids, &count) == .success else {
       Log.app.error("DisplayMonitor: CGGetOnlineDisplayList failed")
-      return []
+      return nil
     }
     let displays: [ExternalDisplay] = ids.prefix(Int(count)).compactMap { id in
       guard CGDisplayIsBuiltin(id) == 0 else { return nil }
