@@ -922,7 +922,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         identifier: "pair-failed-\(id)"
       )
     }
-    setConnectionState(.disconnected, for: id)
   }
 
   /// Whether `cancelConnect` would act on `id`: pairing, with no take release
@@ -931,13 +930,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     connectionState(for: id) == .connecting && takeReleasesInFlight[id] == nil
   }
 
-  /// Supersedes `id`'s in-flight connect and stops its pair, when
-  /// `canCancelConnect` allows it. Main-only.
+  /// Supersedes `id`'s in-flight connect, stops its pair and lands the row on
+  /// `.disconnected`, when `canCancelConnect` allows it. Main-only.
   @discardableResult
   private func stopConnectAttempt(_ id: String) -> Bool {
     guard canCancelConnect(id) else { return false }
     _ = beginConnectAttempt(for: id)
     tearDownPairAttempt(for: id)
+    setConnectionState(.disconnected, for: id)
     return true
   }
 
