@@ -209,7 +209,11 @@ final class DisplayMonitor: ObservableObject {
     reconcileTimer?.cancel()
     reconcileTimer = nil
 
-    guard !isAsleep, let online = Self.onlineExternalDisplays() else { return }
+    guard !isAsleep else { return }
+    guard let online = Self.onlineExternalDisplays() else {
+      scheduleReconcile()
+      return
+    }
     let onlineIDs = Set(online.map { $0.id })
     let appeared = onlineIDs.subtracting(presentUUIDs)
     presentUUIDs = onlineIDs
