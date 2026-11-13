@@ -4,6 +4,16 @@
 
 <h1 align="center">Magic Switch</h1>
 
+<p align="center">
+  <a href="https://apps.apple.com/us/app/magic-switch/id6816653452"><img src="docs/assets/logos/app-store.svg" width="48" height="48" alt="Mac App Store"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/MegaManSec/magic-switch/releases/latest"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/logos/github-dark.svg"><img src="docs/assets/logos/github.svg" width="48" height="48" alt="GitHub Releases"></picture></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/MegaManSec/homebrew-tap"><img src="docs/assets/logos/homebrew.svg" width="48" height="48" alt="Homebrew"></a>
+</p>
+
+<p align="center">
+  <a href="https://apps.apple.com/us/app/magic-switch/id6816653452">Mac App Store</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="https://github.com/MegaManSec/magic-switch/releases/latest">GitHub Releases</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="https://github.com/MegaManSec/homebrew-tap">Homebrew</a>
+</p>
+
 A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magic Mouse between two Macs with one click — no KVM, no cables.
 
 This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.com/HoshimuraYuto/blue-switch). The original ships an unauthenticated, unencrypted LAN protocol that lets anyone on the same Wi-Fi take over your Bluetooth peripherals or spoof notifications. This fork replaces that channel with a sealed, mutually-authenticated channel keyed by a 12-character pairing code you share between your two Macs — with a massively improved UI/UX over the original: a guided pairing flow, inline status feedback, per-peripheral switching, a needs-attention menu-bar icon, and safe preflight-and-rollback handoffs.

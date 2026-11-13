@@ -1,0 +1,1 @@
+The SVGs in this directory are from Simple Icons (https://simpleicons.org), released under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/). The App Store, GitHub and Homebrew marks remain trademarks of their owners.
