@@ -43,6 +43,7 @@ Magic Switch has four Settings tabs, and two of them use the word "pair" in diff
 ### 1. Pair your peripherals to one Mac (System Settings)
 
 In **System Settings → Bluetooth**, pair your Magic Keyboard / Mouse / Trackpad to **one** of the Macs the normal macOS way. Don't also pair it to the other Mac: that can break the first Mac's pairing ("Forget this device and pair it again"). The other Mac gets your peripherals through **Sync** (step 5) and pairs each one the first time it takes it. A Magic device reconnects to whichever Mac it last used, so on every switch Magic Switch removes the pairing from the Mac giving the peripheral up (it drops out of that Mac's Bluetooth list) and pairs it again on the Mac taking it — you never re-pair by hand.
+Some older Apple Wireless Keyboards require a PIN or passkey to be entered on the keyboard during pairing. If Magic Switch displays a code, type it on the keyboard and press Return.
 
 Then, on **each** Mac, launch Magic Switch, grant **Bluetooth** and (on macOS 15 and later) **Local Network** when prompted, and click the menu-bar icon → **Settings**.
 
