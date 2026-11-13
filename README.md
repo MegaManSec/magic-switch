@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/icon.png" alt="Magic Switch app icon" width="200">
+  <a href="https://apps.apple.com/us/app/magic-switch/id6816653452"><img src="docs/assets/icon.png" alt="Magic Switch app icon" width="200"></a>
 </p>
 
 <h1 align="center">Magic Switch</h1>
