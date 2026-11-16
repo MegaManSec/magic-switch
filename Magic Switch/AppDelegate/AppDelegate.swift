@@ -107,9 +107,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     setupTransferObservers()
     setupDisplayTrigger()
     setupHotkey()
-    // Best-effort, silent, throttled to once per 24h. Drives the "Update
-    // Available" affordances in the menu-bar menu and Settings → Other.
-    UpdateChecker.shared.checkIfNeeded()
+    #if !APP_STORE
+      UpdateChecker.shared.start()
+    #endif
   }
 
   /// Fires when the user clicks the Dock icon. If a window is already
@@ -141,13 +141,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     if quitFromStatusBarMenu { return .terminateNow }
     if Self.isSystemInitiatedQuit() { return .terminateNow }
     if Self.isExternalQuitRequest() { return .terminateNow }
-    // Close any visible normal-level windows (the Settings window is the
-    // only one this app ever has). The willClose observer in
+    // Close the Settings window and its sheets. Sparkle's windows are left
+    // for the user to close, because closing them in code skips Sparkle's
+    // handling of the user's choice. The willClose observer in
     // `setupActivationPolicyTracking` will demote the activation policy
     // back to `.accessory` shortly after; setting it here too just makes
     // the Dock-icon disappearance feel immediate.
-    for window in NSApp.windows where window.isVisible && window.level == .normal {
-      window.close()
+    if let settingsWindow = settingsWindowController?.window {
+      for window in settingsWindow.sheets + [settingsWindow] where window.isVisible {
+        window.close()
+      }
     }
     NSApp.setActivationPolicy(.accessory)
     return .terminateCancel
@@ -968,13 +971,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   // MARK: - Settings Management
 
-  /// Opens the newest release in the default browser. The click target of
-  /// the update notification; the dropdown's row opens the URL itself.
-  @objc func openLatestReleasePage(_ sender: Any?) {
-    guard let url = UpdateChecker.shared.releasePageURL else { return }
-    NSWorkspace.shared.open(url)
-  }
-
   /// Observes `.magicSwitchReceivedPing` (posted by `IncomingConnection`
   /// when this Mac handles a `.notification` command) and flashes the
   /// status-bar icon. This is the fallback signal for the case where
@@ -1059,21 +1055,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     return NSWindowController(window: window)
   }
 
-  /// Clicking the update banner opens the release page — the same action as
-  /// the Update Available rows it points at. Every other Magic Switch
+  /// Clicking the update banner shows the update — the same action as the
+  /// Update Available rows it points at. Every other Magic Switch
   /// notification is informational and just dismisses.
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-      response.notification.request.identifier == UpdateChecker.updateNotificationIdentifier
-    {
-      // Delegate callbacks arrive on an internal queue; hop to main before
-      // touching NSWorkspace.
-      DispatchQueue.main.async { [weak self] in self?.openLatestReleasePage(nil) }
-    }
+    #if !APP_STORE
+      if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+        response.notification.request.identifier == UpdateChecker.updateNotificationIdentifier
+      {
+        DispatchQueue.main.async { UpdateChecker.shared.checkForUpdates() }
+      }
+    #endif
     completionHandler()
   }
 

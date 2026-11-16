@@ -47,5 +47,19 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Magic Switch uses the local network to find your other Mac and switch peripherals with it.</string>
+#ifndef APP_STORE
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/MegaManSec/magic-switch/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>OH4hcQsCDDVhY3spWYpc1Kolp8udpu9/NTDSnRKK1DQ=</string>
+	<key>SURequireSignedFeed</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
+#endif
 </dict>
 </plist>

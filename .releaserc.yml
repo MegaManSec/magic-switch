@@ -8,7 +8,14 @@
         "@semantic-release/github",
         {
           "assets":
-            [{ "path": "artifacts/app.zip", "label": "macOS Application" }],
+            [
+              { "path": "artifacts/app.zip", "label": "macOS Application" },
+              {
+                "path": "artifacts/Magic-Switch.dmg",
+                "label": "macOS Disk Image",
+              },
+              { "path": "artifacts/appcast.xml", "label": "Update Feed" },
+            ],
         },
       ],
     ],

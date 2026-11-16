@@ -105,7 +105,9 @@ final class DropdownContentView: NSView {
 
   private let networkStore = NetworkDeviceStore.shared
   private let bluetoothStore = BluetoothPeripheralStore.shared
-  private let updateChecker = UpdateChecker.shared
+  #if !APP_STORE
+    private let updateChecker = UpdateChecker.shared
+  #endif
 
   private let onSwitchMac: (NetworkDevice) -> Void
   private let onOpenSettings: () -> Void
@@ -156,8 +158,10 @@ final class DropdownContentView: NSView {
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
     bluetoothStore.objectWillChange
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
-    updateChecker.objectWillChange
-      .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
+    #if !APP_STORE
+      updateChecker.objectWillChange
+        .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
+    #endif
     PairingStore.shared.objectWillChange
       .sink { [weak self] _ in self?.scheduleSync() }.store(in: &cancellables)
   }
@@ -187,10 +191,12 @@ final class DropdownContentView: NSView {
       view.removeFromSuperview()
     }
 
-    if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
-      stack.addArrangedSubview(makeUpdateRow(latest))
-      stack.addArrangedSubview(makeDivider())
-    }
+    #if !APP_STORE
+      if let available = updateChecker.availableVersion {
+        stack.addArrangedSubview(makeUpdateRow(available))
+        stack.addArrangedSubview(makeDivider())
+      }
+    #endif
 
     let macs = networkStore.networkDevices
     if !macs.isEmpty {
@@ -486,28 +492,27 @@ final class DropdownContentView: NSView {
     return clickableRow(row, content: content)
   }
 
-  private func makeUpdateRow(_ latest: String) -> NSView {
-    let row = MenuRowControl { [weak self] in
-      self?.dismissThen {
-        if let url = UpdateChecker.shared.releasePageURL { NSWorkspace.shared.open(url) }
+  #if !APP_STORE
+    private func makeUpdateRow(_ latest: String) -> NSView {
+      let row = MenuRowControl { [weak self] in
+        self?.dismissThen { UpdateChecker.shared.checkForUpdates() }
       }
+      let content = NSStackView()
+      content.orientation = .horizontal
+      content.distribution = .fill
+      content.spacing = 8
+      content.alignment = .centerY
+      content.addArrangedSubview(symbolView("arrow.down.circle.fill", color: .controlAccentColor))
+      content.addArrangedSubview(
+        textLabel(String(localized: "Update Available — v\(latest)"), color: .labelColor))
+      content.addArrangedSubview(spacer())
+      row.toolTip = String(
+        localized: "A newer version of Magic Switch is available. Click to install it.")
+      row.setAccessibilityLabel(String(localized: "Update available: version \(latest)"))
+      row.setAccessibilityHelp(row.toolTip)
+      return clickableRow(row, content: content)
     }
-    let content = NSStackView()
-    content.orientation = .horizontal
-    content.distribution = .fill
-    content.spacing = 8
-    content.alignment = .centerY
-    content.addArrangedSubview(symbolView("arrow.down.circle.fill", color: .controlAccentColor))
-    content.addArrangedSubview(
-      textLabel(String(localized: "Update Available — v\(latest)"), color: .labelColor))
-    content.addArrangedSubview(spacer())
-    row.toolTip = String(
-      localized:
-        "A newer version of Magic Switch is available. Opens the release page in your browser.")
-    row.setAccessibilityLabel(String(localized: "Update available: version \(latest)"))
-    row.setAccessibilityHelp(row.toolTip)
-    return clickableRow(row, content: content)
-  }
+  #endif
 
   // MARK: - Building blocks
 

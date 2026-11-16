@@ -45,6 +45,7 @@
 		0A0000C000000000000000D2 /* BLETransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000C000000000000000C2 /* BLETransport.swift */; };
 		2090DBBE308976E900C04170 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2090DBBD308976E900C04170 /* Localizable.xcstrings */; };
 		2090DBC1308976E900C04170 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2090DBC0308976E900C04170 /* InfoPlist.xcstrings */; };
+		0A0000D000000000000000A3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0A0000D000000000000000A2 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +68,7 @@
 		076AB2102CE9D690004D45F0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		076AB2132CE9D690004D45F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		076AB2142CE9D690004D45F0 /* Magic_Switch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Magic_Switch.entitlements; sourceTree = "<group>"; };
+		0A0000D000000000000000A4 /* Magic_Switch_Direct.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Magic_Switch_Direct.entitlements; sourceTree = "<group>"; };
 		077473F22CD8426D00571393 /* Magic Switch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Magic Switch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0A00001000000000000000A1 /* SecureChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureChannel.swift; sourceTree = "<group>"; };
 		0A00001000000000000000A2 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
@@ -96,6 +98,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A0000D000000000000000A3 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,6 +226,7 @@
 				076AB2122CE9D690004D45F0 /* View */,
 				076AB2132CE9D690004D45F0 /* Assets.xcassets */,
 				076AB2142CE9D690004D45F0 /* Magic_Switch.entitlements */,
+				0A0000D000000000000000A4 /* Magic_Switch_Direct.entitlements */,
 				0A00001000000000000000B0 /* Info.plist */,
 				0A0000C000000000000000AF /* PrivacyInfo.xcprivacy */,
 			);
@@ -262,6 +266,7 @@
 			);
 			name = "Magic Switch";
 			packageProductDependencies = (
+				0A0000D000000000000000A2 /* Sparkle */,
 			);
 			productName = "Magic Switch";
 			productReference = 077473F22CD8426D00571393 /* Magic Switch.app */;
@@ -293,6 +298,7 @@
 			mainGroup = 077473E92CD8426D00571393;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				0A0000D000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 077473F32CD8426D00571393 /* Products */;
@@ -554,7 +560,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Magic Switch/Magic_Switch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Magic Switch/Magic_Switch_Direct.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
@@ -563,6 +569,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Magic Switch/Info.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional";
+				INFOPLIST_PREPROCESS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -582,7 +590,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Magic Switch/Magic_Switch.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "Magic Switch/Magic_Switch_Direct.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 2;
@@ -591,6 +599,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Magic Switch/Info.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional";
+				INFOPLIST_PREPROCESS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -617,14 +627,22 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Magic Switch/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = Sparkle.framework;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Magic Switch/Info.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional";
+				INFOPLIST_PREPROCESS = YES;
+				INFOPLIST_PREPROCESSOR_DEFINITIONS = APP_STORE;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 0.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-Wl,-dead_strip_dylibs",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.megamansec.magic-switch";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -657,6 +675,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0A0000D000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0A0000D000000000000000A2 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A0000D000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 077473EA2CD8426D00571393 /* Project object */;
 }

@@ -22,6 +22,7 @@ jobs:
 
     outputs:
       new-release-version: ${{ steps.determine_version.outputs.new-release-version }}
+      release-notes: ${{ steps.release_notes.outputs.release-notes }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,6 +77,14 @@ jobs:
           else
             echo "No releasable commits since the last tag; skipping build & release."
           fi
+
+      - name: Generate release notes
+        id: release_notes
+        if: steps.determine_version.outputs.new-release-version != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.determine_version.outputs.new-release-version }}
+        run: node .github/release/release-notes.mjs
 
   build:
     needs: version
@@ -142,21 +151,44 @@ jobs:
             -scheme "Magic Switch" \
             -configuration Release \
             -archivePath "Magic Switch.xcarchive" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -disableAutomaticPackageResolution \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=LA3A27SJGR \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS="--timestamp"
 
+      - name: Sign Sparkle
+        run: |
+          APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          SIGN=(codesign --force --sign "Developer ID Application" --options runtime --timestamp)
+          "${SIGN[@]}" "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+          "${SIGN[@]}" --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+          "${SIGN[@]}" "$SPARKLE/Versions/B/Autoupdate"
+          "${SIGN[@]}" "$SPARKLE/Versions/B/Updater.app"
+          "${SIGN[@]}" "$SPARKLE"
+          "${SIGN[@]}" --preserve-metadata=entitlements "$APP"
+
       - name: Verify signature
         run: |
           APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
           codesign --verify --deep --strict --verbose=2 "$APP"
-          DETAILS="$(codesign -dvv "$APP" 2>&1)"
-          echo "$DETAILS"
-          grep -q '^Authority=Developer ID Application: .*(LA3A27SJGR)$' <<< "$DETAILS"
-          grep -q '^TeamIdentifier=LA3A27SJGR$' <<< "$DETAILS"
-          grep -q '^Timestamp=' <<< "$DETAILS"
+          for CODE in "$APP" "$SPARKLE" "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app" \
+            "$SPARKLE/Versions/B/XPCServices/Installer.xpc" "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"; do
+            DETAILS="$(codesign -dvv "$CODE" 2>&1)"
+            echo "$DETAILS"
+            grep -q '^Authority=Developer ID Application: .*(LA3A27SJGR)$' <<< "$DETAILS"
+            grep -q '^TeamIdentifier=LA3A27SJGR$' <<< "$DETAILS"
+            grep -q '^Timestamp=' <<< "$DETAILS"
+            grep -qE '^CodeDirectory .*flags=0x[0-9a-f]+\([^)]*runtime' <<< "$DETAILS"
+          done
+          ENTITLEMENTS="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null)"
+          for NAME in com.megamansec.magic-switch-spks com.megamansec.magic-switch-spki; do
+            grep -q "<string>$NAME</string>" <<< "$ENTITLEMENTS"
+          done
 
       - name: Notarize
         env:
@@ -196,15 +228,91 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "Magic Switch.app" "../../../Magic Switch.app.zip"
           echo "zip-path=$(realpath "../../../Magic Switch.app.zip")" >> "$GITHUB_OUTPUT"
 
+      - name: Create disk image
+        env:
+          NOTARY_API_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          DMG="Magic-Switch.dmg"
+          STAGING="$RUNNER_TEMP/dmg"
+          KEY_PATH="$RUNNER_TEMP/notary.p8"
+          AUTH=(--key "$KEY_PATH" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID")
+          trap 'rm -f "$KEY_PATH"' EXIT
+
+          mkdir -p "$STAGING"
+          ditto "$APP" "$STAGING/Magic Switch.app"
+          for ATTEMPT in 1 2 3; do
+            hdiutil create -volname "Magic Switch" -srcfolder "$STAGING" -fs APFS -format ULFO -ov "$DMG" && break
+            if [ "$ATTEMPT" -eq 3 ]; then exit 1; fi
+            sleep 10
+          done
+          codesign --sign "Developer ID Application" --timestamp "$DMG"
+          codesign --verify --strict --verbose=2 "$DMG"
+
+          printf '%s\n' "$NOTARY_API_KEY_P8" > "$KEY_PATH"
+          RESULT="$(xcrun notarytool submit "$DMG" "${AUTH[@]}" --wait --timeout 2h --output-format json || true)"
+          echo "$RESULT"
+          STATUS="$(plutil -extract status raw -o - - <<< "$RESULT" 2>/dev/null || true)"
+          SUBMISSION_ID="$(plutil -extract id raw -o - - <<< "$RESULT" 2>/dev/null || true)"
+          if [ "$STATUS" != "Accepted" ]; then
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" "${AUTH[@]}" || true
+            fi
+            exit 1
+          fi
+
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl -a -vvv -t open --context context:primary-signature "$DMG"
+
+      - name: Create update feed
+        env:
+          VERSION: ${{ needs.version.outputs.new-release-version }}
+          RELEASE_NOTES: ${{ needs.version.outputs.release-notes }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          : "${SPARKLE_ED_PRIVATE_KEY:?secret not set}"
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          BUILD=$((MAJOR * 1000000 + MINOR * 1000 + PATCH))
+          SPARKLE_BIN="$RUNNER_TEMP/spm/artifacts/sparkle/Sparkle/bin"
+          FEED="$RUNNER_TEMP/feed"
+
+          mkdir -p "$FEED"
+          cp Magic-Switch.dmg "$FEED/"
+          printf '%s\n' "$RELEASE_NOTES" > "$FEED/Magic-Switch.md"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_BIN/generate_appcast" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/" \
+            --embed-release-notes \
+            --full-release-notes-url "https://github.com/$GITHUB_REPOSITORY/releases" \
+            -o "$FEED/appcast.xml" \
+            "$FEED"
+          cat "$FEED/appcast.xml"
+
+          ITEM_VERSION="$(xmllint --xpath 'string(//item/*[local-name()="version"])' "$FEED/appcast.xml")"
+          SIGNATURE="$(xmllint --xpath 'string(//item/enclosure/@*[local-name()="edSignature"])' "$FEED/appcast.xml")"
+          URL="$(xmllint --xpath 'string(//item/enclosure/@url)' "$FEED/appcast.xml")"
+          test "$ITEM_VERSION" = "$BUILD"
+          test "$URL" = "https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/Magic-Switch.dmg"
+          test -n "$SIGNATURE"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_BIN/sign_update" --ed-key-file - --verify Magic-Switch.dmg "$SIGNATURE"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$SPARKLE_BIN/sign_update" --ed-key-file - --verify "$FEED/appcast.xml"
+          cp "$FEED/appcast.xml" appcast.xml
+
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: "Magic Switch.app.zip"
+          subject-path: |
+            Magic Switch.app.zip
+            Magic-Switch.dmg
 
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
           cp "Magic Switch.app.zip" artifacts/app.zip
+          cp Magic-Switch.dmg appcast.xml artifacts/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -254,9 +362,21 @@ jobs:
             -scheme "Magic Switch" \
             -configuration AppStore \
             -archivePath "Magic Switch.xcarchive" \
+            -disableAutomaticPackageResolution \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY=- \
             DEVELOPMENT_TEAM=LA3A27SJGR
+
+      - name: Check for Sparkle
+        run: |
+          APP="Magic Switch.xcarchive/Products/Applications/Magic Switch.app"
+          LINKED="$(otool -L "$APP/Contents/MacOS/Magic Switch")"
+          KEYS="$(plutil -convert json -o - "$APP/Contents/Info.plist")"
+          if [ -e "$APP/Contents/Frameworks/Sparkle.framework" ] || grep -q Sparkle <<< "$LINKED" \
+            || grep -qE '"SU[A-Za-z]+"' <<< "$KEYS"; then
+            echo "::error::The App Store build must not include Sparkle."
+            exit 1
+          fi
 
       - name: Upload to App Store Connect
         env:
@@ -344,6 +464,12 @@ jobs:
         working-directory: .github/release
         run: pnpm install --frozen-lockfile
 
+      - name: Check artifacts
+        run: |
+          for ASSET in app.zip Magic-Switch.dmg appcast.xml; do
+            test -s "artifacts/$ASSET"
+          done
+
       - name: Release
         continue-on-error: true
         env:
@@ -355,7 +481,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new-release-version }}
         run: |
-          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if ASSETS="$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null)"; then
+            for ASSET in app.zip Magic-Switch.dmg appcast.xml; do
+              if ! grep -qx "$ASSET" <<< "$ASSETS"; then
+                echo "::error::v$VERSION is missing $ASSET."
+                exit 1
+              fi
+            done
             exit 0
           fi
           # main can advance between the version job's check and this step (a
