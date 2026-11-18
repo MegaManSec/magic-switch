@@ -81,7 +81,9 @@ final class DisplayMonitor: ObservableObject {
 
   /// Called on the main run loop with the names of trigger displays that
   /// just connected (usually one; a dock can bring up several at once).
-  var onTriggerDisplaysConnected: (([String]) -> Void)?
+  /// Returns `false` when the take can't start; within the wake settle window
+  /// it's retried until the window closes.
+  var onTriggerDisplaysConnected: (([String]) -> Bool)?
 
   /// Display UUIDs believed present. The trigger fires only for additions to
   /// this set. Deliberately *not* rebuilt from scratch on wake — see the
@@ -95,6 +97,13 @@ final class DisplayMonitor: ObservableObject {
 
   /// End of the post-wake settle window. Main-only.
   private var wakeSettleDeadline: Date = .distantPast
+
+  /// Between `willSleep` and `didWake`; dark wakes post neither. Main-only.
+  private var isAsleep = false
+
+  /// Trigger displays refused during the wake settle window, retried until it
+  /// closes. Main-only.
+  private var retryDocks: Set<String> = []
 
   /// Debounce timer for `reconcile()`; see `Constants.reconcileDebounce`.
   private var reconcileTimer: DispatchSourceTimer?
@@ -116,7 +125,7 @@ final class DisplayMonitor: ObservableObject {
     guard !started else { return }
     started = true
 
-    let online = Self.onlineExternalDisplays()
+    let online = Self.onlineExternalDisplays() ?? []
     connectedDisplays = online
     refreshTriggerNames(from: online)
     scheduleReconcile()
@@ -206,15 +215,20 @@ final class DisplayMonitor: ObservableObject {
     reconcileTimer?.cancel()
     reconcileTimer = nil
 
-    let online = Self.onlineExternalDisplays()
+    guard !isAsleep else { return }
+    guard let online = Self.onlineExternalDisplays() else {
+      scheduleReconcile()
+      return
+    }
+    let settling = Date() < wakeSettleDeadline
+    if !settling { retryDocks.removeAll() }
     let onlineIDs = Set(online.map { $0.id })
-    let appeared = onlineIDs.subtracting(presentUUIDs)
+    let appeared = onlineIDs.subtracting(presentUUIDs).union(retryDocks)
     presentUUIDs = onlineIDs
     if connectedDisplays != online { connectedDisplays = online }
     refreshTriggerNames(from: online)
 
     guard !appeared.isEmpty else { return }
-    let settling = Date() < wakeSettleDeadline
     let triggered = online.filter { display in
       appeared.contains(display.id)
         && triggerDisplays[display.id] != nil
@@ -222,20 +236,27 @@ final class DisplayMonitor: ObservableObject {
     }
     guard !triggered.isEmpty else { return }
     Log.app.notice("DisplayMonitor: trigger display(s) connected: \(triggered.map { $0.name })")
-    onTriggerDisplaysConnected?(triggered.map { $0.name })
+    if onTriggerDisplaysConnected?(triggered.map { $0.name }) == true {
+      retryDocks = []
+    } else if settling {
+      retryDocks = Set(triggered.map { $0.id })
+      scheduleReconcile()
+    }
   }
 
   // MARK: - Sleep Handling
 
   /// Snapshot what's present *before* the sleep transition churns it, and
-  /// drop any pending reconcile — acting between here and the actual sleep
-  /// would race the radio/network teardown. Whatever really changed is
-  /// re-observed by the wake reconcile; that includes a display plugged in
-  /// moments before the lid closed, which (correctly) fires at wake because
-  /// this pre-churn snapshot doesn't contain it.
+  /// hold reconciles until wake — acting before then would race the
+  /// radio/network teardown. Whatever really changed is re-observed by the
+  /// wake reconcile; that includes a display plugged in moments before the
+  /// lid closed, which (correctly) fires at wake because this pre-churn
+  /// snapshot doesn't contain it.
   private func noteWillSleep() {
     reconcileTimer?.cancel()
     reconcileTimer = nil
+    isAsleep = true
+    retryDocks = []
     presentAtSleep = presentUUIDs
   }
 
@@ -243,6 +264,7 @@ final class DisplayMonitor: ObservableObject {
   /// changed while we slept there may be no further callback to prompt one,
   /// and a reconcile cancelled by `noteWillSleep` must not stay lost.
   private func noteDidWake() {
+    isAsleep = false
     wakeSettleDeadline = Date().addingTimeInterval(Constants.wakeSettleWindow)
     scheduleReconcile()
   }
@@ -253,12 +275,13 @@ final class DisplayMonitor: ObservableObject {
   /// (`CGGetOnlineDisplayList`) deliberately includes mirrored and sleeping
   /// displays — presence is about the cable, not what's drawn. Built-in
   /// panels are excluded: they can't be docked, so they can't be triggers.
-  private static func onlineExternalDisplays() -> [ExternalDisplay] {
+  /// `nil` when the list can't be read.
+  private static func onlineExternalDisplays() -> [ExternalDisplay]? {
     var ids = [CGDirectDisplayID](repeating: 0, count: Int(Constants.maxDisplays))
     var count: UInt32 = 0
     guard CGGetOnlineDisplayList(Constants.maxDisplays, &ids, &count) == .success else {
       Log.app.error("DisplayMonitor: CGGetOnlineDisplayList failed")
-      return []
+      return nil
     }
     let displays: [ExternalDisplay] = ids.prefix(Int(count)).compactMap { id in
       guard CGDisplayIsBuiltin(id) == 0 else { return nil }
