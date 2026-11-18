@@ -39,6 +39,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// hosts) can legitimately take 30-45s, and a false-positive timeout
     /// is worse than waiting a beat longer.
     static let pairTimeout: TimeInterval = 60
+    /// Serial-pairing safety net: how long to wait for one peripheral's pairing
+    /// to resolve before starting the next, so a hung pair can't stall the set.
+    /// Comfortably above a normal pairing, well under `pairTimeout`.
+    static let pairSerializeCap: TimeInterval = 45
     /// How long to let `-remove` settle in the Bluetooth daemon before pairing
     /// again. Re-pairing inside this window races the unbond and fails.
     static let unbondSettle: TimeInterval = 0.5
@@ -1284,6 +1288,58 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       refreshStaleBondOnFailedOpen: true,
       completion: completion
     )
+  }
+
+  /// Connect a set one peripheral at a time, each pairing awaited before the
+  /// next starts, so overlapping pairings never leave a stray macOS Connection
+  /// Request dialog (concurrent pairs sharing the classic session lose app
+  /// ownership of the later confirmation). A per-peripheral cap
+  /// (`pairSerializeCap`) advances the chain if one pairing hangs, so a stuck
+  /// device can't stall the rest. `completion` reports whether every peripheral
+  /// ended connected. Main-thread only.
+  func connectPeripheralsSerially(
+    _ peripherals: [BluetoothPeripheral], armForTakeover: Bool = false,
+    completion: ((Bool) -> Void)? = nil
+  ) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in
+        self?.connectPeripheralsSerially(
+          peripherals, armForTakeover: armForTakeover, completion: completion)
+      }
+      return
+    }
+    pairNextSerially(
+      ArraySlice(peripherals), armForTakeover: armForTakeover, allConnected: true,
+      completion: completion)
+  }
+
+  private func pairNextSerially(
+    _ remaining: ArraySlice<BluetoothPeripheral>, armForTakeover: Bool, allConnected: Bool,
+    completion: ((Bool) -> Void)?
+  ) {
+    guard let next = remaining.first else {
+      completion?(allConnected)
+      return
+    }
+    let rest = remaining.dropFirst()
+    // Arm the watcher only once the chain reaches this peripheral. Arming the
+    // whole set up front lets the watcher pair a not-yet-reached one at the
+    // same time as the in-flight pair — the overlap this serialization removes.
+    if armForTakeover { armReconnectForTakeover(next.id) }
+    var advanced = false
+    let advance: (Bool) -> Void = { [weak self] success in
+      guard let self = self, !advanced else { return }
+      advanced = true
+      self.pairNextSerially(
+        rest, armForTakeover: armForTakeover, allConnected: allConnected && success,
+        completion: completion)
+    }
+    let cap = DispatchWorkItem { advance(false) }
+    DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pairSerializeCap, execute: cap)
+    connectPeripheralFromPeer(next) { success in
+      cap.cancel()
+      advance(success)
+    }
   }
 
   /// - Parameter announcePairTimeout: whether this attempt's failures — the

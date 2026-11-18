@@ -779,12 +779,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           // bonded-but-not-connected state that needs a power-cycle. Mirrors
           // `takePeripheralFromPeer`'s success + unreachable arms, at full-set
           // scope.
-          self.bluetoothStore.peripherals.forEach { peripheral in
+          let eligible = self.bluetoothStore.peripherals.filter { peripheral in
             let state = self.bluetoothStore.connectionState(for: peripheral.id)
-            guard state != .connecting, state != .releasing else { return }
-            self.bluetoothStore.connectPeripheralFromPeer(peripheral)
-            self.bluetoothStore.armReconnectForTakeover(peripheral.id)
+            return state != .connecting && state != .releasing
           }
+          self.bluetoothStore.connectPeripheralsSerially(eligible, armForTakeover: true)
         case .failure(let err):
           self.endTransfer()
           // Reachable peer but the release-all errored, so we can't be sure
@@ -878,10 +877,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         // No trusted peer to ask. Connect whatever answers and arm the
         // watcher for the rest, so a stuck device is caught the moment the
         // user power-cycles it.
-        self.bluetoothStore.peripherals.forEach { peripheral in
-          self.bluetoothStore.connectPeripheral(peripheral)
-          self.bluetoothStore.armReconnectForTakeover(peripheral.id)
-        }
+        self.bluetoothStore.connectPeripheralsSerially(
+          self.bluetoothStore.peripherals, armForTakeover: true)
       }
     }
     return true

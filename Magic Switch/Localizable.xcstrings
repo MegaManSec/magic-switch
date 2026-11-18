@@ -1377,16 +1377,6 @@
         }
       }
     },
-    "Hand peripherals over by disconnecting instead of unpairing, which avoids the macOS Connection Request dialog on every switch. Only works for peripherals already paired to both Macs that allow it — Apple's Magic keyboard, trackpad, and mouse reconnect to the last Mac, so switching breaks for them. Leave this off unless you know your peripherals support it." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrega los periféricos desconectándolos en vez de desemparejarlos, lo que evita el diálogo Solicitud de conexión de macOS en cada cambio. Solo funciona con periféricos ya emparejados con ambos Macs que lo permitan; el teclado, el trackpad y el ratón Magic de Apple se reconectan al último Mac, así que el cambio deja de funcionar para ellos. Déjalo desactivado salvo que sepas que tus periféricos lo admiten."
-          }
-        }
-      }
-    },
     "Headphones" : {
       "localizations" : {
         "es" : {
@@ -2796,6 +2786,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apoya el desarrollo de Magic Switch. Abre GitHub Sponsors en tu navegador."
+          }
+        }
+      }
+    },
+    "Switch by reconnecting instead of re-pairing. A peripheral paired to both Macs is then handed over without re-pairing, so it switches faster and stays paired to both. Off by default; not for Apple's Magic keyboard, trackpad, or mouse, which reconnect to the last Mac." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia reconectando en vez de volver a emparejar. Un periférico emparejado con ambos Macs se entrega sin volver a emparejarlo, así cambia más rápido y sigue emparejado con ambos. Desactivado por defecto; no para el teclado, el trackpad ni el ratón Magic de Apple, que se reconectan al último Mac."
           }
         }
       }
