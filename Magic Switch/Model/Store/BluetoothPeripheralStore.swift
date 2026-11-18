@@ -84,6 +84,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// stops a release whose disconnect notification never arrived from
     /// leaving a stale flag that suppresses a real reconnect.
     static let intentionalReleaseGrace: TimeInterval = 60
+    /// In keep-pairings mode, how long after a release this Mac keeps
+    /// re-closing a macOS auto-reconnect of the kept bond so the peer can take.
+    static let handoffReleaseLease: TimeInterval = 30
     /// How long after a take's release fails the watcher (or, with
     /// auto-reconnect off, `pollPeerRelease`) reads the peer's "holding" as a
     /// release still finishing. `intentionalReleaseGrace` must cover this plus
@@ -124,6 +127,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// lives here as the single source of truth.
   static let autoReconnectDefaultsKey = "autoReconnectDroppedPeripherals"
 
+  /// `@AppStorage` key for the opt-in "switch without unpairing" handoff. Off
+  /// by default: the normal handoff unbinds (`-remove`) so any peripheral can
+  /// move; on, it disconnects and keeps the pairing on both Macs.
+  static let keepPairingsOnSwitchDefaultsKey = "keepPairingsOnSwitch"
+
   /// `@AppStorage` key for the per-peripheral icon/type overrides map.
   static let typeOverridesDefaultsKey = "peripheralTypeOverrides"
 
@@ -151,6 +159,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// `armReconnect` refuses when off and `reconnectTick` tears itself down.
   @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
   private var autoReconnect: Bool = true
+
+  @AppStorage(BluetoothPeripheralStore.keepPairingsOnSwitchDefaultsKey)
+  private var keepPairingsOnSwitch: Bool = false
 
   @Published private(set) var peripherals: [BluetoothPeripheral] = [] {
     didSet {
@@ -305,6 +316,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// a stale flag that suppresses a real reconnect. Consumed by
   /// `handlePeripheralDisconnected`. Main-only.
   private var intentionalReleases: [String: Date] = [:]
+
+  /// Per-device release windows (expiry), used only in keep-pairings mode:
+  /// while active, a macOS reconnect of the kept bond here is re-closed and the
+  /// device isn't adopted, so the peer can take it. Main-only.
+  private var releaseLeases: [String: Date] = [:]
+  private var releaseLeaseTimers: [String: DispatchSourceTimer] = [:]
 
   /// Self-rescheduling one-shot probe timer; runs only while
   /// `reconnectWatchlist` is non-empty, at `Constants.reconnectProbeInterval`.
@@ -533,7 +550,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         else { continue }
         connectedIDs.append(peripheral.id)
         guard shouldRelease else { continue }
-        if device.responds(to: Selector(("remove"))) {
+        if keepPairingsOnSwitch {
+          beginReleaseLease(peripheral.id)
+          _ = device.closeConnection()
+        } else if device.responds(to: Selector(("remove"))) {
           device.perform(Selector(("remove")))
         } else {
           _ = device.closeConnection()
@@ -612,7 +632,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         for id in connected {
           // Anything we unpaired for sleep is no longer "intentionally
           // released" now that we're awake and want it back.
-          if released.contains(id) { self.intentionalReleases.removeValue(forKey: id) }
+          if released.contains(id) {
+            self.intentionalReleases.removeValue(forKey: id)
+            self.clearReleaseLease(id)
+          }
           guard self.peripherals.contains(where: { $0.id == id }) else { continue }
           self.armReconnect(id)
         }
@@ -629,6 +652,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // the same silent one-shot direct pass the watcher path layers on.
       for id in released {
         self.intentionalReleases.removeValue(forKey: id)
+        self.clearReleaseLease(id)
       }
       self.directReclaimAfterWake(released)
     }
@@ -718,7 +742,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     _ notification: IOBluetoothUserNotification,
     fromDevice device: IOBluetoothDevice
   ) {
-    fetchConnectedPeripherals()
+    guard let address = device.addressString else {
+      fetchConnectedPeripherals()
+      return
+    }
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      if self.hasActiveReleaseLease(address) {
+        self.enforceReleaseLease(for: device, address: address)
+      } else {
+        self.fetchConnectedPeripherals()
+      }
+    }
   }
 
   // MARK: - Public Methods
@@ -776,13 +811,19 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return false
     }
 
+    if keepPairingsOnSwitch {
+      // Hold the device free for the peer: a macOS auto-reconnect of the kept
+      // bond here is re-closed while this window is active.
+      beginReleaseLease(peripheral.id)
+    }
+
     if !btDevice.isConnected() {
       Log.bluetooth.notice("Device is already disconnected: \(peripheral.name)")
       markDisconnectedAfterRelease(peripheral.id)
       return true
     }
 
-    if btDevice.responds(to: Selector(("remove"))) {
+    if !keepPairingsOnSwitch, btDevice.responds(to: Selector(("remove"))) {
       // Suppress the imminent disconnect notification from re-arming the
       // watcher — we're handing this peripheral away on purpose.
       noteIntentionalRelease(peripheral.id)
@@ -792,14 +833,13 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return true
     }
 
-    // Fallback path: a future macOS that renames or removes the private
-    // `-remove` selector lands here. `closeConnection` doesn't fully
-    // unpair (the device stays in System Settings → Bluetooth's list), but
-    // it breaks the active session so the peer can take ownership.
+    // Keep-pairings mode, or a future macOS without the `-remove` selector:
+    // `closeConnection` breaks the session without unpairing (the device stays
+    // in System Settings → Bluetooth's list) so the peer can take ownership.
     noteIntentionalRelease(peripheral.id)
     let result = btDevice.closeConnection()
-    if result == kIOReturnSuccess {
-      Log.bluetooth.notice("Fell back to closeConnection() for \(peripheral.name)")
+    if result == kIOReturnSuccess || !btDevice.isConnected() {
+      Log.bluetooth.notice("Disconnected \(peripheral.name) by closeConnection")
       markDisconnectedAfterRelease(peripheral.id)
       return true
     } else {
@@ -807,6 +847,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // to consume the flag — clear it so it can't suppress a later genuine
       // drop's auto-reconnect.
       clearIntentionalRelease(peripheral.id)
+      clearReleaseLease(peripheral.id)
       Log.bluetooth.error(
         "Failed to release \(peripheral.name): closeConnection returned \(result)")
       setPeripheralError(String(localized: "Couldn't release."), for: peripheral.id)
@@ -847,6 +888,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // No longer ours — stop watching and forget any pending release flag.
     disarmReconnect(peripheral.id, reason: "removed")
     intentionalReleases.removeValue(forKey: peripheral.id)
+    clearReleaseLease(peripheral.id)
     Log.bluetooth.notice("\(peripheral.name) has been removed from the list")
   }
 
@@ -1268,6 +1310,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       addConnectResultWaiter(for: peripheral.id, completion)
     }
     clearIntentionalRelease(peripheral.id)
+    clearReleaseLease(peripheral.id)
     setConnectionState(.connecting, for: peripheral.id)
     let attempt = beginConnectAttempt(for: peripheral.id)
     schedulePairWatchdog(for: peripheral, announceTimeout: announcePairTimeout, attempt: attempt)
@@ -1332,7 +1375,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // A cancel during the (blocking) open must not escalate into a bond
         // teardown the stopped attempt can never pair back.
         guard self.isCurrentAttempt(attempt, for: peripheral.id) else { return }
-        guard refreshStaleBondOnFailedOpen,
+        guard refreshStaleBondOnFailedOpen, !self.keepPairingsOnSwitch,
           btDevice.responds(to: Selector(("remove"))),
           self.answersPage(btDevice)
         else {
@@ -1613,6 +1656,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             {
               continue
             }
+            if isConnected, self.hasActiveReleaseLease(id) {
+              // Released on purpose; macOS re-grabbed the kept bond. Re-close
+              // it and keep it disconnected so the peer can take it.
+              if let device = IOBluetoothDevice(addressString: id) {
+                self.enforceReleaseLease(for: device, address: id)
+              }
+              self.setConnectionState(.disconnected, for: id)
+              continue
+            }
             let newState: PeripheralConnectionState = isConnected ? .connected : .disconnected
             if self.connectionStates[id] != newState { self.setConnectionState(newState, for: id) }
             if isConnected {
@@ -1812,6 +1864,11 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         self.connectionStates[address] != .releasing
       else { return }
       self.connectionStates[address] = .disconnected
+      if self.hasActiveReleaseLease(address) {
+        // Released on purpose and still inside the window — don't reclaim it;
+        // the window keeps re-closing any macOS reconnect.
+        return
+      }
       if let releasedAt = self.intentionalReleases.removeValue(forKey: address),
         Date().timeIntervalSince(releasedAt) < Constants.intentionalReleaseGrace
       {
@@ -2265,6 +2322,68 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     intentionalReleases.removeValue(forKey: id)
   }
 
+  /// Open `id`'s keep-pairings release window and arm its expiry. Main-only.
+  private func beginReleaseLease(_ id: String) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.beginReleaseLease(id) }
+      return
+    }
+    let expiry = Date().addingTimeInterval(Constants.handoffReleaseLease)
+    releaseLeases[id] = expiry
+    releaseLeaseTimers[id]?.cancel()
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now() + Constants.handoffReleaseLease)
+    timer.setEventHandler { [weak self] in self?.expireReleaseLease(id, expectedExpiry: expiry) }
+    timer.resume()
+    releaseLeaseTimers[id] = timer
+  }
+
+  /// Whether `id` is still inside its release window. Main-only.
+  private func hasActiveReleaseLease(_ id: String) -> Bool {
+    guard let expiry = releaseLeases[id] else { return false }
+    guard expiry > Date() else {
+      expireReleaseLease(id, expectedExpiry: expiry)
+      return false
+    }
+    return true
+  }
+
+  /// End `id`'s release window — on a deliberate re-acquire, or on wake. Main-only.
+  private func clearReleaseLease(_ id: String) {
+    guard Thread.isMainThread else {
+      DispatchQueue.main.async { [weak self] in self?.clearReleaseLease(id) }
+      return
+    }
+    releaseLeases.removeValue(forKey: id)
+    releaseLeaseTimers.removeValue(forKey: id)?.cancel()
+  }
+
+  private func expireReleaseLease(_ id: String, expectedExpiry: Date) {
+    guard let expiry = releaseLeases[id], expiry == expectedExpiry else { return }
+    releaseLeases.removeValue(forKey: id)
+    releaseLeaseTimers.removeValue(forKey: id)?.cancel()
+  }
+
+  /// macOS reconnected a device we just released in keep-pairings mode; close
+  /// it again so it stays free for the peer, without touching its pairing. The
+  /// close runs on `bluetoothQueue`; the row is marked disconnected only if the
+  /// window is still active (a deliberate re-acquire clears it first).
+  private func enforceReleaseLease(for device: IOBluetoothDevice, address: String) {
+    bluetoothQueue.async { [weak self] in
+      guard let self = self, device.isConnected() else { return }
+      let result = device.closeConnection()
+      DispatchQueue.main.async {
+        guard self.hasActiveReleaseLease(address) else { return }
+        if result == kIOReturnSuccess || !device.isConnected() {
+          Log.bluetooth.notice("Release window: re-closed \(address) after a system reconnect")
+          self.markDisconnectedAfterRelease(address)
+        } else {
+          Log.bluetooth.error("Release window couldn't re-close \(address): \(result)")
+        }
+      }
+    }
+  }
+
   private func startReconnectTimerIfNeeded() {
     guard reconnectTimer == nil else { return }
     let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
@@ -2316,6 +2435,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     var absent: [BluetoothPeripheral] = []
     for (id, armedAt) in reconnectWatchlist {
       if reconnectInFlight.contains(id) { continue }
+      if hasActiveReleaseLease(id) { continue }
       guard let peripheral = peripherals.first(where: { $0.id == id }) else {
         disarmReconnect(id, reason: "no longer registered")
         continue

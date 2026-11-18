@@ -1377,6 +1377,16 @@
         }
       }
     },
+    "Hand peripherals over by disconnecting instead of unpairing, which avoids the macOS Connection Request dialog on every switch. Only works for peripherals already paired to both Macs that allow it — Apple's Magic keyboard, trackpad, and mouse reconnect to the last Mac, so switching breaks for them. Leave this off unless you know your peripherals support it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrega los periféricos desconectándolos en vez de desemparejarlos, lo que evita el diálogo Solicitud de conexión de macOS en cada cambio. Solo funciona con periféricos ya emparejados con ambos Macs que lo permitan; el teclado, el trackpad y el ratón Magic de Apple se reconectan al último Mac, así que el cambio deja de funcionar para ellos. Déjalo desactivado salvo que sepas que tus periféricos lo admiten."
+          }
+        }
+      }
+    },
     "Headphones" : {
       "localizations" : {
         "es" : {
@@ -2816,6 +2826,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cambia los periféricos entre este Mac y %@."
+          }
+        }
+      }
+    },
+    "Switch peripherals without unpairing them" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar periféricos sin desemparejarlos"
           }
         }
       }

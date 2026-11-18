@@ -16,6 +16,8 @@ struct OtherSettingsView: View {
   private var releaseOnSleep: Bool = true
   @AppStorage(BluetoothPeripheralStore.autoReconnectDefaultsKey)
   private var autoReconnect: Bool = true
+  @AppStorage(BluetoothPeripheralStore.keepPairingsOnSwitchDefaultsKey)
+  private var keepPairingsOnSwitch: Bool = false
   @AppStorage(DisplayMonitor.takeOnWakeDefaultsKey)
   private var takeOnWake: Bool = false
 
@@ -67,6 +69,10 @@ struct OtherSettingsView: View {
         Toggle("Reconnect peripherals if they drop", isOn: $autoReconnect)
           .help(
             "Keep trying for up to 10 minutes to reconnect a peripheral that dropped from this Mac, and take over the ones your other Mac leaves behind when it sleeps. Never takes a peripheral your other Mac is using."
+          )
+        Toggle("Switch peripherals without unpairing them", isOn: $keepPairingsOnSwitch)
+          .help(
+            "Hand peripherals over by disconnecting instead of unpairing, which avoids the macOS Connection Request dialog on every switch. Only works for peripherals already paired to both Macs that allow it — Apple's Magic keyboard, trackpad, and mouse reconnect to the last Mac, so switching breaks for them. Leave this off unless you know your peripherals support it."
           )
       }
       Section(header: Text("Keyboard Shortcuts")) {
