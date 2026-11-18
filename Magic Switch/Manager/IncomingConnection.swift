@@ -293,20 +293,12 @@ final class IncomingConnection {
           }
           return
         }
-        var remaining = peripherals.count
-        var allSucceeded = true
-        peripherals.forEach { peripheral in
-          store.connectPeripheralFromPeer(peripheral) { success in
-            self.queue.async {
-              allSucceeded = allSucceeded && success
-              remaining -= 1
-              if remaining == 0 {
-                self.sendString(
-                  (allSucceeded ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed)
-                    .rawValue
-                )
-              }
-            }
+        store.connectPeripheralsSerially(peripherals) { allSucceeded in
+          self.queue.async {
+            self.sendString(
+              (allSucceeded ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed)
+                .rawValue
+            )
           }
         }
       }

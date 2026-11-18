@@ -72,7 +72,7 @@ struct OtherSettingsView: View {
           )
         Toggle("Switch peripherals without unpairing them", isOn: $keepPairingsOnSwitch)
           .help(
-            "Hand peripherals over by disconnecting instead of unpairing, which avoids the macOS Connection Request dialog on every switch. Only works for peripherals already paired to both Macs that allow it — Apple's Magic keyboard, trackpad, and mouse reconnect to the last Mac, so switching breaks for them. Leave this off unless you know your peripherals support it."
+            "Switch by reconnecting instead of re-pairing. A peripheral paired to both Macs is then handed over without re-pairing, so it switches faster and stays paired to both. Off by default; not for Apple's Magic keyboard, trackpad, or mouse, which reconnect to the last Mac."
           )
       }
       Section(header: Text("Keyboard Shortcuts")) {
