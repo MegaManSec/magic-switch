@@ -1562,7 +1562,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           }
           classes[address] = UInt32(device.classOfDevice)
           paired.append(
-            BluetoothPeripheral(id: address, name: device.name ?? BluetoothPeripheral.unknownName)
+            BluetoothPeripheral(id: address, name: device.resolvedName)
           )
         }
 
@@ -1692,7 +1692,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // the watchdog cancel, inline error only for announced attempts (a
         // silent watcher/adoption retry must not strobe the row), and no
         // notification while a watcher retry is still pending.
-        let name = device.name ?? BluetoothPeripheral.unknownName
+        let name = device.resolvedName
         self.failConnectAttempt(
           id: address, name: name,
           inline: String(localized: "Pairing failed."),
@@ -1724,7 +1724,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.setConnectionState(.connected, for: address)
           self.registerForDisconnect(device: device, address: address)
         } else if let attempt {
-          let name = device.name ?? BluetoothPeripheral.unknownName
+          let name = device.resolvedName
           self.failConnectAttempt(
             id: address, name: name,
             inline: String(localized: "Couldn't connect."),

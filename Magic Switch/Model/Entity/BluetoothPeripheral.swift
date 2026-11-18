@@ -184,3 +184,13 @@ enum PeripheralType: String, Codable, CaseIterable {
     return .unknown
   }
 }
+
+extension IOBluetoothDevice {
+  /// Name for display, or `BluetoothPeripheral.unknownName` when IOBluetooth
+  /// reports it as nil or blank — which it does for a device paged before its
+  /// name has resolved.
+  var resolvedName: String {
+    let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return trimmed.isEmpty ? BluetoothPeripheral.unknownName : trimmed
+  }
+}
