@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 20 October 2026_
+_Last updated: 16 November 2026_
 
 Magic Switch is a free, open-source macOS app that moves Bluetooth peripherals, such as a Magic Keyboard or Magic Trackpad, between two of your Macs. This policy explains what data the app handles.
 
@@ -28,9 +28,9 @@ If you turn on **Connect over Bluetooth when the network can't** (off by default
 
 ## Update checks
 
-The version of Magic Switch downloaded from GitHub checks for updates; the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452) version doesn't, since the App Store updates it.
+The version of Magic Switch downloaded from GitHub checks for and installs updates using [Sparkle](https://sparkle-project.org); the [Mac App Store](https://apps.apple.com/us/app/magic-switch/id6816653452) version doesn't, since the App Store updates it.
 
-At most once a day while the app is running, and whenever you click **Check for Updates**, the GitHub version asks GitHub (`api.github.com`) for the latest Magic Switch release. The request contains no identifiers or personal data, but GitHub sees your IP address as it would for any web request. GitHub's handling of that is covered by the [GitHub General Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+At most once a day while the app is running (unless you turn off **Check for updates automatically**), and whenever you click **Check for Updates**, the GitHub version downloads the update feed from the latest Magic Switch release on GitHub (`github.com`). When you install an update, it downloads the new version from the same release. These requests name the app and its version but contain no other identifiers or personal data, and no system profile is sent. GitHub sees your IP address as it would for any web request. GitHub's handling of that is covered by the [GitHub General Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 
 Links in the app, such as the release page, the license and GitHub Sponsors, open in your web browser.
 

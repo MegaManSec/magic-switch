@@ -154,32 +154,43 @@ struct OtherSettingsView: View {
         HStack {
           Text("Version")
           Spacer()
-          #if !APP_STORE
-            updateStatus
-          #endif
           Text(updateChecker.currentVersion)
             .foregroundColor(.secondary)
           #if !APP_STORE
-            Button {
-              updateChecker.checkNow()
-            } label: {
-              Group {
-                if updateChecker.isChecking {
-                  ProgressView()
-                    .controlSize(.small)
-                } else {
-                  Image(systemName: "arrow.triangle.2.circlepath")
-                    .foregroundColor(.secondary)
+            if let available = updateChecker.availableVersion {
+              Button(action: updateChecker.checkForUpdates) {
+                HStack(spacing: 5) {
+                  Image(systemName: "arrow.up")
+                    .font(.system(size: 11, weight: .semibold))
+                  Text(available)
                 }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.secondary.opacity(0.22)))
+                .contentShape(Capsule())
               }
-              .frame(width: 16, height: 16)
+              .buttonStyle(.plain)
+              .help("A newer version of Magic Switch is available. Click to install it.")
+              .accessibilityLabel(String(localized: "Update to version \(available) available"))
+            }
+            Button(action: updateChecker.checkForUpdates) {
+              Image(systemName: "arrow.triangle.2.circlepath")
+                .foregroundColor(.secondary)
+                .frame(width: 16, height: 16)
             }
             .buttonStyle(.borderless)
-            .disabled(updateChecker.isChecking)
-            .help("Check GitHub for a newer release right now.")
+            .disabled(!updateChecker.canCheckForUpdates)
+            .help("Check for a newer version now.")
             .accessibilityLabel("Check for Updates")
           #endif
         }
+        #if !APP_STORE
+          Toggle(
+            "Check for updates automatically",
+            isOn: $updateChecker.automaticallyChecksForUpdates
+          )
+          .help("Look for a new version of Magic Switch once a day.")
+        #endif
       }
     }
     .onAppear(perform: refreshOnAppear)
@@ -284,32 +295,6 @@ struct OtherSettingsView: View {
     }
   }
 
-  /// Status caption left of the version: an available update (tappable), a
-  /// failed manual check, or a brief "up to date" after a manual check.
-  private var updateStatus: some View {
-    Group {
-      if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
-        Button(action: openLatestRelease) {
-          Text("Update to \(latest)")
-            .foregroundColor(.accentColor)
-        }
-        .buttonStyle(.plain)
-        .help(
-          "A newer version of Magic Switch is available. Opens the release page in your browser."
-        )
-        .accessibilityLabel(String(localized: "Update to version \(latest) available"))
-      } else if updateChecker.lastCheckFailed {
-        Text("Couldn't check")
-          .foregroundColor(.red)
-      } else if updateChecker.confirmedUpToDate {
-        Text("Up to date")
-          .foregroundColor(.secondary)
-          .transition(.opacity)
-      }
-    }
-    .animation(.easeInOut(duration: 0.25), value: updateChecker.confirmedUpToDate)
-  }
-
   // MARK: - Private Methods
 
   private func showLicenseInfo() {
@@ -323,18 +308,10 @@ struct OtherSettingsView: View {
     openURL(url)
   }
 
-  private func openLatestRelease() {
-    guard let url = updateChecker.releasePageURL else { return }
-    openURL(url)
-  }
-
-  /// Refresh launch-at-login state, the display list, and nudge the update
-  /// check. `checkIfNeeded` respects the 24h cadence, so opening Settings
-  /// rarely fires a real request.
+  /// Refresh launch-at-login state and the display list.
   private func refreshOnAppear() {
     refreshLaunchAtLogin()
     displayMonitor.refreshNow()
-    updateChecker.checkIfNeeded()
     NotificationManager.checkAuthorizationDenied { notificationsDenied = $0 }
   }
 

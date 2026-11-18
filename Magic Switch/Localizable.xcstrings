@@ -395,12 +395,12 @@
         }
       }
     },
-    "A newer version of Magic Switch is available. Opens the release page in your browser." : {
+    "A newer version of Magic Switch is available. Click to install it." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hay una versión más reciente de Magic Switch. Abre la página de la versión en tu navegador."
+            "value" : "Hay una versión más reciente de Magic Switch. Haz clic para instalarla."
           }
         }
       }
@@ -703,22 +703,32 @@
         }
       }
     },
-    "Check GitHub for a newer release right now." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Busca ahora en GitHub una versión más reciente."
-          }
-        }
-      }
-    },
     "Check for Updates" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buscar actualizaciones"
+          }
+        }
+      }
+    },
+    "Check for a newer version now." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca ahora una versión más reciente."
+          }
+        }
+      }
+    },
+    "Check for updates automatically" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar actualizaciones automáticamente"
           }
         }
       }
@@ -960,16 +970,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo cambiar"
-          }
-        }
-      }
-    },
-    "Couldn't check" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo comprobar"
           }
         }
       }
@@ -1555,6 +1555,16 @@
         }
       }
     },
+    "Look for a new version of Magic Switch once a day." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busca una nueva versión de Magic Switch una vez al día."
+          }
+        }
+      }
+    },
     "Macs" : {
       "localizations" : {
         "es" : {
@@ -1642,18 +1652,18 @@
         }
       }
     },
-    "Magic Switch v%@ is available (you have v%@). Click to open the release page." : {
+    "Magic Switch v%@ is available (you have v%@). Click to install it." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Magic Switch v%1$@ is available (you have v%2$@). Click to open the release page."
+            "value" : "Magic Switch v%1$@ is available (you have v%2$@). Click to install it."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Magic Switch v%1$@ está disponible (tienes la v%2$@). Haz clic para abrir la página de la versión."
+            "value" : "Magic Switch v%1$@ está disponible (tienes la v%2$@). Haz clic para instalarla."
           }
         }
       }
@@ -3341,16 +3351,6 @@
         }
       }
     },
-    "Up to date" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actualizado"
-          }
-        }
-      }
-    },
     "Update Available" : {
       "localizations" : {
         "es" : {
@@ -3377,16 +3377,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualización disponible: versión %@"
-          }
-        }
-      }
-    },
-    "Update to %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actualizar a %@"
           }
         }
       }
