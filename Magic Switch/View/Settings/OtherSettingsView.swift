@@ -153,24 +153,6 @@ struct OtherSettingsView: View {
           #endif
           Text(updateChecker.currentVersion)
             .foregroundColor(.secondary)
-          if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
-            Button(action: openLatestRelease) {
-              HStack(spacing: 5) {
-                Image(systemName: "arrow.up")
-                  .font(.system(size: 11, weight: .semibold))
-                Text(latest)
-              }
-              .padding(.horizontal, 11)
-              .padding(.vertical, 5)
-              .background(Capsule().fill(Color.secondary.opacity(0.22)))
-              .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .help(
-              "A newer version of Magic Switch is available. Opens the release page in your browser."
-            )
-            .accessibilityLabel(String(localized: "Update to version \(latest) available"))
-          }
           #if !APP_STORE
             Button {
               updateChecker.checkNow()
@@ -296,22 +278,30 @@ struct OtherSettingsView: View {
     }
   }
 
-  /// Trailing status beside the Check-for-Updates button. The "Update
-  /// Available" row already covers the positive case, so this only reports a
-  /// failed manual check or an up-to-date result.
-  @ViewBuilder
+  /// Status caption left of the version: an available update (tappable), a
+  /// failed manual check, or a brief "up to date" after a manual check.
   private var updateStatus: some View {
-    if updateChecker.lastCheckFailed {
-      Text("Couldn't check")
-        .font(.caption)
-        .foregroundColor(.red)
-    } else if !updateChecker.isChecking, !updateChecker.updateAvailable,
-      updateChecker.latestVersion != nil
-    {
-      Text("Up to date")
-        .font(.caption)
-        .foregroundColor(.secondary)
+    Group {
+      if updateChecker.updateAvailable, let latest = updateChecker.latestVersion {
+        Button(action: openLatestRelease) {
+          Text("Update to \(latest)")
+            .foregroundColor(.accentColor)
+        }
+        .buttonStyle(.plain)
+        .help(
+          "A newer version of Magic Switch is available. Opens the release page in your browser."
+        )
+        .accessibilityLabel(String(localized: "Update to version \(latest) available"))
+      } else if updateChecker.lastCheckFailed {
+        Text("Couldn't check")
+          .foregroundColor(.red)
+      } else if updateChecker.confirmedUpToDate {
+        Text("Up to date")
+          .foregroundColor(.secondary)
+          .transition(.opacity)
+      }
     }
+    .animation(.easeInOut(duration: 0.25), value: updateChecker.confirmedUpToDate)
   }
 
   // MARK: - Private Methods
