@@ -3361,6 +3361,16 @@
         }
       }
     },
+    "Update to %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar a %@"
+          }
+        }
+      }
+    },
     "Update to version %@ available" : {
       "comment" : "VoiceOver label for the red badge on the Version row; %@ is the newer version number",
       "localizations" : {

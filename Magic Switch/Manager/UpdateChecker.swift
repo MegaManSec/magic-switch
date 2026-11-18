@@ -39,6 +39,8 @@ final class UpdateChecker: ObservableObject {
     /// a real request; it mainly bounds how soon a failed check is retried.
     static let pollInterval: TimeInterval = 60 * 60
     static let requestTimeout: TimeInterval = 10
+    /// How long a manual "you're up to date" confirmation stays on screen.
+    static let upToDateDisplay: TimeInterval = 4
     /// Persisted state, namespaced like the rest of the app's UserDefaults keys.
     static let lastCheckedKey = "com.magicswitch.updatecheck.lastChecked"
     static let latestVersionKey = "com.magicswitch.updatecheck.latestVersion"
@@ -76,6 +78,14 @@ final class UpdateChecker: ObservableObject {
   /// "Couldn't check" must not outlive a poll that has since succeeded.
   /// Automatic checks stay silent. Main-thread only.
   @Published private(set) var lastCheckFailed = false
+
+  /// Briefly true after a manual check confirms no newer version, so the
+  /// button can answer the click without the row stating the obvious on every
+  /// open. Cleared on a timer and when the next check starts. Main-thread only.
+  @Published private(set) var confirmedUpToDate = false
+
+  /// Clears `confirmedUpToDate` after `Constants.upToDateDisplay`.
+  private var upToDateReset: DispatchWorkItem?
 
   /// Hourly poll, retained for the singleton's lifetime, so a long-running app
   /// re-checks (and retries failures) without needing a relaunch.
@@ -176,6 +186,8 @@ final class UpdateChecker: ObservableObject {
     guard Self.isEnabled, !isChecking else { return }
     guard let url = URL(string: Constants.latestReleaseAPI) else { return }
     isChecking = true
+    upToDateReset?.cancel()
+    confirmedUpToDate = false
     if manual { lastCheckFailed = false }
 
     var request = URLRequest(url: url)
@@ -208,8 +220,18 @@ final class UpdateChecker: ObservableObject {
         UserDefaults.standard.set(version, forKey: Constants.latestVersionKey)
         self.latestVersion = version
         self.reconcileUpdateNotification(manual: manual)
+        if manual, !self.updateAvailable { self.confirmUpToDate() }
       }
     }.resume()
+  }
+
+  /// Show the manual "up to date" confirmation, then retire it on a timer.
+  private func confirmUpToDate() {
+    upToDateReset?.cancel()
+    confirmedUpToDate = true
+    let reset = DispatchWorkItem { [weak self] in self?.confirmedUpToDate = false }
+    upToDateReset = reset
+    DispatchQueue.main.asyncAfter(deadline: .now() + Constants.upToDateDisplay, execute: reset)
   }
 
   /// One notification per discovered version, and only from automatic checks —
