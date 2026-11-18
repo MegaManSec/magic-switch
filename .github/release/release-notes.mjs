@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import semanticRelease from "semantic-release";
+import { forUpdateWindow } from "./update-notes.mjs";
 
 const result = await semanticRelease({ dryRun: true, ci: false });
 if (!result || result.nextRelease.version !== process.env.VERSION) {
@@ -13,5 +14,5 @@ if (!result || result.nextRelease.version !== process.env.VERSION) {
 const delimiter = `NOTES_${randomUUID()}`;
 appendFileSync(
   process.env.GITHUB_OUTPUT,
-  `release-notes<<${delimiter}\n${result.nextRelease.notes}\n${delimiter}\n`,
+  `release-notes<<${delimiter}\n${forUpdateWindow(result.nextRelease.notes)}\n${delimiter}\n`,
 );
