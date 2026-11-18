@@ -738,7 +738,7 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
         body:
           String(
             localized:
-              "\(networkDevices[index].name) proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code."
+              "\(networkDevices[index].name) proved the current pairing key, so switching resumed. If you didn't re-pair it, pair both Macs again with a fresh code."
           ),
         identifier: "identity-mismatch-\(networkDevices[index].id)"
       )
