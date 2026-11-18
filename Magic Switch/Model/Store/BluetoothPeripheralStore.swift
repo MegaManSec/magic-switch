@@ -1250,12 +1250,12 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Call after the local releases land; pair with `finishFullSetRelease()` or
   /// `rollBackFullSetRelease()`.
   func beginFullSetRelease() {
-    peripherals.forEach { setConnectionState(.releasing, for: $0.id) }
+    for peripheral in peripherals { setConnectionState(.releasing, for: peripheral.id) }
   }
 
   /// End the full-set "Sending…" display once the peripherals live on the peer.
   func finishFullSetRelease() {
-    peripherals.forEach { setConnectionState(.disconnected, for: $0.id) }
+    for peripheral in peripherals { setConnectionState(.disconnected, for: peripheral.id) }
   }
 
   /// Bring a full-set send that didn't complete back onto this Mac: re-pair
@@ -1988,7 +1988,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   private func completeConnectResultWaiters(for id: String, success: Bool) {
     guard let waiters = connectResultWaiters.removeValue(forKey: id) else { return }
-    waiters.forEach { $0(success) }
+    for waiter in waiters { waiter(success) }
   }
 
   /// Drops one address's attempt-tracking state — the pending pair
