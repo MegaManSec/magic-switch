@@ -260,12 +260,12 @@
         }
       }
     },
-    "%@ proved it has this Mac's current pairing key, so switching resumed. If you didn't re-pair both Macs yourself, pair them again with a fresh code." : {
+    "%@ proved the current pairing key, so switching resumed. If you didn't re-pair it, pair both Macs again with a fresh code." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ ha demostrado que tiene la clave de emparejamiento actual de este Mac, así que se ha reanudado el cambio. Si no has vuelto a emparejar ambos Macs tú mismo, empareja de nuevo con un código nuevo."
+            "value" : "%@ demostró la clave de emparejamiento actual, así que se reanudó el cambio. Si no lo volviste a emparejar, empareja ambos Macs con un código nuevo."
           }
         }
       }
@@ -1054,6 +1054,17 @@
         }
       }
     },
+    "Couldn't re-pair %@. Turn it off and on; if it still won't connect, pair it again in System Settings → Bluetooth." : {
+      "comment" : "System Settings → Bluetooth is a macOS UI name",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo volver a emparejar %@. Apágalo y enciéndelo; si sigue sin conectar, empareja de nuevo en Ajustes del Sistema → Bluetooth."
+          }
+        }
+      }
+    },
     "Couldn't reach the other Mac on the network or over Bluetooth." : {
       "localizations" : {
         "es" : {
@@ -1611,23 +1622,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Magic Switch necesita tu atención"
-          }
-        }
-      }
-    },
-    "Magic Switch reset this Mac's pairing for %@ and couldn't pair it again. Turn %@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth." : {
-      "comment" : "System Settings → Bluetooth is a macOS UI name",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Magic Switch reset this Mac's pairing for %1$@ and couldn't pair it again. Turn %2$@ off and on — if it doesn't come back, pair it again in System Settings → Bluetooth."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Magic Switch restableció el emparejamiento de este Mac con %1$@ y no pudo volver a emparejarlo. Apaga y enciende %2$@; si no vuelve, empareja de nuevo en Ajustes del Sistema → Bluetooth."
           }
         }
       }
@@ -2735,12 +2729,12 @@
         }
       }
     },
-    "Some peripherals are on this Mac, others aren't. In the menu, click the ones that are on the wrong Mac, then click your other Mac to move them all at once." : {
+    "Some are on this Mac, some on your other Mac. Click a Mac in the menu to gather them all there." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Algunos periféricos están en este Mac y otros no. En el menú, haz clic en los que están en el Mac equivocado y luego en tu otro Mac para moverlos todos a la vez."
+            "value" : "Algunos están en este Mac y otros en tu otro Mac. Haz clic en un Mac en el menú para reunirlos todos ahí."
           }
         }
       }
@@ -3448,12 +3442,12 @@
         }
       }
     },
-    "You canceled while Magic Switch was pairing %@ again, so it's no longer paired with this Mac. Click it in the menu to pair it again." : {
+    "You canceled re-pairing %@, so it's no longer paired with this Mac. Click it in the menu to pair again." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cancelaste mientras Magic Switch volvía a emparejar %@, así que ya no está emparejado con este Mac. Haz clic en él en el menú para emparejarlo de nuevo."
+            "value" : "Cancelaste el reemparejamiento de %@, así que ya no está emparejado con este Mac. Haz clic en él en el menú para emparejarlo de nuevo."
           }
         }
       }

@@ -916,7 +916,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         title: String(localized: "Pairing Was Reset"),
         body: String(
           localized:
-            "You canceled while Magic Switch was pairing \(peripheral.name) again, so it's no longer paired with this Mac. Click it in the menu to pair it again."
+            "You canceled re-pairing \(peripheral.name), so it's no longer paired with this Mac. Click it in the menu to pair again."
         ),
         identifier: "pair-failed-\(id)"
       )
@@ -1951,7 +1951,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private static func bondResetBody(_ name: String) -> String {
     String(
       localized:
-        "Magic Switch reset this Mac's pairing for \(name) and couldn't pair it again. Turn \(name) off and on — if it doesn't come back, pair it again in System Settings → Bluetooth.",
+        "Couldn't re-pair \(name). Turn it off and on; if it still won't connect, pair it again in System Settings → Bluetooth.",
       comment: "System Settings → Bluetooth is a macOS UI name"
     )
   }
