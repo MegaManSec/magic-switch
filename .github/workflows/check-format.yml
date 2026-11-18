@@ -56,6 +56,9 @@ jobs:
         with:
           xcode-version: "26.5"
 
+      - name: Lint
+        run: swift format lint -r ./Magic\ Switch/ -s
+
       - name: Format Check
         id: format
         run: |

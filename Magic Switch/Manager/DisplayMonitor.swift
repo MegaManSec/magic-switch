@@ -179,7 +179,7 @@ final class DisplayMonitor: ObservableObject {
         Self.reconfigurationCallback, Unmanaged.passUnretained(self).toOpaque())
     }
     let center = NSWorkspace.shared.notificationCenter
-    workspaceObservers.forEach { center.removeObserver($0) }
+    for observer in workspaceObservers { center.removeObserver(observer) }
   }
 
   // MARK: - Trigger Configuration

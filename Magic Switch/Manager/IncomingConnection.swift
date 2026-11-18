@@ -310,7 +310,7 @@ final class IncomingConnection {
         NotificationCenter.default.post(name: .magicSwitchReceivedUnregisterAll, object: nil)
         let peripherals = store.peripherals
         let releases = DispatchGroup()
-        peripherals.forEach { peripheral in
+        for peripheral in peripherals {
           releases.enter()
           store.unregisterFromPC(peripheral) { _ in releases.leave() }
         }

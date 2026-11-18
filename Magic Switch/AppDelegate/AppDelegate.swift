@@ -632,7 +632,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     }
     switch command.resolvePeripherals(in: bluetoothStore) {
     case .success(let peripherals):
-      peripherals.forEach { bluetoothStore.switchPeripheral($0, direction: command.direction) }
+      for peripheral in peripherals {
+        bluetoothStore.switchPeripheral(peripheral, direction: command.direction)
+      }
     case .failure(let error):
       NotificationManager.showNotification(
         title: String(localized: "Invalid Switch Command"), body: error.message,
@@ -792,7 +794,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
           // which reclaims each one only once the peer confirms it isn't
           // holding it — and recovers the case where the peer released but
           // the ack was lost.
-          self.bluetoothStore.peripherals.forEach { peripheral in
+          for peripheral in self.bluetoothStore.peripherals {
             self.bluetoothStore.armReconnectForTakeover(
               peripheral.id, peerMayStillBeReleasing: true)
           }
@@ -910,7 +912,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     // terminal branch below resolves it.
     bluetoothStore.beginFullSetRelease()
     let releases = DispatchGroup()
-    bluetoothStore.peripherals.forEach { peripheral in
+    for peripheral in bluetoothStore.peripherals {
       releases.enter()
       bluetoothStore.unregisterFromPC(peripheral) { _ in releases.leave() }
     }
