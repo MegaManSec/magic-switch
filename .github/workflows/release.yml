@@ -355,10 +355,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new-release-version }}
         run: |
-          if ! gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null; then
-            echo "::error::semantic-release did not publish v$VERSION."
-            exit 1
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            exit 0
           fi
+          # main can advance between the version job's check and this step (a
+          # newer commit merged mid-run); semantic-release then declines as
+          # "behind the remote" and the newer commit's run publishes instead.
+          MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::main advanced to $MAIN_SHA; v$VERSION will be published by the newer commit's run."
+            exit 0
+          fi
+          echo "::error::semantic-release did not publish v$VERSION."
+          exit 1
 
   homebrew-tap:
     needs:
