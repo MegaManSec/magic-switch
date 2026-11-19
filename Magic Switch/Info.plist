@@ -48,6 +48,8 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Magic Switch uses the local network to find your other Mac and switch peripherals with it.</string>
 #ifndef APP_STORE
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUEnableInstallerLauncherService</key>
