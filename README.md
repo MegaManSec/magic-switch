@@ -120,7 +120,7 @@ On the **Macs** tab, find the other Mac under **Your Other Mac** and click its *
 
 <p align="center">
   <img src="docs/assets/other-tab.png" alt="Other tab showing all app preferences" width="600"><br>
-  <em>Other tab — Open at Login, the peripheral-handling toggles, keyboard shortcut recorders, the display-connect list, version, and update check.</em>
+  <em>Other tab — Open at Login, Bluetooth fallback, the peripheral-handling toggles, keyboard shortcut recorders, the display-connect list, and the Updates section.</em>
 </p>
 
 ## Usage

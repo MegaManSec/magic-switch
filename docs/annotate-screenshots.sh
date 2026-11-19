@@ -22,8 +22,8 @@ LIGHT="#EAEAEA"
 NUMFONT="/System/Library/Fonts/Supplemental/Arial Bold.ttf"   # badge + legend numbers
 TEXTFONT="/System/Library/Fonts/SFNS.ttf"                     # legend body (San Francisco)
 
-# Pre-render badge glyphs 1..6 (36px circle, centered black number).
-for n in 1 2 3 4 5 6; do
+# Pre-render badge glyphs 1..9 (36px circle, centered black number).
+for n in 1 2 3 4 5 6 7 8 9; do
   magick -size 40x40 xc:none \
     -fill "$YELLOW" -draw "circle 20,20 20,2" \
     -gravity center -font "$NUMFONT" -pointsize 23 -fill black -annotate +0+0 "$n" \
@@ -108,30 +108,40 @@ annotate macs-tab "#282828" 0 88 490 47 \
 
 # ---- Other tab ----
 # The tab is taller than the window, so the raw is stitched from three
-# scrolled captures (other-tab-{top,mid,bottom}.png): each slice is cut on
-# flat background between sections, aligned by crop offset (the window was
-# identical; only the capture regions drifted), and has the transient
-# overlay scrollbar painted out.
+# scrolled captures (other-tab-{top,mid,bottom}.png). They were area
+# selections, so each is shifted to line up the close button (mid +4,+6,
+# bottom +2,+6), then cut where the overlaps match exactly (scroll steps of
+# 651 and 425 px), clear of each capture's rounded bottom corners. The
+# overlay scrollbar is painted out, and the top-right corner, which showed
+# the desktop through it, is the top-left one mirrored.
 if [ -f "$RAW/other-tab-top.png" ]; then
   magick \
-    \( "$RAW/other-tab-top.png"    -crop 1188x530+2+0   +repage -fill "#282828" -draw "rectangle 1164,74 1188,530" \) \
-    \( "$RAW/other-tab-mid.png"    -crop 1188x340+0+240 +repage -fill "#282828" -draw "rectangle 1164,0 1188,340" \) \
-    \( "$RAW/other-tab-bottom.png" -crop 1188x565+4+115 +repage -fill "#282828" -draw "rectangle 1164,0 1188,565" \) \
-    -append "$RAW/other-tab.png"
+    \( "$RAW/other-tab-top.png"    -crop 1184x858+0+0   +repage \) \
+    \( "$RAW/other-tab-mid.png"    -crop 1184x651+4+213 +repage \) \
+    \( "$RAW/other-tab-bottom.png" -crop 1184x435+2+439 +repage \) \
+    -append -fill "#1E1E1E" -draw "rectangle 1160,94 1183,1943" \
+    \( "$RAW/other-tab-top.png" -crop 24x24+0+0 +repage -flop \) -geometry +1160+0 -composite \
+    "$RAW/other-tab.png"
 fi
-annotate other-tab "#282828" 320 88 1480 47 \
-"1 1053 201 1083 201
-2 1053 388 1083 388
-3 1053 464 1083 464
-4 1030 640 1062 640
-5 270 993 218 993
-6 160 1415 160 1382" \
+annotate other-tab "#1E1E1E" 470 88 1990 47 \
+"1 1028 222 1056 222
+2 1028 297 1056 297
+3 1028 482 1056 482
+4 1028 557 1056 557
+5 1028 632 1056 632
+6 980 826 1008 826
+7 245 1197 203 1197
+8 1114 1424 1114 1466
+9 1028 1635 1056 1635" \
 "1|Open at Login — start Magic Switch when you log in
-2|Release peripherals to the other Mac when this Mac sleeps
-3|Reconnect peripherals automatically if they drop
-4|Record a shortcut — send, take, or toggle every peripheral from anywhere
-5|A marked display — when it connects, peripherals switch to this Mac
-6|Check for Updates — check now (status shows on the right)"
+2|Bluetooth fallback — connect when the network blocks the Macs
+3|Release peripherals to the other Mac when this Mac sleeps
+4|Reconnect peripherals automatically if they drop
+5|Hand over peripherals paired to both Macs without re-pairing
+6|Record a shortcut — send, take, or toggle every peripheral from anywhere
+7|A marked display — when it connects, peripherals switch to this Mac
+8|Check for updates now
+9|Install updates by themselves — downloaded in the background"
 
 # ---- Menu (translucent material background, smaller legend) ----
 annotate menu "#25272A" 150 24 405 36 \
