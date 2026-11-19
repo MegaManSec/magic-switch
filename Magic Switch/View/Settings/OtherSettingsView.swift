@@ -136,6 +136,22 @@ struct OtherSettingsView: View {
           .accessibilityLabel("Refresh connected displays")
         }
       }
+      #if !APP_STORE
+        Section(header: Text("Updates")) {
+          versionRow
+          Toggle(
+            "Check for updates automatically",
+            isOn: $updateChecker.automaticallyChecksForUpdates
+          )
+          .help("Look for a new version of Magic Switch once a day.")
+          Toggle(
+            "Download and install updates automatically",
+            isOn: $updateChecker.automaticallyDownloadsUpdates
+          )
+          .disabled(!updateChecker.automaticallyChecksForUpdates)
+          .help("Download new versions in the background and install them when Magic Switch quits.")
+        }
+      #endif
       Section(header: Text("About")) {
         SettingsRowView(
           title: String(localized: "License Information"),
@@ -150,46 +166,8 @@ struct OtherSettingsView: View {
                 "Support Magic Switch's development. Opens GitHub Sponsors in your browser."),
             action: openSponsorPage
           )
-        #endif
-        HStack {
-          Text("Version")
-          Spacer()
-          Text(updateChecker.currentVersion)
-            .foregroundColor(.secondary)
-          #if !APP_STORE
-            if let available = updateChecker.availableVersion {
-              Button(action: updateChecker.checkForUpdates) {
-                HStack(spacing: 5) {
-                  Image(systemName: "arrow.up")
-                    .font(.system(size: 11, weight: .semibold))
-                  Text(available)
-                }
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.secondary.opacity(0.22)))
-                .contentShape(Capsule())
-              }
-              .buttonStyle(.plain)
-              .help("A newer version of Magic Switch is available. Click to install it.")
-              .accessibilityLabel(String(localized: "Update to version \(available) available"))
-            }
-            Button(action: updateChecker.checkForUpdates) {
-              Image(systemName: "arrow.triangle.2.circlepath")
-                .foregroundColor(.secondary)
-                .frame(width: 16, height: 16)
-            }
-            .buttonStyle(.borderless)
-            .disabled(!updateChecker.canCheckForUpdates)
-            .help("Check for a newer version now.")
-            .accessibilityLabel("Check for Updates")
-          #endif
-        }
-        #if !APP_STORE
-          Toggle(
-            "Check for updates automatically",
-            isOn: $updateChecker.automaticallyChecksForUpdates
-          )
-          .help("Look for a new version of Magic Switch once a day.")
+        #else
+          versionRow
         #endif
       }
     }
@@ -208,6 +186,42 @@ struct OtherSettingsView: View {
         formContent
           .padding()
       }
+    }
+  }
+
+  private var versionRow: some View {
+    HStack {
+      Text("Version")
+      Spacer()
+      Text(updateChecker.currentVersion)
+        .foregroundColor(.secondary)
+      #if !APP_STORE
+        if let available = updateChecker.availableVersion {
+          Button(action: updateChecker.checkForUpdates) {
+            HStack(spacing: 5) {
+              Image(systemName: "arrow.up")
+                .font(.system(size: 11, weight: .semibold))
+              Text(available)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.secondary.opacity(0.22)))
+            .contentShape(Capsule())
+          }
+          .buttonStyle(.plain)
+          .help("A newer version of Magic Switch is available. Click to install it.")
+          .accessibilityLabel(String(localized: "Update to version \(available) available"))
+        }
+        Button(action: updateChecker.checkForUpdates) {
+          Image(systemName: "arrow.triangle.2.circlepath")
+            .foregroundColor(.secondary)
+            .frame(width: 16, height: 16)
+        }
+        .buttonStyle(.borderless)
+        .disabled(!updateChecker.canCheckForUpdates)
+        .help("Check for a newer version now.")
+        .accessibilityLabel("Check for Updates")
+      #endif
     }
   }
 

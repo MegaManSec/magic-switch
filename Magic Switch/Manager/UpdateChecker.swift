@@ -37,6 +37,7 @@ final class UpdateChecker: NSObject, ObservableObject {
 
     private var controller: SPUStandardUpdaterController?
     private var canCheckObserver: AnyCancellable?
+    private var automaticDownloadsObserver: AnyCancellable?
     private var checkWhenReady = false
 
     var installedReleaseNotesURL: URL? {
@@ -48,6 +49,14 @@ final class UpdateChecker: NSObject, ObservableObject {
       set {
         objectWillChange.send()
         controller?.updater.automaticallyChecksForUpdates = newValue
+      }
+    }
+
+    var automaticallyDownloadsUpdates: Bool {
+      get { controller?.updater.automaticallyDownloadsUpdates ?? false }
+      set {
+        objectWillChange.send()
+        controller?.updater.automaticallyDownloadsUpdates = newValue
       }
     }
 
@@ -63,6 +72,11 @@ final class UpdateChecker: NSObject, ObservableObject {
       canCheckObserver = controller.updater.publisher(for: \.canCheckForUpdates)
         .receive(on: DispatchQueue.main)
         .sink { [weak self] canCheck in self?.canCheckForUpdatesChanged(canCheck) }
+      automaticDownloadsObserver = controller.updater.publisher(
+        for: \.automaticallyDownloadsUpdates
+      )
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in self?.objectWillChange.send() }
       controller.startUpdater()
       objectWillChange.send()
     }
@@ -154,6 +168,14 @@ final class UpdateChecker: NSObject, ObservableObject {
           )
         }
       #endif
+    }
+
+    func updater(
+      _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem,
+      immediateInstallationBlock immediateInstallHandler: @escaping () -> Void
+    ) -> Bool {
+      announce(item.displayVersionString)
+      return false
     }
   }
 

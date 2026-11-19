@@ -1237,6 +1237,26 @@
         }
       }
     },
+    "Download and install updates automatically" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar e instalar actualizaciones automáticamente"
+          }
+        }
+      }
+    },
+    "Download new versions in the background and install them when Magic Switch quits." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarga las nuevas versiones en segundo plano y las instala al cerrar Magic Switch."
+          }
+        }
+      }
+    },
     "Enter Code" : {
       "localizations" : {
         "es" : {
@@ -3398,6 +3418,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualización a la versión %@ disponible"
+          }
+        }
+      }
+    },
+    "Updates" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizaciones"
           }
         }
       }
