@@ -1062,18 +1062,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   }
 
   /// Clicking the update banner shows the update — the same action as the
-  /// Update Available rows it points at. Every other Magic Switch
-  /// notification is informational and just dismisses.
+  /// Update Available rows it points at — and clicking the updated banner opens
+  /// that version's release notes. Every other Magic Switch notification is
+  /// informational and just dismisses.
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
     #if !APP_STORE
-      if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-        response.notification.request.identifier == UpdateChecker.updateNotificationIdentifier
-      {
-        DispatchQueue.main.async { UpdateChecker.shared.checkForUpdates() }
+      if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+        switch response.notification.request.identifier {
+        case UpdateChecker.updateNotificationIdentifier:
+          DispatchQueue.main.async { UpdateChecker.shared.checkForUpdates() }
+        case UpdateChecker.updateInstalledNotificationIdentifier:
+          if let url = UpdateChecker.shared.installedReleaseNotesURL {
+            DispatchQueue.main.async { NSWorkspace.shared.open(url) }
+          }
+        default:
+          break
+        }
       }
     #endif
     completionHandler()
