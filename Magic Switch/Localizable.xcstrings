@@ -1585,6 +1585,16 @@
         }
       }
     },
+    "Magic Switch Updated" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Magic Switch actualizado"
+          }
+        }
+      }
+    },
     "Magic Switch can't switch peripherals while Bluetooth is off." : {
       "localizations" : {
         "es" : {
@@ -3478,6 +3488,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No podrás cambiar periféricos con tu otro Mac hasta que vuelvas a emparejar."
+          }
+        }
+      }
+    },
+    "You're now on v%@. Click to see what's new." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya tienes la v%@. Haz clic para ver las novedades."
           }
         }
       }

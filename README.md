@@ -160,6 +160,8 @@ Otherwise, Magic Switch updates itself using [Sparkle](https://sparkle-project.o
 
 Before installing anything, Magic Switch checks that the update feed and the disk image are signed with this project's update key. If that key ever has to change, it accepts a disk image signed with this project's Apple Developer ID instead.
 
+After any update, including one installed when Magic Switch quit, the new version posts a single **Magic Switch Updated** notification when it first launches (only if notifications are allowed). Click it to see what's new.
+
 ## Troubleshooting
 
 - Both Macs running Magic Switch, both showing "Paired" in the Pairing tab.

@@ -22,8 +22,10 @@ final class UpdateChecker: NSObject, ObservableObject {
     // MARK: - Constants
 
     static let updateNotificationIdentifier = "update-available"
+    static let updateInstalledNotificationIdentifier = "update-installed"
     private static let availableVersionKey = "com.magicswitch.updatecheck.latestVersion"
     private static let notifiedVersionKey = "com.magicswitch.updatecheck.notifiedVersion"
+    private static let lastLaunchedVersionKey = "com.magicswitch.updatecheck.lastLaunchedVersion"
 
     // MARK: - Published State
 
@@ -36,6 +38,10 @@ final class UpdateChecker: NSObject, ObservableObject {
     private var controller: SPUStandardUpdaterController?
     private var canCheckObserver: AnyCancellable?
     private var checkWhenReady = false
+
+    var installedReleaseNotesURL: URL? {
+      URL(string: "https://github.com/MegaManSec/magic-switch/releases/tag/v\(currentVersion)")
+    }
 
     var automaticallyChecksForUpdates: Bool {
       get { controller?.updater.automaticallyChecksForUpdates ?? false }
@@ -50,6 +56,7 @@ final class UpdateChecker: NSObject, ObservableObject {
     func start() {
       guard controller == nil else { return }
       restoreAnnouncement()
+      announceInstalledUpdate()
       let controller = SPUStandardUpdaterController(
         startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
       self.controller = controller
@@ -88,6 +95,25 @@ final class UpdateChecker: NSObject, ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.availableVersionKey)
         NotificationManager.removeNotification(identifier: Self.updateNotificationIdentifier)
       }
+    }
+
+    private func announceInstalledUpdate() {
+      guard currentVersion != "0.0.0" else { return }
+      let previous = UserDefaults.standard.string(forKey: Self.lastLaunchedVersionKey)
+      UserDefaults.standard.set(currentVersion, forKey: Self.lastLaunchedVersionKey)
+      // Sparkle sets SUHasLaunchedBefore when its updater first starts, so with
+      // no recorded version it means an earlier Sparkle-enabled version ran.
+      let updated =
+        previous.map {
+          SUStandardVersionComparator.default.compareVersion(currentVersion, toVersion: $0)
+            == .orderedDescending
+        } ?? UserDefaults.standard.bool(forKey: "SUHasLaunchedBefore")
+      guard updated else { return }
+      NotificationManager.showNotification(
+        title: String(localized: "Magic Switch Updated"),
+        body: String(localized: "You're now on v\(currentVersion). Click to see what's new."),
+        identifier: Self.updateInstalledNotificationIdentifier
+      )
     }
 
     private func announce(_ version: String) {
