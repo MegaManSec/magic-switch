@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   private var pairingObserver: AnyCancellable?
   private var peripheralsObserver: AnyCancellable?
   private var windowCloseObserver: NSObjectProtocol?
+  private var windowShownObservers: [NSObjectProtocol] = []
   private var lastBluetoothState: CBManagerState = .unknown
   private var sleepObserver: NSObjectProtocol?
   private var wakeObserver: NSObjectProtocol?
@@ -40,6 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
   /// How long after a real wake to wait before deciding Bluetooth is
   /// genuinely off — the radio takes a moment to power back up.
   private static let bluetoothWakeGrace: TimeInterval = 3
+  /// How long the Dock icon outlives the last window, so a window that
+  /// replaces it right away (Sparkle swaps its update windows) doesn't blink it.
+  private static let dockIconGrace: TimeInterval = 0.3
   /// Cached Settings window controller. We host `SettingsView` in a manual
   /// `NSWindow` rather than going through SwiftUI's `Settings` scene because
   /// the scene's `showSettingsWindow:` action silently fails to produce a
@@ -143,16 +147,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     if Self.isExternalQuitRequest() { return .terminateNow }
     // Close the Settings window and its sheets. Sparkle's windows are left
     // for the user to close, because closing them in code skips Sparkle's
-    // handling of the user's choice. The willClose observer in
-    // `setupActivationPolicyTracking` will demote the activation policy
-    // back to `.accessory` shortly after; setting it here too just makes
-    // the Dock-icon disappearance feel immediate.
+    // handling of the user's choice. Dropping the Dock icon here, unless one
+    // of them is still open, makes it disappear at once rather than after
+    // the close observer's grace period.
     if let settingsWindow = settingsWindowController?.window {
       for window in settingsWindow.sheets + [settingsWindow] where window.isVisible {
         window.close()
       }
     }
-    NSApp.setActivationPolicy(.accessory)
+    dropDockIconIfNoWindow()
     return .terminateCancel
   }
 
@@ -194,6 +197,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
 
   deinit {
     if let token = windowCloseObserver {
+      NotificationCenter.default.removeObserver(token)
+    }
+    for token in windowShownObservers {
       NotificationCenter.default.removeObserver(token)
     }
     if let token = pingObserver {
@@ -1073,12 +1079,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     completionHandler()
   }
 
-  /// Drops the app back to `.accessory` (no Dock icon) once the last normal
-  /// window closes. Settings is one hand-built window, but the loop is
-  /// defensive against any other normal-level window we might open in the
-  /// future.
+  /// Gives the app a Dock icon while a normal window is open (Settings or
+  /// Sparkle's update windows) and drops it once the last one closes.
   private func setupActivationPolicyTracking() {
-    windowCloseObserver = NotificationCenter.default.addObserver(
+    let center = NotificationCenter.default
+    windowCloseObserver = center.addObserver(
       forName: NSWindow.willCloseNotification,
       object: nil,
       queue: .main
@@ -1090,18 +1095,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
       // the window on screen, killing the open). Status-item windows
       // and popovers live at non-`.normal` levels and would hit the
       // same race.
-      guard let window = notification.object as? NSWindow,
-        window.level == .normal
-      else { return }
-      // `willClose` fires while the closing window is still flagged visible;
-      // defer one runloop tick so the count reflects the post-close state.
-      DispatchQueue.main.async {
-        guard self != nil else { return }
-        let openWindows = NSApp.windows.filter { $0.isVisible && $0.level == .normal }
-        if openWindows.isEmpty {
-          NSApp.setActivationPolicy(.accessory)
-        }
+      guard let window = notification.object as? NSWindow, window.level == .normal else { return }
+      DispatchQueue.main.asyncAfter(deadline: .now() + Self.dockIconGrace) {
+        self?.dropDockIconIfNoWindow()
       }
+    }
+    windowShownObservers = [
+      NSWindow.didBecomeKeyNotification, NSWindow.didChangeOcclusionStateNotification,
+    ].map { name in
+      center.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
+        guard let window = notification.object as? NSWindow, window.level == .normal else { return }
+        self?.showDockIconIfWindowOpen()
+      }
+    }
+  }
+
+  private var hasOpenWindow: Bool {
+    NSApp.windows.contains { $0.level == .normal && ($0.isVisible || $0.isMiniaturized) }
+  }
+
+  private func showDockIconIfWindowOpen() {
+    if hasOpenWindow, NSApp.activationPolicy() == .accessory {
+      NSApp.setActivationPolicy(.regular)
+    }
+  }
+
+  private func dropDockIconIfNoWindow() {
+    if !hasOpenWindow {
+      NSApp.setActivationPolicy(.accessory)
     }
   }
 }
