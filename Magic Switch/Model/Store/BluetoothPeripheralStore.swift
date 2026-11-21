@@ -234,6 +234,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let peripheral: BluetoothPeripheral
     let pair: IOBluetoothDevicePair
     let attempt: UInt64
+    var wasQueued = false
   }
 
   /// The attempt token each pending pair was created under, maintained in
@@ -1515,13 +1516,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     if pendingPairs.keys.contains(where: { $0 != id }) {
+      var queued = request
+      queued.wasQueued = true
       let announced = { (key: String) in self.pairTimeoutShouldAnnounce[key] == true }
       if announced(id),
         let firstSilent = queuedPairs.firstIndex(where: { !announced($0.peripheral.id) })
       {
-        queuedPairs.insert(request, at: firstSilent)
+        queuedPairs.insert(queued, at: firstSilent)
       } else {
-        queuedPairs.append(request)
+        queuedPairs.append(queued)
       }
       pairTimers[id]?.schedule(deadline: .distantFuture)
       return
@@ -1529,7 +1532,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if let replaced = pendingPairs[id] { stopPair(replaced) }
     pendingPairs[id] = devicePair
     pendingPairAttempts[id] = attempt
-    pairTimers[id]?.schedule(deadline: .now() + Constants.pairTimeout)
+    if request.wasQueued {
+      pairTimers[id]?.schedule(deadline: .now() + Constants.pairTimeout)
+    }
 
     bluetoothQueue.async {
       guard self.isCurrentAttempt(attempt, for: id) else {
