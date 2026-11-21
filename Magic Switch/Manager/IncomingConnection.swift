@@ -293,7 +293,7 @@ final class IncomingConnection {
           }
           return
         }
-        store.connectPeripheralsSerially(peripherals) { allSucceeded in
+        store.connectPeripherals(peripherals) { allSucceeded in
           self.queue.async {
             self.sendString(
               (allSucceeded ? DeviceCommand.operationSuccess : DeviceCommand.operationFailed)
@@ -442,9 +442,9 @@ final class IncomingConnection {
       // once instead of via reactive adoption. Validate every entry before
       // touching the store with peer-supplied input, and cap the list. Ack on
       // receipt (we don't make the sleeping peer wait out pairing) and run the
-      // grab async; `connectPeripheralFromPeer` no-ops on anything we already
-      // hold, and the watcher (`armReconnectForTakeover`) covers a device
-      // that's briefly stuck and needs a power-cycle.
+      // grab async; `connectPeripherals` no-ops on anything we already hold,
+      // and its watcher arm covers a device that's briefly stuck and needs a
+      // power-cycle.
       let macs = message.split(separator: ",").map(String.init)
       guard !macs.isEmpty, macs.count <= 64, macs.allSatisfy(Self.isValidMACAddress) else {
         Log.network.error("adoptReleased: empty, oversized, or malformed address list")
@@ -457,10 +457,7 @@ final class IncomingConnection {
         guard !toTake.isEmpty else { return }
         // One arrow flash for the batch (receiving direction).
         NotificationCenter.default.post(name: .magicSwitchPeripheralIncoming, object: nil)
-        for peripheral in toTake {
-          store.connectPeripheralFromPeer(peripheral)
-          store.armReconnectForTakeover(peripheral.id)
-        }
+        store.connectPeripherals(toTake, armForTakeover: true)
       }
       // Acked on receipt: the goal ("you now own these") is recorded even if a
       // given peripheral isn't registered here or needs a retry to connect.

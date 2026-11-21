@@ -794,7 +794,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             let state = self.bluetoothStore.connectionState(for: peripheral.id)
             return state != .connecting && state != .releasing
           }
-          self.bluetoothStore.connectPeripheralsSerially(eligible, armForTakeover: true)
+          self.bluetoothStore.connectPeripherals(eligible, armForTakeover: true)
         case .failure(let err):
           self.endTransfer()
           // Reachable peer but the release-all errored, so we can't be sure
@@ -888,7 +888,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         // No trusted peer to ask. Connect whatever answers and arm the
         // watcher for the rest, so a stuck device is caught the moment the
         // user power-cycles it.
-        self.bluetoothStore.connectPeripheralsSerially(
+        self.bluetoothStore.connectPeripherals(
           self.bluetoothStore.peripherals, armForTakeover: true)
       }
     }
