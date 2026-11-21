@@ -1489,15 +1489,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
     devicePair.delegate = self
     DispatchQueue.main.async {
-      self.admitPair(
-        PairRequest(peripheral: peripheral, pair: devicePair, attempt: attempt), waited: false)
+      self.admitPair(PairRequest(peripheral: peripheral, pair: devicePair, attempt: attempt))
     }
   }
 
   /// Installs and starts `request`'s pair, or queues it while another
   /// peripheral's pair is in flight. A queued attempt's watchdog is held until
   /// its pair starts. Main-only.
-  private func admitPair(_ request: PairRequest, waited: Bool) {
+  private func admitPair(_ request: PairRequest) {
     let peripheral = request.peripheral
     let id = peripheral.id
     let attempt = request.attempt
@@ -1505,25 +1504,32 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // A cancel (or a newer attempt) can supersede this one while the
     // preflight runs; a pair installed after that would page on with no
     // watchdog to stop it.
-    guard isCurrentAttempt(attempt, for: id) else {
-      devicePair.stop()
-      return
-    }
-    if waited, connectionState(for: id) != .connecting {
+    guard isCurrentAttempt(attempt, for: id) else { return }
+    guard connectionState(for: id) == .connecting else {
       tearDownPairAttempt(for: id)
       return
     }
+    guard peripherals.contains(where: { $0.id == id }) else {
+      tearDownPairAttempt(for: id)
+      setConnectionState(.disconnected, for: id)
+      return
+    }
     if pendingPairs.keys.contains(where: { $0 != id }) {
-      queuedPairs.append(request)
+      let announced = { (key: String) in self.pairTimeoutShouldAnnounce[key] == true }
+      if announced(id),
+        let firstSilent = queuedPairs.firstIndex(where: { !announced($0.peripheral.id) })
+      {
+        queuedPairs.insert(request, at: firstSilent)
+      } else {
+        queuedPairs.append(request)
+      }
       pairTimers[id]?.schedule(deadline: .distantFuture)
       return
     }
-    pendingPairs[id]?.stop()
+    if let replaced = pendingPairs[id] { stopPair(replaced) }
     pendingPairs[id] = devicePair
     pendingPairAttempts[id] = attempt
-    if waited {
-      pairTimers[id]?.schedule(deadline: .now() + Constants.pairTimeout)
-    }
+    pairTimers[id]?.schedule(deadline: .now() + Constants.pairTimeout)
 
     bluetoothQueue.async {
       guard self.isCurrentAttempt(attempt, for: id) else {
@@ -1551,8 +1557,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// Main-only.
   private func admitNextQueuedPair() {
     while pendingPairs.isEmpty, !queuedPairs.isEmpty {
-      admitPair(queuedPairs.removeFirst(), waited: true)
+      admitPair(queuedPairs.removeFirst())
     }
+  }
+
+  /// Runs behind any `start()` already queued on `bluetoothQueue`, so a pair
+  /// stopped before it started can't start afterwards.
+  private func stopPair(_ devicePair: IOBluetoothDevicePair) {
+    bluetoothQueue.async { devicePair.stop() }
   }
 
   /// Identity-guarded: a newer attempt may already have replaced the entry.
@@ -2020,7 +2032,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   @discardableResult
   private func tearDownPairAttempt(for id: String) -> Bool {
     queuedPairs.removeAll { $0.peripheral.id == id }
-    pendingPairs[id]?.stop()
+    if let pair = pendingPairs[id] { stopPair(pair) }
     pendingPairs.removeValue(forKey: id)
     pendingPairAttempts.removeValue(forKey: id)
     pairTimers[id]?.cancel()
