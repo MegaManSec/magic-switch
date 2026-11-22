@@ -18,6 +18,8 @@ A macOS menu-bar utility that hands off Magic Keyboard, Magic Trackpad, and Magi
 
 This is a security-hardened fork of [HoshimuraYuto/blue-switch](https://github.com/HoshimuraYuto/blue-switch). The original ships an unauthenticated, unencrypted LAN protocol that lets anyone on the same Wi-Fi take over your Bluetooth peripherals or spoof notifications. This fork replaces that channel with a sealed, mutually-authenticated channel keyed by a 12-character pairing code you share between your two Macs — with a massively improved UI/UX over the original: a guided pairing flow, inline status feedback, per-peripheral switching, a needs-attention menu-bar icon, and safe preflight-and-rollback handoffs.
 
+If you'd like to say thanks for Magic Switch, you can do so through [GitHub Sponsors](https://github.com/sponsors/MegaManSec).
+
 <p align="center">
   <img src="docs/assets/menu.png" alt="The Magic Switch menu-bar dropdown" width="340"><br>
   <em>It lives in the menu bar: click a Mac to move every peripheral to it, or a single peripheral to move just that one. A checkmark marks whatever's on this Mac right now, with its battery level.</em>
