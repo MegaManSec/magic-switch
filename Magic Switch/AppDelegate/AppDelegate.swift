@@ -838,8 +838,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
     HotkeyManager.shared.start()
   }
 
-  /// A trigger display just connected, or this Mac woke with one connected
-  /// (runs on main). Announce it, then take the full set through the shared
+  /// A trigger display just connected, or this Mac woke with one marked for
+  /// wake connected (runs on main). Announce it, then take the full set through the shared
   /// external-claim engine below.
   private func handleTriggerDisplaysConnected(_ names: [String], onWake: Bool) -> Bool {
     let displays = ListFormatter.localizedString(byJoining: names)

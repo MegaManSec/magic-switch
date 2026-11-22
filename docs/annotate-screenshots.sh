@@ -22,11 +22,11 @@ LIGHT="#EAEAEA"
 NUMFONT="/System/Library/Fonts/Supplemental/Arial Bold.ttf"   # badge + legend numbers
 TEXTFONT="/System/Library/Fonts/SFNS.ttf"                     # legend body (San Francisco)
 
-# Pre-render badge glyphs 1..9 (36px circle, centered black number).
-for n in 1 2 3 4 5 6 7 8 9; do
+# Pre-render badge glyphs 1..10 (36px circle, centered black number).
+for n in 1 2 3 4 5 6 7 8 9 10; do
   magick -size 40x40 xc:none \
     -fill "$YELLOW" -draw "circle 20,20 20,2" \
-    -gravity center -font "$NUMFONT" -pointsize 23 -fill black -annotate +0+0 "$n" \
+    -gravity center -font "$NUMFONT" -pointsize $(( ${#n} > 1 ? 19 : 23 )) -fill black -annotate +0+0 "$n" \
     "$BADGE_DIR/$n.png"
 done
 
@@ -67,7 +67,8 @@ annotate() {
   while IFS= read -r l; do
     [ -z "$l" ] && continue
     local num="${l%%|*}" text="${l#*|}" y=$((ly0 + i*ldy))
-    args+=( -font "$NUMFONT" -pointsize "$legpt" -fill "$YELLOW" -annotate "+${lx}+${y}" "$num" )
+    local nx=$(( lx - (${#num} - 1) * 15 ))
+    args+=( -font "$NUMFONT" -pointsize "$legpt" -fill "$YELLOW" -annotate "+${nx}+${y}" "$num" )
     args+=( -font "$TEXTFONT" -pointsize "$legpt" -fill "$LIGHT" -annotate "+$((lx+34))+${y}" "$text" )
     i=$((i+1))
   done <<< "$legend"
@@ -107,23 +108,27 @@ annotate macs-tab "#282828" 0 88 490 47 \
 5|Refresh — rescan the network for nearby Macs"
 
 # ---- Other tab ----
-# The tab is taller than the window, so the raw is stitched from three
-# scrolled captures (other-tab-{top,mid,bottom}.png). They were area
-# selections, so each is shifted to line up the close button (mid +4,+6,
-# bottom +2,+6), then cut where the overlaps match exactly (scroll steps of
-# 651 and 425 px), clear of each capture's rounded bottom corners. The
-# overlay scrollbar is painted out, and the top-right corner, which showed
-# the desktop through it, is the top-left one mirrored.
+# The tab is taller than the window, so the raw is stitched from scrolled
+# captures (other-tab-{top,mid,bottom}.png). They were area selections, so
+# each is shifted to line up the close button (mid +4,+6, bottom +2,+6),
+# then cut where the overlaps match exactly (scroll steps of 651 and 425 px),
+# clear of each capture's rounded bottom corners. other-tab-displays.png is
+# a later capture at mid's scroll position (+8,-6) with the per-display wake
+# button; it replaces mid down to the flat gap above Updates, where mid
+# resumes 75 px lower because the old wake toggle row is gone. The overlay
+# scrollbar is painted out, and the top-right corner, which showed the
+# desktop through it, is the top-left one mirrored.
 if [ -f "$RAW/other-tab-top.png" ]; then
   magick \
-    \( "$RAW/other-tab-top.png"    -crop 1184x858+0+0   +repage \) \
-    \( "$RAW/other-tab-mid.png"    -crop 1184x651+4+213 +repage \) \
-    \( "$RAW/other-tab-bottom.png" -crop 1184x435+2+439 +repage \) \
-    -append -fill "#1E1E1E" -draw "rectangle 1160,94 1183,1943" \
+    \( "$RAW/other-tab-top.png"      -crop 1184x858+0+0   +repage \) \
+    \( "$RAW/other-tab-displays.png" -crop 1184x433+8+207 +repage \) \
+    \( "$RAW/other-tab-mid.png"      -crop 1184x143+4+721 +repage \) \
+    \( "$RAW/other-tab-bottom.png"   -crop 1184x435+2+439 +repage \) \
+    -append -fill "#1E1E1E" -draw "rectangle 1160,94 1183,1868" \
     \( "$RAW/other-tab-top.png" -crop 24x24+0+0 +repage -flop \) -geometry +1160+0 -composite \
     "$RAW/other-tab.png"
 fi
-annotate other-tab "#1E1E1E" 470 88 1990 47 \
+annotate other-tab "#1E1E1E" 517 88 1915 47 \
 "1 1028 222 1056 222
 2 1028 297 1056 297
 3 1028 482 1056 482
@@ -131,8 +136,9 @@ annotate other-tab "#1E1E1E" 470 88 1990 47 \
 5 1028 632 1056 632
 6 980 826 1008 826
 7 245 1197 203 1197
-8 1114 1424 1114 1466
-9 1028 1635 1056 1635" \
+8 918 1212 946 1212
+9 1114 1349 1114 1391
+10 1028 1560 1056 1560" \
 "1|Open at Login — start Magic Switch when you log in
 2|Bluetooth fallback — connect when the network blocks the Macs
 3|Release peripherals to the other Mac when this Mac sleeps
@@ -140,8 +146,9 @@ annotate other-tab "#1E1E1E" 470 88 1990 47 \
 5|Hand over peripherals paired to both Macs without re-pairing
 6|Record a shortcut — send, take, or toggle every peripheral from anywhere
 7|A marked display — when it connects, peripherals switch to this Mac
-8|Check for updates now
-9|Install updates by themselves — downloaded in the background"
+8|Also switch when this Mac wakes with that display connected
+9|Check for updates now
+10|Install updates by themselves — downloaded in the background"
 
 # ---- Menu (translucent material background, smaller legend) ----
 annotate menu "#25272A" 150 24 405 36 \

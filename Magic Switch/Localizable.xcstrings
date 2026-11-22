@@ -536,6 +536,16 @@
         }
       }
     },
+    "Also take your peripherals when this Mac wakes with %@ connected, even if your other Mac is using them." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trae también tus periféricos cuando este Mac salga del reposo con %@ conectada, aunque tu otro Mac los esté usando."
+          }
+        }
+      }
+    },
     "Asking the other Mac to release %@…" : {
       "localizations" : {
         "es" : {
@@ -2880,16 +2890,6 @@
         }
       }
     },
-    "Switch your peripherals to this Mac when it wakes with a marked display connected, even if your other Mac is using them." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pasa tus periféricos a este Mac cuando salga del reposo con una pantalla marcada conectada, aunque tu otro Mac los esté usando."
-          }
-        }
-      }
-    },
     "Switch your peripherals to this Mac whenever %@ connects. Display ID: %@." : {
       "localizations" : {
         "en" : {
@@ -3049,22 +3049,22 @@
         }
       }
     },
+    "Take peripherals on wake with %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traer periféricos al salir del reposo con %@"
+          }
+        }
+      }
+    },
     "Take peripherals to this Mac" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Traer periféricos a este Mac"
-          }
-        }
-      }
-    },
-    "Take peripherals when this Mac wakes with a marked display connected" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Traer periféricos cuando este Mac salga del reposo con una pantalla marcada conectada"
           }
         }
       }
