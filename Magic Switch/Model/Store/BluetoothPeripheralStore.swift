@@ -42,6 +42,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     /// How long to let `-remove` settle in the Bluetooth daemon before pairing
     /// again. Re-pairing inside this window races the unbond and fails.
     static let unbondSettle: TimeInterval = 0.5
+    /// Gap between one pairing finishing and the next one starting.
+    static let pairSettle: TimeInterval = 1
     /// How long `waitForLocalDisconnect` waits for a released device to
     /// disconnect. Must stay under `intentionalReleaseGrace` and the peer's
     /// `releaseBodyTimeout`, less the time `-remove` itself takes.
@@ -219,20 +221,29 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// macOS aborts pairing, dropping the peripheral seconds after it connects.
   private var pendingPairs: [String: IOBluetoothDevicePair] = [:] {
     didSet {
-      guard pendingPairs.isEmpty, !queuedPairs.isEmpty else { return }
-      DispatchQueue.main.async { [weak self] in self?.admitNextQueuedPair() }
+      guard pendingPairs.isEmpty, !oldValue.isEmpty else { return }
+      pairSettling = true
+      DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pairSettle) { [weak self] in
+        guard let self = self else { return }
+        self.pairSettling = false
+        self.admitNextQueuedPair()
+      }
     }
   }
 
-  /// Pairs waiting for the one in `pendingPairs` to finish. Only one pairing
-  /// may run at a time: overlapping pairs share the classic session, and the
-  /// later one's confirmation surfaces as the macOS Connection Request dialog.
-  /// Main-only.
+  /// Pairs waiting for the one in `pendingPairs` to finish and settle. Only
+  /// one pairing may run at a time: overlapping pairs share the classic
+  /// session, and the later one's confirmation surfaces as the macOS
+  /// Connection Request dialog. Main-only.
   private var queuedPairs: [PairRequest] = []
+
+  /// True for `Constants.pairSettle` after the last pending pair finishes;
+  /// admissions queue meanwhile. Main-only.
+  private var pairSettling = false
 
   private struct PairRequest {
     let peripheral: BluetoothPeripheral
-    let pair: IOBluetoothDevicePair
+    let device: IOBluetoothDevice
     let attempt: UInt64
     var wasQueued = false
   }
@@ -1466,42 +1477,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Pairs `device` from scratch under `attempt` and installs the resulting
-  /// `IOBluetoothDevicePair`. Runs on `bluetoothQueue`; the success path
-  /// continues in `devicePairingFinished(_:error:)`.
+  /// Pairs `device` from scratch under `attempt` once `admitPair` lets it
+  /// through. Runs on `bluetoothQueue`; the success path continues in
+  /// `devicePairingFinished(_:error:)`.
   private func startDevicePair(
     for peripheral: BluetoothPeripheral,
     device: IOBluetoothDevice,
     attempt: UInt64
   ) {
-    guard let devicePair = IOBluetoothDevicePair(device: device) else {
-      Log.bluetooth.error("Failed to initialize pairing for \(peripheral.name)")
-      failConnectAttempt(
-        id: peripheral.id, name: peripheral.name,
-        inline: String(localized: "Pairing failed."),
-        notifyBody:
-          String(
-            localized:
-              "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again."),
-        attempt: attempt
-      )
-      return
-    }
-
-    devicePair.delegate = self
     DispatchQueue.main.async {
-      self.admitPair(PairRequest(peripheral: peripheral, pair: devicePair, attempt: attempt))
+      self.admitPair(PairRequest(peripheral: peripheral, device: device, attempt: attempt))
     }
   }
 
-  /// Installs and starts `request`'s pair, or queues it while another
-  /// peripheral's pair is in flight. A queued attempt's watchdog is held until
-  /// its pair starts. Main-only.
+  /// Creates, installs and starts `request`'s pair, or queues the request
+  /// while another peripheral's pair is in flight or settling. A queued
+  /// attempt's watchdog is held until its pair starts. The pair must be
+  /// created here, never before queuing. Main-only.
   private func admitPair(_ request: PairRequest) {
     let peripheral = request.peripheral
     let id = peripheral.id
     let attempt = request.attempt
-    let devicePair = request.pair
     // A cancel (or a newer attempt) can supersede this one while the
     // preflight runs; a pair installed after that would page on with no
     // watchdog to stop it.
@@ -1515,7 +1511,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       setConnectionState(.disconnected, for: id)
       return
     }
-    if pendingPairs.keys.contains(where: { $0 != id }) {
+    if pairSettling || pendingPairs.keys.contains(where: { $0 != id }) {
       var queued = request
       queued.wasQueued = true
       let announced = { (key: String) in self.pairTimeoutShouldAnnounce[key] == true }
@@ -1529,6 +1525,20 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       pairTimers[id]?.schedule(deadline: .distantFuture)
       return
     }
+    guard let devicePair = IOBluetoothDevicePair(device: request.device) else {
+      Log.bluetooth.error("Failed to initialize pairing for \(peripheral.name)")
+      failConnectAttempt(
+        id: peripheral.id, name: peripheral.name,
+        inline: String(localized: "Pairing failed."),
+        notifyBody:
+          String(
+            localized:
+              "Couldn't start pairing with \(peripheral.name). Turn it off and on, then try again."),
+        attempt: attempt
+      )
+      return
+    }
+    devicePair.delegate = self
     if let replaced = pendingPairs[id] { stopPair(replaced) }
     pendingPairs[id] = devicePair
     pendingPairAttempts[id] = attempt
