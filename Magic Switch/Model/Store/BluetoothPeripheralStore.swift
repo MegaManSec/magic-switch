@@ -1520,6 +1520,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       } else {
         queuedPairs.append(request)
       }
+      Log.bluetooth.notice("Pairing queued for \(peripheral.name)")
       return
     }
     guard let devicePair = IOBluetoothDevicePair(device: request.device) else {
@@ -1546,7 +1547,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
       let pairResult = devicePair.start()
-      guard pairResult != kIOReturnSuccess else { return }
+      guard pairResult != kIOReturnSuccess else {
+        Log.bluetooth.notice("Pairing started for \(peripheral.name)")
+        return
+      }
       Log.bluetooth.error(
         "Failed to start pairing with \(peripheral.name). Error code: \(pairResult)")
       DispatchQueue.main.async { self.dropPendingPair(devicePair, for: id) }
@@ -1816,6 +1820,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   // MARK: - Pair Delegate & Connection Tracking
 
+  @objc func devicePairingStarted(_ sender: Any!) {
+    logPairingProgress(sender, "started")
+  }
+
+  @objc func devicePairingConnecting(_ sender: Any!) {
+    logPairingProgress(sender, "connecting")
+  }
+
+  @objc func devicePairingConnected(_ sender: Any!) {
+    logPairingProgress(sender, "connected")
+  }
+
+  @objc func deviceSimplePairingComplete(_ sender: Any!, status: BluetoothHCIEventStatus) {
+    logPairingProgress(sender, "simple pairing complete (status \(status))")
+  }
+
+  private func logPairingProgress(_ sender: Any!, _ step: String) {
+    guard let device = (sender as? IOBluetoothDevicePair)?.device() else { return }
+    Log.bluetooth.notice("Pairing progress for \(device.resolvedName): \(step)")
+  }
+
   /// `IOBluetoothDevicePairDelegate` callback. Open the actual connection here
   /// once pairing has actually completed (the pre-rewrite code called
   /// `openConnection()` synchronously after `start()` and lost the device).
@@ -1870,6 +1895,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       //
       // The bond exists again, so a failure from here on is a failure to
       // connect, not a pairing the user has to rebuild.
+      Log.bluetooth.notice("Pairing finished for \(device.resolvedName)")
       self.bondsAwaitingRepair.remove(address)
       self.bluetoothQueue.async { [weak self] in
         guard let self = self else { return }
@@ -2201,6 +2227,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       tearDownPairAttempt(for: address)
       return
     }
+    Log.bluetooth.error(
+      "Connecting \(name) timed out after \(Int(Constants.pairTimeout))s")
     // The attempt is over; supersede it so a Bluetooth-queue block still
     // queued behind a blocking open can't start a pair with no watchdog.
     _ = beginConnectAttempt(for: address)
