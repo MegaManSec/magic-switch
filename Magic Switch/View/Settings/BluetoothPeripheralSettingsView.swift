@@ -287,6 +287,16 @@ private struct PeripheralRowView: View {
         .font(.system(size: 9))
         .foregroundColor(.red)
         .lineLimit(1)
+    } else if showConnectionStatus, connectionState != .connecting, connectionState != .releasing,
+      store.needsTypedCode(peripheral.id)
+    {
+      Text("Needs a code to switch")
+        .font(.system(size: 9))
+        .foregroundColor(.secondary)
+        .lineLimit(1)
+        .help(
+          "Uses an older kind of Bluetooth pairing. Each time it moves to a Mac, type \(BluetoothPeripheralStore.typedPairingCode) on it, then press Return."
+        )
     }
   }
 

@@ -1864,6 +1864,16 @@
         }
       }
     },
+    "Needs a code to switch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Necesita un código para cambiar"
+          }
+        }
+      }
+    },
     "New fingerprint: %@" : {
       "localizations" : {
         "es" : {
@@ -3490,6 +3500,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Actualizaciones"
+          }
+        }
+      }
+    },
+    "Uses an older kind of Bluetooth pairing. Each time it moves to a Mac, type %@ on it, then press Return." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa un tipo de emparejamiento Bluetooth más antiguo. Cada vez que pase a un Mac, escribe %@ en él y pulsa Retorno."
           }
         }
       }
