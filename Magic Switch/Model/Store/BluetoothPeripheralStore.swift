@@ -1282,11 +1282,41 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     for peripheral in peripherals { setConnectionState(.disconnected, for: peripheral.id) }
   }
 
-  /// Bring a full-set send that didn't complete back onto this Mac: re-pair
-  /// what left, adopt what didn't, and let a later disconnect re-arm the
-  /// watcher.
+  /// Bring a full-set send that never reached the peer back onto this Mac:
+  /// re-pair what left, adopt what didn't, and let a later disconnect re-arm
+  /// the watcher.
   func rollBackFullSetRelease() {
     for peripheral in peripherals { connectPeripheral(peripheral) }
+  }
+
+  /// Bring back what `peer` doesn't hold after a full-set send that reached
+  /// it but didn't complete, since it may have paired some first. Without
+  /// its reply it may still be pairing, so the check waits until the connect
+  /// attempts it started on `CONNECT_ALL` have timed out. Only peripherals
+  /// still idle here are reclaimed, so a newer switch is left alone.
+  func rollBackFullSetRelease(from peer: NetworkDevice, sentAt: Date, peerReplied: Bool) {
+    finishFullSetRelease()
+    let peerAttemptsOver = sentAt.addingTimeInterval(Constants.pairTimeout + 5)
+    let wait = peerReplied ? 0 : max(0, peerAttemptsOver.timeIntervalSinceNow)
+    DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+      guard let self = self else { return }
+      for peripheral in self.peripherals
+      where self.connectionState(for: peripheral.id) == .disconnected {
+        NetworkDeviceStore.shared.executeHoldsOne(address: peripheral.id, on: peer) {
+          [weak self] result in
+          DispatchQueue.main.async {
+            guard let self = self,
+              self.connectionState(for: peripheral.id) == .disconnected
+            else { return }
+            if case .success = result {
+              Log.bluetooth.notice("\(peer.name) holds \(peripheral.name); leaving it there")
+              return
+            }
+            self.connectPeripheral(peripheral)
+          }
+        }
+      }
+    }
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
