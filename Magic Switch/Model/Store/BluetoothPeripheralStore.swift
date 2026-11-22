@@ -44,6 +44,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     static let unbondSettle: TimeInterval = 0.5
     /// Gap between one pairing finishing and the next one starting.
     static let pairSettle: TimeInterval = 1
+    /// The PIN that older peripherals without keys have built in.
+    static let fixedPINCode = "0000"
     /// How long `waitForLocalDisconnect` waits for a released device to
     /// disconnect. Must stay under `intentionalReleaseGrace` and the peer's
     /// `releaseBodyTimeout`, less the time `-remove` itself takes.
@@ -133,6 +135,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// by default: the normal handoff unbinds (`-remove`) so any peripheral can
   /// move; on, it disconnects and keeps the pairing on both Macs.
   static let keepPairingsOnSwitchDefaultsKey = "keepPairingsOnSwitch"
+
+  /// The code a keyboard using the older PIN pairing is given; the user types
+  /// it on the keyboard, then presses Return.
+  static let typedPairingCode = "0"
 
   /// `@AppStorage` key for the per-peripheral icon/type overrides map.
   static let typeOverridesDefaultsKey = "peripheralTypeOverrides"
@@ -240,6 +246,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// True for `Constants.pairSettle` after the last pending pair finishes;
   /// admissions queue meanwhile. Main-only.
   private var pairSettling = false
+
+  /// Addresses whose current pair is waiting for the code to be typed on the
+  /// keyboard, with `PairingCodePanel` showing it. Main-only.
+  private var codeRequests: Set<String> = []
 
   private struct PairRequest {
     let peripheral: BluetoothPeripheral
@@ -1847,12 +1857,23 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         // longer matters.
         guard isCurrentPair else { return }
         Log.bluetooth.error("Pairing failed for \(address): \(error)")
+        let name = device.resolvedName
+        if self.endCodeRequest(address) {
+          self.disarmReconnect(address, reason: "code not entered")
+          self.failConnectAttempt(
+            id: address, name: name,
+            inline: Self.codeNotEnteredInline,
+            notifyBody: Self.codeNotEnteredBody(name),
+            alwaysAnnounce: true,
+            attempt: attempt
+          )
+          return
+        }
         // Route through the shared helper so the delegate arm gets the same
         // semantics as every pre-flight failure: flag consumed atomically with
         // the watchdog cancel, inline error only for announced attempts (a
         // silent watcher/adoption retry must not strobe the row), and no
         // notification while a watcher retry is still pending.
-        let name = device.resolvedName
         self.failConnectAttempt(
           id: address, name: name,
           inline: String(localized: "Pairing failed."),
@@ -1871,6 +1892,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // The bond exists again, so a failure from here on is a failure to
       // connect, not a pairing the user has to rebuild.
       self.bondsAwaitingRepair.remove(address)
+      self.endCodeRequest(address)
       self.bluetoothQueue.async { [weak self] in
         guard let self = self else { return }
         var openResult = kIOReturnSuccess
@@ -1924,25 +1946,68 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   @objc func devicePairingPINCodeRequest(_ sender: Any!) {
     guard let pair = sender as? IOBluetoothDevicePair,
-      let address = pair.device()?.addressString
+      let device = pair.device(),
+      let address = device.addressString
     else {
       return
     }
+    let liveClass = device.classOfDevice
+    let liveName = device.resolvedName
     DispatchQueue.main.async { [weak self] in
       guard let self = self else { return }
       guard self.pendingPairs[address] === pair else {
         Log.bluetooth.notice("Ignoring Bluetooth PIN code request for \(address): not our pairing")
         return
       }
-      Log.bluetooth.notice("Replying to Bluetooth PIN code request for \(address)")
-      // Legacy HID peripherals with no keypad take the all-zero PIN.
+      let typed = self.pairsAsKeyboard(address, classOfDevice: liveClass)
+      let pin = typed ? Self.typedPairingCode : Constants.fixedPINCode
+      Log.bluetooth.notice(
+        "Replying to Bluetooth PIN code request for \(address)"
+          + (typed ? " (to be typed on the keyboard)" : ""))
       var code = BluetoothPINCode()
-      let digits = Array("0000".utf8)
+      let digits = Array(pin.utf8)
       withUnsafeMutableBytes(of: &code.data) { raw in
         for (index, byte) in digits.enumerated() { raw[index] = byte }
       }
       pair.replyPINCode(digits.count, pinCode: &code)
+      guard typed else { return }
+      self.codeRequests.insert(address)
+      let peripheral = self.peripherals.first { $0.id == address }
+      PairingCodePanel.shared.show(
+        for: address, name: peripheral?.name ?? liveName, code: pin
+      ) { [weak self] in
+        guard let peripheral else { return }
+        self?.cancelConnect(peripheral)
+      }
     }
+  }
+
+  /// Whether `id` should be treated as a keyboard when it asks for a PIN: the
+  /// user's type override if set, else its Class of Device (`live`, or the
+  /// last one seen), else its name. Main-only.
+  private func pairsAsKeyboard(_ id: String, classOfDevice live: UInt32?) -> Bool {
+    if let override = typeOverrides[id] { return override == .keyboard }
+    let cod = live.flatMap { $0 == 0 ? nil : $0 } ?? deviceClasses[id]
+    if let cod, PeripheralType.hasKeys(classOfDevice: cod) { return true }
+    let name = peripherals.first { $0.id == id }?.name ?? ""
+    return PeripheralType.detect(name: name, classOfDevice: cod) == .keyboard
+  }
+
+  /// Ends `id`'s typed-code request and closes its panel, returning whether
+  /// one was pending. Main-only.
+  @discardableResult
+  private func endCodeRequest(_ id: String) -> Bool {
+    PairingCodePanel.shared.close(for: id)
+    return codeRequests.remove(id) != nil
+  }
+
+  private static var codeNotEnteredInline: String { String(localized: "Code not entered.") }
+
+  private static func codeNotEnteredBody(_ name: String) -> String {
+    String(
+      localized:
+        "\(name) didn't get the code. Switch it again, then type \(typedPairingCode) and press Return when asked."
+    )
   }
 
   /// Selector target for `IOBluetoothDevice.register(forDisconnectNotification:...)`.
@@ -2040,6 +2105,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// out of lockstep. Main-only.
   @discardableResult
   private func tearDownPairAttempt(for id: String) -> Bool {
+    endCodeRequest(id)
     queuedPairs.removeAll { $0.peripheral.id == id }
     if let pair = pendingPairs[id] { stopPair(pair) }
     pendingPairs.removeValue(forKey: id)
@@ -2074,6 +2140,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     id: String, name: String, inline: String,
     notifyTitle: String = String(localized: "Pairing Failed"), notifyBody: String,
     notify: Bool = true,
+    alwaysAnnounce: Bool = false,
     attempt: UInt64?
   ) {
     DispatchQueue.main.async {
@@ -2091,7 +2158,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // quiet.
       let bondWasReset = self.consumeBondAwaitingRepair(id)
       self.setConnectionState(.disconnected, for: id)
-      guard announce || bondWasReset else { return }
+      guard announce || bondWasReset || alwaysAnnounce else { return }
       self.setPeripheralError(bondWasReset ? String(localized: "Pairing reset.") : inline, for: id)
       guard notify else { return }
       NotificationManager.showNotification(
@@ -2208,12 +2275,23 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     // `failConnectAttempt`: an absent flag means another failure path already
     // consumed it — atomically with cancelling this timer — so a straggling
     // timeout must stay quiet.
+    let codeWasRequested = codeRequests.contains(address)
     let announce = tearDownPairAttempt(for: address)
     // Same reasoning as `failConnectAttempt`: a timeout on an attempt that
     // already tore the local bond down is the user's to repair, so it carries
     // through the silent gates below.
     let bondWasReset = consumeBondAwaitingRepair(address)
     setConnectionState(.disconnected, for: address)
+    if codeWasRequested {
+      disarmReconnect(address, reason: "code not entered")
+      setPeripheralError(Self.codeNotEnteredInline, for: address)
+      NotificationManager.showNotification(
+        title: String(localized: "Pairing Failed"),
+        body: Self.codeNotEnteredBody(name),
+        identifier: "pair-failed-\(address)"
+      )
+      return
+    }
     // A silent watcher retry just tries again on the next probe; only
     // interactive connects surface the timeout to the user.
     guard announce || bondWasReset else { return }

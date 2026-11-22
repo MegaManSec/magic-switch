@@ -137,6 +137,12 @@ enum PeripheralType: String, Codable, CaseIterable {
       ?? "questionmark.circle"
   }
 
+  /// Whether a Class of Device describes a peripheral with keys: a keyboard,
+  /// or a keyboard combined with a pointing device.
+  static func hasKeys(classOfDevice cod: UInt32) -> Bool {
+    (cod >> 8) & 0x1F == 0x05 && (cod >> 2) & 0x10 != 0
+  }
+
   /// Classify from the device name and, when known, its Bluetooth Class of
   /// Device. CoD wins for audio gear (names like "WH-1000XM4" don't say
   /// "headphones"); the name settles what CoD can't — AirPods vs any other

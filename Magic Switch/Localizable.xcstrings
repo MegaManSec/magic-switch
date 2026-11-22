@@ -83,6 +83,22 @@
         }
       }
     },
+    "%@ didn't get the code. Switch it again, then type %@ and press Return when asked." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ didn't get the code. Switch it again, then type %2$@ and press Return when asked."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ no recibió el código. Vuelve a cambiarlo y, cuando se te pida, escribe %2$@ y pulsa Retorno."
+          }
+        }
+      }
+    },
     "%@ didn't release %@. %@" : {
       "localizations" : {
         "en" : {
@@ -849,6 +865,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cierra. La clave de emparejamiento se queda guardada en este Mac."
+          }
+        }
+      }
+    },
+    "Code not entered." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se introdujo el código."
           }
         }
       }
@@ -1928,6 +1954,16 @@
         }
       }
     },
+    "Nothing appears on screen while you type." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mientras escribes, no aparece nada en la pantalla."
+          }
+        }
+      }
+    },
     "Notifications are off, so you won't hear when a switch fails. Enable them for Magic Switch in System Settings → Notifications." : {
       "localizations" : {
         "es" : {
@@ -2113,6 +2149,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Emparejamiento"
+          }
+        }
+      }
+    },
+    "Pairing %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejando %@"
           }
         }
       }
@@ -3325,6 +3371,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reintentar"
+          }
+        }
+      }
+    },
+    "Type %@ on %@, then press Return." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Type %1$@ on %2$@, then press Return."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe %1$@ en %2$@ y pulsa Retorno."
           }
         }
       }
