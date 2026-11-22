@@ -27,8 +27,8 @@ import SwiftUI
 ///   was *not* present at sleep still fires normally, which is exactly the
 ///   carry-the-MacBook-over, plug-in, lid-opens flow the feature exists for.
 ///
-/// With `takeOnWake` on, waking with a trigger display connected fires too —
-/// the one deliberate non-edge.
+/// A trigger display also marked for wake fires when this Mac wakes with it
+/// connected — the one deliberate non-edge.
 final class DisplayMonitor: ObservableObject {
   // MARK: - Singleton
 
@@ -57,7 +57,7 @@ final class DisplayMonitor: ObservableObject {
     /// Generous on purpose: it never delays a genuine trigger (a display
     /// absent at sleep is exempt); it only shields re-appearances.
     static let wakeSettleWindow: TimeInterval = 30
-    /// How long after wake a `takeOnWake` take waits, so peripherals still
+    /// How long after wake a wake-display take waits, so peripherals still
     /// bonded to this Mac can reconnect on their own first. Matches the
     /// store's `wakeReclaimDelay`.
     static let wakeTakeDelay: TimeInterval = 5
@@ -70,9 +70,8 @@ final class DisplayMonitor: ObservableObject {
   /// string lives here as the single source of truth.
   static let triggerDisplaysDefaultsKey = "displayTriggerDisplays"
 
-  /// `@AppStorage` key for also firing when this Mac wakes with a trigger
-  /// display connected. Off by default.
-  static let takeOnWakeDefaultsKey = "displayTriggerTakeOnWake"
+  private static let wakeTriggerDisplaysDefaultsKey = "displayTriggerWakeDisplays"
+  private static let legacyTakeOnWakeDefaultsKey = "displayTriggerTakeOnWake"
 
   // MARK: - Properties
 
@@ -87,11 +86,17 @@ final class DisplayMonitor: ObservableObject {
     didSet { saveTriggerDisplays() }
   }
 
+  /// Trigger displays that also fire when this Mac wakes with them
+  /// connected. Always a subset of `triggerDisplays`' keys. Persisted.
+  @Published private(set) var wakeTriggerDisplays: Set<String> = [] {
+    didSet {
+      UserDefaults.standard.set(
+        wakeTriggerDisplays.sorted(), forKey: Self.wakeTriggerDisplaysDefaultsKey)
+    }
+  }
+
   @AppStorage(DisplayMonitor.triggerDisplaysDefaultsKey)
   private var triggerDisplaysData: Data = Data()
-
-  @AppStorage(DisplayMonitor.takeOnWakeDefaultsKey)
-  private var takeOnWake: Bool = false
 
   /// Called on the main run loop with the names of trigger displays that
   /// just connected (usually one; a dock can bring up several at once), and
@@ -124,7 +129,7 @@ final class DisplayMonitor: ObservableObject {
   /// Main-only.
   private var wakeTakePending = false
 
-  /// Earliest a `takeOnWake` take may start. Main-only.
+  /// Earliest a wake-display take may start. Main-only.
   private var wakeTakeNotBefore: Date = .distantPast
 
   /// Debounce timer for `reconcile()`; see `Constants.reconcileDebounce`.
@@ -137,6 +142,7 @@ final class DisplayMonitor: ObservableObject {
 
   private init() {
     loadTriggerDisplays()
+    loadWakeTriggerDisplays()
   }
 
   /// Begin monitoring. Populates the Settings rows right away, schedules a
@@ -193,6 +199,18 @@ final class DisplayMonitor: ObservableObject {
       triggerDisplays[id] = name
     } else {
       triggerDisplays.removeValue(forKey: id)
+      wakeTriggerDisplays.remove(id)
+    }
+  }
+
+  /// Make the trigger display with `id` also fire when this Mac wakes with it
+  /// connected. No-op for a display that isn't a trigger. Main-thread only.
+  func setTakeOnWake(_ enabled: Bool, id: String) {
+    if enabled {
+      guard triggerDisplays[id] != nil else { return }
+      wakeTriggerDisplays.insert(id)
+    } else {
+      wakeTriggerDisplays.remove(id)
     }
   }
 
@@ -255,12 +273,13 @@ final class DisplayMonitor: ObservableObject {
         && triggerDisplays[display.id] != nil
         && !(settling && presentAtSleep.contains(display.id))
     }
-    let onWake = docked.isEmpty && settling && wakeTakePending && takeOnWake
+    let wakeDisplays = online.filter { wakeTriggerDisplays.contains($0.id) }
+    let onWake = docked.isEmpty && settling && wakeTakePending && !wakeDisplays.isEmpty
     if onWake, Date() < wakeTakeNotBefore {
       scheduleReconcile()
       return
     }
-    let triggered = onWake ? online.filter { triggerDisplays[$0.id] != nil } : docked
+    let triggered = onWake ? wakeDisplays : docked
     guard !triggered.isEmpty else { return }
     Log.app.notice(
       "DisplayMonitor: trigger display(s) \(onWake ? "present at wake" : "connected"): \(triggered.map { $0.name })"
@@ -372,5 +391,15 @@ final class DisplayMonitor: ObservableObject {
     } catch {
       Log.app.error("Failed to load trigger displays: \(error)")
     }
+  }
+
+  private func loadWakeTriggerDisplays() {
+    let defaults = UserDefaults.standard
+    var stored = Set(defaults.stringArray(forKey: Self.wakeTriggerDisplaysDefaultsKey) ?? [])
+    if defaults.bool(forKey: Self.legacyTakeOnWakeDefaultsKey) {
+      stored.formUnion(triggerDisplays.keys)
+    }
+    defaults.removeObject(forKey: Self.legacyTakeOnWakeDefaultsKey)
+    wakeTriggerDisplays = stored.intersection(triggerDisplays.keys)
   }
 }

@@ -18,8 +18,6 @@ struct OtherSettingsView: View {
   private var autoReconnect: Bool = true
   @AppStorage(BluetoothPeripheralStore.keepPairingsOnSwitchDefaultsKey)
   private var keepPairingsOnSwitch: Bool = false
-  @AppStorage(DisplayMonitor.takeOnWakeDefaultsKey)
-  private var takeOnWake: Bool = false
 
   // MARK: - View Content
 
@@ -114,13 +112,6 @@ struct OtherSettingsView: View {
             displayRow(for: row)
           }
         }
-        Toggle(
-          "Take peripherals when this Mac wakes with a marked display connected", isOn: $takeOnWake
-        )
-        .disabled(displayMonitor.triggerDisplays.isEmpty)
-        .help(
-          "Switch your peripherals to this Mac when it wakes with a marked display connected, even if your other Mac is using them."
-        )
       } header: {
         HStack {
           Text("Take Peripherals When a Display Connects")
@@ -257,10 +248,18 @@ struct OtherSettingsView: View {
   @ViewBuilder
   private func displayRow(for row: DisplayRow) -> some View {
     if row.isConnected {
-      Toggle(row.name, isOn: triggerBinding(for: row))
-        .help(
-          "Switch your peripherals to this Mac whenever \(row.name) connects. Display ID: \(row.id)."
-        )
+      HStack {
+        Text(row.name)
+        Spacer()
+        if displayMonitor.triggerDisplays[row.id] != nil {
+          wakeToggle(for: row)
+        }
+        Toggle(row.name, isOn: triggerBinding(for: row))
+          .labelsHidden()
+      }
+      .help(
+        "Switch your peripherals to this Mac whenever \(row.name) connects. Display ID: \(row.id)."
+      )
     } else {
       HStack {
         VStack(alignment: .leading, spacing: 2) {
@@ -273,6 +272,7 @@ struct OtherSettingsView: View {
           "\(row.name) isn't connected right now. It still triggers the switch when it next connects. Display ID: \(row.id)."
         )
         Spacer()
+        wakeToggle(for: row)
         Button(action: { displayMonitor.setTriggerEnabled(false, id: row.id, name: row.name) }) {
           Image(systemName: "trash")
             .foregroundColor(.red)
@@ -281,6 +281,24 @@ struct OtherSettingsView: View {
         .accessibilityLabel("Forget \(row.name)")
       }
     }
+  }
+
+  private func wakeToggle(for row: DisplayRow) -> some View {
+    let isOn = displayMonitor.wakeTriggerDisplays.contains(row.id)
+    return Toggle(
+      isOn: Binding(
+        get: { isOn },
+        set: { displayMonitor.setTakeOnWake($0, id: row.id) }
+      )
+    ) {
+      Image(systemName: isOn ? "sunrise.fill" : "sunrise")
+        .foregroundColor(isOn ? nil : .secondary)
+    }
+    .toggleStyle(.button)
+    .help(
+      "Also take your peripherals when this Mac wakes with \(row.name) connected, even if your other Mac is using them."
+    )
+    .accessibilityLabel("Take peripherals on wake with \(row.name)")
   }
 
   private func triggerBinding(for row: DisplayRow) -> Binding<Bool> {
