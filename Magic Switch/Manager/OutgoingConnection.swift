@@ -71,6 +71,27 @@ enum OutgoingFailure: Error {
     }
   }
 
+  /// Whether the request reached the peer, which may have acted on it: only
+  /// failures after the handshake.
+  var reachedPeer: Bool {
+    switch self {
+    case .remoteOperationFailed, .invalidResponse, .bodyFailed:
+      return true
+    default:
+      return false
+    }
+  }
+
+  /// Whether the peer answered, so it has finished acting on the request.
+  var peerReplied: Bool {
+    switch self {
+    case .remoteOperationFailed, .invalidResponse:
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Whether the attempt failed before the peer could have acted on the
   /// request, so another route may still deliver it.
   var permitsFallback: Bool {

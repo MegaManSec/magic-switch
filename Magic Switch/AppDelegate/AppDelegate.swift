@@ -954,21 +954,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         DispatchQueue.main.async {
           guard let self = self else { return }
           if case .failure(let err) = result {
-            // Only these arise after the handshake, once CONNECT_ALL went out.
-            var reachedPeer = false
-            var peerReplied = true
-            switch err {
-            case .remoteOperationFailed, .invalidResponse:
-              reachedPeer = true
-            case .bodyFailed:
-              reachedPeer = true
-              peerReplied = false
-            default:
-              break
-            }
-            if reachedPeer {
+            if err.reachedPeer {
               self.bluetoothStore.rollBackFullSetRelease(
-                from: device, sentAt: sentAt, peerReplied: peerReplied)
+                from: device, sentAt: sentAt, peerReplied: err.peerReplied)
             } else {
               // `connectPeripheral` flips each row to `.connecting`, which
               // clears the "Sending…" state on its own.
@@ -977,7 +965,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             self.endTransfer()
             NotificationManager.showNotification(
               title: String(localized: "Couldn't Switch"),
-              body: reachedPeer
+              body: err.reachedPeer
                 ? String(
                   localized:
                     "\(err.userMessage) Reconnecting to this Mac any peripherals your other Mac didn't take.",
