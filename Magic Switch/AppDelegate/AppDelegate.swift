@@ -957,7 +957,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
             // locally. Without this the user is left with peripherals paired
             // nowhere. `connectPeripheral` flips each row to `.connecting`,
             // which clears the "Sending…" state on its own.
-            self.bluetoothStore.rollBackFullSetRelease()
+            let reachedPeer: Bool
+            switch err {
+            case .remoteOperationFailed, .invalidResponse, .bodyFailed: reachedPeer = true
+            default: reachedPeer = false
+            }
+            self.bluetoothStore.rollBackFullSetRelease(skippingTypedCodeKeyboards: reachedPeer)
             self.endTransfer()
             NotificationManager.showNotification(
               title: String(localized: "Couldn't Switch"),

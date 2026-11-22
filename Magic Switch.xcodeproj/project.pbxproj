@@ -19,6 +19,7 @@
 		076AB2222CE9D690004D45F0 /* BluetoothPeripheralStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2032CE9D690004D45F0 /* BluetoothPeripheralStore.swift */; };
 		076AB2232CE9D690004D45F0 /* NetworkDeviceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2042CE9D690004D45F0 /* NetworkDeviceStore.swift */; };
 		076AB2242CE9D690004D45F0 /* DropdownContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB2092CE9D690004D45F0 /* DropdownContentView.swift */; };
+		0A0000E000000000000000B1 /* PairingCodePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0000E000000000000000A1 /* PairingCodePanel.swift */; };
 		076AB2252CE9D690004D45F0 /* BluetoothPeripheralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB20B2CE9D690004D45F0 /* BluetoothPeripheralSettingsView.swift */; };
 		076AB2282CE9D690004D45F0 /* NetworkDeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB20E2CE9D690004D45F0 /* NetworkDeviceManagementView.swift */; };
 		076AB2292CE9D690004D45F0 /* OtherSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076AB20F2CE9D690004D45F0 /* OtherSettingsView.swift */; };
@@ -62,6 +63,7 @@
 		076AB2042CE9D690004D45F0 /* NetworkDeviceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDeviceStore.swift; sourceTree = "<group>"; };
 		076AB2072CE9D690004D45F0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		076AB2092CE9D690004D45F0 /* DropdownContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropdownContentView.swift; sourceTree = "<group>"; };
+		0A0000E000000000000000A1 /* PairingCodePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCodePanel.swift; sourceTree = "<group>"; };
 		076AB20B2CE9D690004D45F0 /* BluetoothPeripheralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothPeripheralSettingsView.swift; sourceTree = "<group>"; };
 		076AB20E2CE9D690004D45F0 /* NetworkDeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDeviceManagementView.swift; sourceTree = "<group>"; };
 		076AB20F2CE9D690004D45F0 /* OtherSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherSettingsView.swift; sourceTree = "<group>"; };
@@ -209,6 +211,7 @@
 			children = (
 				076AB20A2CE9D690004D45F0 /* MenuBar */,
 				076AB2112CE9D690004D45F0 /* Settings */,
+				0A0000E000000000000000A1 /* PairingCodePanel.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -359,6 +362,7 @@
 				076AB2222CE9D690004D45F0 /* BluetoothPeripheralStore.swift in Sources */,
 				076AB2232CE9D690004D45F0 /* NetworkDeviceStore.swift in Sources */,
 				076AB2242CE9D690004D45F0 /* DropdownContentView.swift in Sources */,
+				0A0000E000000000000000B1 /* PairingCodePanel.swift in Sources */,
 				076AB2252CE9D690004D45F0 /* BluetoothPeripheralSettingsView.swift in Sources */,
 				076AB2282CE9D690004D45F0 /* NetworkDeviceManagementView.swift in Sources */,
 				076AB2292CE9D690004D45F0 /* OtherSettingsView.swift in Sources */,
