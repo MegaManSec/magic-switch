@@ -244,7 +244,8 @@ struct OtherSettingsView: View {
   /// A connected display gets the trigger toggle; a remembered-but-
   /// disconnected one gets a trash button instead — with nothing to toggle
   /// *to* (unmarking is forgetting; the trigger map is the only memory),
-  /// a toggle would just be a remove control in disguise.
+  /// a toggle would just be a remove control in disguise. Marked displays
+  /// also get the wake toggle.
   @ViewBuilder
   private func displayRow(for row: DisplayRow) -> some View {
     if row.isConnected {
