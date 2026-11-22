@@ -88,14 +88,11 @@ final class NetworkDeviceStore: ObservableObject, NetworkDeviceManageable {
 
   /// Body-read timeout for the two commands whose receiver only acks after it
   /// has actually finished (re-)pairing — `CONNECT_ALL` and `CONNECT_ONE` —
-  /// rather than acking on receipt. It must exceed the receiver's worst-case
-  /// connect time (its pair watchdog, `pairTimeout`, is 60s) so the sender
-  /// waits for the real result instead of giving up early; and the receiver's
-  /// `IncomingConnection.idleTimeout` must stay >= this so it doesn't idle-kill
-  /// the connection before sending that ack. Apart from the releases below,
-  /// every other command acks immediately and uses `OutgoingConnection`'s 5s
-  /// default.
-  private static let handoffBodyTimeout: TimeInterval = 75
+  /// rather than acking on receipt: the receiver's per-peripheral deadline
+  /// plus room for the post-pair connect and the reply. Apart from the
+  /// releases below, every other command acks immediately and uses
+  /// `OutgoingConnection`'s 5s default.
+  static let handoffBodyTimeout = BluetoothPeripheralStore.connectDeadline + 15
   /// Body-read timeout for `UNREGISTER_ALL` and `UNREGISTER_ONE`, whose
   /// receiver acks only once its peripherals have actually disconnected, or
   /// after its `releaseDisconnectTimeout` (15s) gives up.
