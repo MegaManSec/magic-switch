@@ -52,6 +52,17 @@
         }
       }
     },
+    "%@ Reconnecting to this Mac any peripherals your other Mac didn't take." : {
+      "comment" : "%@ is a whole sentence saying why the switch failed",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ Volviendo a conectar a este Mac los periféricos de los que tu otro Mac no se hizo cargo."
+          }
+        }
+      }
+    },
     "%@ Reconnecting your peripherals to this Mac." : {
       "comment" : "%@ is a whole sentence saying why the switch failed",
       "localizations" : {

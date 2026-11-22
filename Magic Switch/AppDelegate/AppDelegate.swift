@@ -945,6 +945,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         )
         return
       }
+      let sentAt = Date()
       self.networkStore.executeCommand(.connectAll, on: device) { [weak self] result in
         // The completion fires on the outgoing-connection queue (see
         // `takeAllPeripherals`); hop to main before `endTransfer` touches
@@ -953,17 +954,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate,
         DispatchQueue.main.async {
           guard let self = self else { return }
           if case .failure(let err) = result {
-            // Rollback: peer didn't take the peripherals, so re-pair them
-            // locally. Without this the user is left with peripherals paired
-            // nowhere. `connectPeripheral` flips each row to `.connecting`,
-            // which clears the "Sending…" state on its own.
-            self.bluetoothStore.rollBackFullSetRelease()
+            if err.reachedPeer {
+              self.bluetoothStore.rollBackFullSetRelease(
+                from: device, sentAt: sentAt, peerReplied: err.peerReplied)
+            } else {
+              // `connectPeripheral` flips each row to `.connecting`, which
+              // clears the "Sending…" state on its own.
+              self.bluetoothStore.rollBackFullSetRelease()
+            }
             self.endTransfer()
             NotificationManager.showNotification(
               title: String(localized: "Couldn't Switch"),
-              body: String(
-                localized: "\(err.userMessage) Reconnecting your peripherals to this Mac.",
-                comment: "%@ is a whole sentence saying why the switch failed"),
+              body: err.reachedPeer
+                ? String(
+                  localized:
+                    "\(err.userMessage) Reconnecting to this Mac any peripherals your other Mac didn't take.",
+                  comment: "%@ is a whole sentence saying why the switch failed")
+                : String(
+                  localized: "\(err.userMessage) Reconnecting your peripherals to this Mac.",
+                  comment: "%@ is a whole sentence saying why the switch failed"),
               identifier: "switch-connect-failed"
             )
           } else {

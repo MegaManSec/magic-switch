@@ -1191,14 +1191,15 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         )
         return
       }
+      let sentAt = Date()
       networkStore.executeConnectOne(address: peripheral.id, on: device) { [weak self] result in
         guard let self = self else { return }
         switch result {
         case .success:
           // Peer took it — it now lives over there, so we're disconnected.
           self.setConnectionState(.disconnected, for: peripheral.id)
-        case .failure(.connectionFailed), .failure(.connectTimeout):
-          // Peer acked the preflight but dropped before CONNECT_ONE, so it
+        case .failure(let err) where !err.reachedPeer:
+          // Peer acked the preflight but CONNECT_ONE never reached it, so it
           // didn't take the peripheral. We already released it locally, so roll
           // it back onto this Mac rather than strand it on neither — the same
           // recovery the full-set handoff does — and arm the watcher in case
@@ -1206,23 +1207,33 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
           self.clearIntentionalRelease(peripheral.id)
           self.connectPeripheral(peripheral)
           self.armReconnect(peripheral.id)
+          let body: String
+          switch err {
+          case .connectionFailed, .connectTimeout:
+            body = String(
+              localized:
+                "Couldn't send \(peripheral.name) to \(device.name). Reconnecting it to this Mac.")
+          default:
+            body = String(
+              localized: "Couldn't send \(peripheral.name) to \(device.name). \(err.userMessage)")
+          }
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
-            body: String(
-              localized:
-                "Couldn't send \(peripheral.name) to \(device.name). Reconnecting it to this Mac."),
+            body: body,
             identifier: "send-connect-failed-\(peripheral.id)"
           )
         case .failure(let err):
-          // Reachable peer but it errored, so it may or may not have taken the
-          // peripheral. Don't grab it back outright (that could yank it from a
-          // peer that did take it); arm the HOLDS_ONE-gated watcher, which
-          // reclaims it only if the peer confirms it isn't holding it.
+          // CONNECT_ONE reached the peer, so it may have taken the peripheral.
+          // Don't grab it back outright (that could yank it from a peer that
+          // did take it); reclaim it only if the peer says it isn't holding it.
           self.clearIntentionalRelease(peripheral.id)
           // We did release it locally, so we're disconnected regardless of
           // where it ended up; clear the "Sending…" row.
           self.setConnectionState(.disconnected, for: peripheral.id)
-          self.armReconnect(peripheral.id)
+          DispatchQueue.main.async {
+            self.reclaimUnheld(
+              [peripheral], from: device, sentAt: sentAt, peerReplied: err.peerReplied)
+          }
           self.setPeripheralError(String(localized: "Switch failed."), for: peripheral.id)
           NotificationManager.showNotification(
             title: String(localized: "Couldn't Switch"),
@@ -1282,11 +1293,50 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     for peripheral in peripherals { setConnectionState(.disconnected, for: peripheral.id) }
   }
 
-  /// Bring a full-set send that didn't complete back onto this Mac: re-pair
-  /// what left, adopt what didn't, and let a later disconnect re-arm the
-  /// watcher.
+  /// Bring a full-set send that never reached the peer back onto this Mac:
+  /// re-pair what left, adopt what didn't, and let a later disconnect re-arm
+  /// the watcher.
   func rollBackFullSetRelease() {
     for peripheral in peripherals { connectPeripheral(peripheral) }
+  }
+
+  /// Bring back what `peer` doesn't hold after a full-set send that reached
+  /// it but didn't complete; see `reclaimUnheld`.
+  func rollBackFullSetRelease(from peer: NetworkDevice, sentAt: Date, peerReplied: Bool) {
+    finishFullSetRelease()
+    reclaimUnheld(peripherals, from: peer, sentAt: sentAt, peerReplied: peerReplied)
+  }
+
+  /// Reconnects whichever of `sent` `peer` doesn't hold, after a send that
+  /// reached it but didn't complete, since it may have paired some first.
+  /// Without its reply it may still be pairing, so the check waits until the
+  /// connect attempts it started on receipt have timed out. Only peripherals
+  /// still registered and idle here are reclaimed, so a newer switch is left
+  /// alone. Main-only.
+  private func reclaimUnheld(
+    _ sent: [BluetoothPeripheral], from peer: NetworkDevice, sentAt: Date, peerReplied: Bool
+  ) {
+    let isIdle = { (id: String) in
+      self.peripherals.contains(where: { $0.id == id })
+        && self.connectionState(for: id) == .disconnected
+    }
+    let peerAttemptsOver = sentAt.addingTimeInterval(Constants.pairTimeout + 5)
+    let wait = peerReplied ? 0 : max(0, peerAttemptsOver.timeIntervalSinceNow)
+    DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+      for peripheral in sent where isIdle(peripheral.id) {
+        NetworkDeviceStore.shared.executeHoldsOne(address: peripheral.id, on: peer) { result in
+          DispatchQueue.main.async {
+            guard isIdle(peripheral.id) else { return }
+            if case .success = result {
+              Log.bluetooth.notice("\(peer.name) holds \(peripheral.name); leaving it there")
+              return
+            }
+            self.connectPeripheral(peripheral)
+            self.armReconnect(peripheral.id)
+          }
+        }
+      }
+    }
   }
 
   func connectPeripheral(_ peripheral: BluetoothPeripheral) {
