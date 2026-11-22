@@ -38,13 +38,10 @@ extension Notification.Name {
 final class IncomingConnection {
   // MARK: - Constants
 
-  /// Cuts off slow-talkers. Reset on every successful frame. Held above the
-  /// peer's worst-case handoff connect time (its pair watchdog is 60s) because
-  /// a `CONNECT_ALL`/`CONNECT_ONE` receiver only acks after pairing finishes —
-  /// no frames are exchanged meanwhile — so a tighter idle cap would kill the
-  /// connection before it could reply. Must stay >= `NetworkDeviceStore`'s
-  /// `handoffBodyTimeout` (the sender's matching wait).
-  private static let idleTimeout: TimeInterval = 75
+  /// Cuts off slow-talkers. Reset on every successful frame. A
+  /// `CONNECT_ALL`/`CONNECT_ONE` receiver exchanges no frames until pairing
+  /// finishes, so this matches the sender's wait for that reply.
+  private static let idleTimeout = NetworkDeviceStore.handoffBodyTimeout
   /// How long a `currentlyAuthorized()` result may be reused. See its doc.
   private static let authorizationTTL: CFTimeInterval = 1
   /// Hard cap on a single connection regardless of idle activity. Without it,

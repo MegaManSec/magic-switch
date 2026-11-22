@@ -26,19 +26,26 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   static let shared = BluetoothPeripheralStore()
 
+  /// Upper bound on one peripheral's connect attempt; a peer's handoff wait
+  /// is derived from it.
+  static let connectDeadline = Constants.pairTimeout
+
   // MARK: - Constants
 
   private enum Constants {
     static let queueLabel = "com.magicswitch.bluetooth"
-    /// Upper bound on how long `connectPeripheral` will leave the UI showing
-    /// "Pairing…" before giving up. Magic peripherals typically pair within
-    /// a couple of seconds; if the device is currently held by the other
-    /// Mac, `IOBluetoothDevicePair.start()` has no built-in timeout and the
-    /// state would otherwise stick forever. 60s is generous — first-time
-    /// cross-Mac handoffs (peripheral arbitrating between recently-seen
-    /// hosts) can legitimately take 30-45s, and a false-positive timeout
-    /// is worse than waiting a beat longer.
+    /// Deadline for one peripheral's whole connect attempt: preflight, time
+    /// queued behind other pairings, the pairing, and the connection after
+    /// it. A stuck pairing is caught sooner by `pairStallTimeout`.
     static let pairTimeout: TimeInterval = 60
+    /// How long a running pairing may go without a progress callback before
+    /// it's abandoned. `IOBluetoothDevicePair.start()` has no timeout of its
+    /// own. A normal pairing finishes in about 2s, and a page the device
+    /// doesn't answer fails by itself after about 5s.
+    static let pairStallTimeout: TimeInterval = 20
+    /// The stall limit once the device asks for a PIN: someone has to type
+    /// it on the keyboard, and `bluetoothd` gives up after about 30s.
+    static let pinEntryStallTimeout: TimeInterval = 35
     /// How long to let `-remove` settle in the Bluetooth daemon before pairing
     /// again. Re-pairing inside this window races the unbond and fails.
     static let unbondSettle: TimeInterval = 0.5
@@ -222,6 +229,8 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   private var pendingPairs: [String: IOBluetoothDevicePair] = [:] {
     didSet {
       guard pendingPairs.isEmpty, !oldValue.isEmpty else { return }
+      pairStallTimer?.cancel()
+      pairStallTimer = nil
       pairSettling = true
       DispatchQueue.main.asyncAfter(deadline: .now() + Constants.pairSettle) { [weak self] in
         guard let self = self else { return }
@@ -240,6 +249,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   /// True for `Constants.pairSettle` after the last pending pair finishes;
   /// admissions queue meanwhile. Main-only.
   private var pairSettling = false
+
+  /// Stall limit for the running pairing; one is enough because pairings run
+  /// one at a time. Main-only.
+  private var pairStallTimer: DispatchSourceTimer?
 
   private struct PairRequest {
     let peripheral: BluetoothPeripheral
@@ -1549,6 +1562,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let pairResult = devicePair.start()
       guard pairResult != kIOReturnSuccess else {
         Log.bluetooth.notice("Pairing started for \(peripheral.name)")
+        DispatchQueue.main.async {
+          guard self.pendingPairs[id] === devicePair else { return }
+          self.armPairStall(devicePair, for: id, name: peripheral.name)
+        }
         return
       }
       Log.bluetooth.error(
@@ -1565,6 +1582,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         attempt: attempt
       )
     }
+  }
+
+  /// (Re)starts the stall limit for `devicePair`, which must be the running
+  /// pairing. Main-only.
+  private func armPairStall(
+    _ devicePair: IOBluetoothDevicePair, for id: String, name: String,
+    limit: TimeInterval = Constants.pairStallTimeout
+  ) {
+    pairStallTimer?.cancel()
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now() + limit)
+    timer.setEventHandler { [weak self] in
+      guard let self = self, self.pendingPairs[id] === devicePair,
+        let attempt = self.pendingPairAttempts[id]
+      else { return }
+      self.handlePairTimeout(
+        address: id, name: name, attempt: attempt,
+        reason: "Pairing \(name) made no progress for \(Int(limit))s")
+    }
+    timer.resume()
+    pairStallTimer = timer
   }
 
   /// Main-only.
@@ -1821,24 +1859,34 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   // MARK: - Pair Delegate & Connection Tracking
 
   @objc func devicePairingStarted(_ sender: Any!) {
-    logPairingProgress(sender, "started")
+    notePairingProgress(sender, "started")
   }
 
   @objc func devicePairingConnecting(_ sender: Any!) {
-    logPairingProgress(sender, "connecting")
+    notePairingProgress(sender, "connecting")
   }
 
   @objc func devicePairingConnected(_ sender: Any!) {
-    logPairingProgress(sender, "connected")
+    notePairingProgress(sender, "connected")
   }
 
   @objc func deviceSimplePairingComplete(_ sender: Any!, status: BluetoothHCIEventStatus) {
-    logPairingProgress(sender, "simple pairing complete (status \(status))")
+    notePairingProgress(sender, "simple pairing complete (status \(status))")
   }
 
-  private func logPairingProgress(_ sender: Any!, _ step: String) {
-    guard let device = (sender as? IOBluetoothDevicePair)?.device() else { return }
-    Log.bluetooth.notice("Pairing progress for \(device.resolvedName): \(step)")
+  /// Logs `step` and restarts the stall limit if `sender` is the running
+  /// pairing.
+  private func notePairingProgress(
+    _ sender: Any!, _ step: String, stallLimit: TimeInterval = Constants.pairStallTimeout
+  ) {
+    guard let pair = sender as? IOBluetoothDevicePair, let device = pair.device() else { return }
+    let name = device.resolvedName
+    Log.bluetooth.notice("Pairing progress for \(name): \(step)")
+    guard let address = device.addressString else { return }
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, self.pendingPairs[address] === pair else { return }
+      self.armPairStall(pair, for: address, name: name, limit: stallLimit)
+    }
   }
 
   /// `IOBluetoothDevicePairDelegate` callback. Open the actual connection here
@@ -1945,6 +1993,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         "Bluetooth pairing confirmation for \(address) (\(numericValue)): "
           + (initiated ? "accept" : "refuse"))
       pair.replyUserConfirmation(initiated)
+      if initiated {
+        self.armPairStall(pair, for: address, name: pair.device()?.resolvedName ?? address)
+      }
     }
   }
 
@@ -1961,6 +2012,9 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
         return
       }
       Log.bluetooth.notice("Replying to Bluetooth PIN code request for \(address)")
+      self.armPairStall(
+        pair, for: address, name: pair.device()?.resolvedName ?? address,
+        limit: Constants.pinEntryStallTimeout)
       // Legacy HID peripherals with no keypad take the all-zero PIN.
       var code = BluetoothPINCode()
       let digits = Array("0000".utf8)
@@ -2210,14 +2264,18 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
       timer.schedule(deadline: .now() + Constants.pairTimeout)
       timer.setEventHandler { [weak self] in
-        self?.handlePairTimeout(address: address, name: name, attempt: attempt)
+        self?.handlePairTimeout(
+          address: address, name: name, attempt: attempt,
+          reason: "Connecting \(name) timed out after \(Int(Constants.pairTimeout))s")
       }
       timer.resume()
       self.pairTimers[address] = timer
     }
   }
 
-  private func handlePairTimeout(address: String, name: String, attempt: UInt64) {
+  private func handlePairTimeout(
+    address: String, name: String, attempt: UInt64, reason: String
+  ) {
     // Timer fires on the main queue.
     // A superseded attempt's watchdog was cancelled when the newer attempt
     // re-armed it, but a fire already in flight can still land here — it
@@ -2227,8 +2285,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       tearDownPairAttempt(for: address)
       return
     }
-    Log.bluetooth.error(
-      "Connecting \(name) timed out after \(Int(Constants.pairTimeout))s")
+    Log.bluetooth.error(reason)
     // The attempt is over; supersede it so a Bluetooth-queue block still
     // queued behind a blocking open can't start a pair with no watchdog.
     _ = beginConnectAttempt(for: address)
@@ -2247,7 +2304,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     guard announce || bondWasReset else { return }
     // Inline first, like every other announced failure — the notification
     // below may be denied, and without this the row just quietly unsticks
-    // after 60s as if nothing was ever tried.
+    // as if nothing was ever tried.
     setPeripheralError(
       bondWasReset ? String(localized: "Pairing reset.") : String(localized: "Pairing timed out."),
       for: address)
