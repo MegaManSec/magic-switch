@@ -245,7 +245,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     let peripheral: BluetoothPeripheral
     let device: IOBluetoothDevice
     let attempt: UInt64
-    var wasQueued = false
   }
 
   /// The attempt token each pending pair was created under, maintained in
@@ -1491,9 +1490,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
   }
 
   /// Creates, installs and starts `request`'s pair, or queues the request
-  /// while another peripheral's pair is in flight or settling. A queued
-  /// attempt's watchdog is held until its pair starts. The pair must be
-  /// created here, never before queuing. Main-only.
+  /// while another peripheral's pair is in flight or settling. The watchdog
+  /// keeps running while queued, so the whole attempt fits the peer's
+  /// `handoffBodyTimeout`. The pair must be created here, never before
+  /// queuing. Main-only.
   private func admitPair(_ request: PairRequest) {
     let peripheral = request.peripheral
     let id = peripheral.id
@@ -1512,17 +1512,14 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       return
     }
     if pairSettling || pendingPairs.keys.contains(where: { $0 != id }) {
-      var queued = request
-      queued.wasQueued = true
       let announced = { (key: String) in self.pairTimeoutShouldAnnounce[key] == true }
       if announced(id),
         let firstSilent = queuedPairs.firstIndex(where: { !announced($0.peripheral.id) })
       {
-        queuedPairs.insert(queued, at: firstSilent)
+        queuedPairs.insert(request, at: firstSilent)
       } else {
-        queuedPairs.append(queued)
+        queuedPairs.append(request)
       }
-      pairTimers[id]?.schedule(deadline: .distantFuture)
       return
     }
     guard let devicePair = IOBluetoothDevicePair(device: request.device) else {
@@ -1542,9 +1539,6 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     if let replaced = pendingPairs[id] { stopPair(replaced) }
     pendingPairs[id] = devicePair
     pendingPairAttempts[id] = attempt
-    if request.wasQueued {
-      pairTimers[id]?.schedule(deadline: .now() + Constants.pairTimeout)
-    }
 
     bluetoothQueue.async {
       guard self.isCurrentAttempt(attempt, for: id) else {
