@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: "17 4 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -61,7 +61,7 @@ jobs:
         run: |
           MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
           if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
-            echo "::notice::main is at $MAIN_SHA, not $GITHUB_SHA; skipping build & release. The run for the newer commit releases it."
+            echo "::notice::main is at $MAIN_SHA, not $GITHUB_SHA; skipping build & release. The next run releases it."
             exit 0
           fi
           OUTPUT="$(./.github/release/node_modules/.bin/semantic-release --dry-run --no-ci | tee /dev/stderr)"
@@ -328,7 +328,7 @@ jobs:
     needs:
       - version
       - release
-    if: needs.version.outputs.new-release-version != ''
+    if: needs.release.outputs.published == 'true'
     runs-on: macos-26
     environment: release
     permissions:
@@ -428,6 +428,8 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    outputs:
+      published: ${{ steps.verify.outputs.published }}
 
     steps:
       - name: Checkout
@@ -477,6 +479,7 @@ jobs:
         run: ./.github/release/node_modules/.bin/semantic-release
 
       - name: Verify release
+        id: verify
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.version.outputs.new-release-version }}
@@ -488,14 +491,15 @@ jobs:
                 exit 1
               fi
             done
+            echo "published=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # main can advance between the version job's check and this step (a
-          # newer commit merged mid-run); semantic-release then declines as
-          # "behind the remote" and the newer commit's run publishes instead.
+          # commit merged mid-run); semantic-release then declines as "behind
+          # the remote" and the next run publishes instead.
           MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
           if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
-            echo "::notice::main advanced to $MAIN_SHA; v$VERSION will be published by the newer commit's run."
+            echo "::notice::main advanced to $MAIN_SHA; v$VERSION was not published. The next run releases it."
             exit 0
           fi
           echo "::error::semantic-release did not publish v$VERSION."
@@ -505,7 +509,7 @@ jobs:
     needs:
       - version
       - release
-    if: needs.version.outputs.new-release-version != ''
+    if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     environment: homebrew-tap
     permissions:
