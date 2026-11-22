@@ -231,10 +231,10 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
     }
   }
 
-  /// Pairs waiting for the one in `pendingPairs` to finish. Only one pairing
-  /// may run at a time: overlapping pairs share the classic session, and the
-  /// later one's confirmation surfaces as the macOS Connection Request dialog.
-  /// Main-only.
+  /// Pairs waiting for the one in `pendingPairs` to finish and settle. Only
+  /// one pairing may run at a time: overlapping pairs share the classic
+  /// session, and the later one's confirmation surfaces as the macOS
+  /// Connection Request dialog. Main-only.
   private var queuedPairs: [PairRequest] = []
 
   /// True for `Constants.pairSettle` after the last pending pair finishes;
