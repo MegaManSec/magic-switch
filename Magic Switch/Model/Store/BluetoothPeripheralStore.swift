@@ -1931,7 +1931,7 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
       // The bond exists again, so a failure from here on is a failure to
       // connect, not a pairing the user has to rebuild.
       self.bondsAwaitingRepair.remove(address)
-      self.endCodeRequest(address)
+      let codeWasRequested = self.codeRequests.remove(address) != nil
       self.bluetoothQueue.async { [weak self] in
         guard let self = self else { return }
         var openResult = kIOReturnSuccess
@@ -1941,7 +1941,17 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
             Log.bluetooth.error("openConnection failed after pair: \(openResult)")
           }
         }
-        if device.isConnected() {
+        let connected = device.isConnected()
+        if codeWasRequested {
+          DispatchQueue.main.async {
+            if connected {
+              PairingCodePanel.shared.showConnected(for: address)
+            } else {
+              PairingCodePanel.shared.close(for: address)
+            }
+          }
+        }
+        if connected {
           self.setConnectionState(.connected, for: address)
           self.registerForDisconnect(device: device, address: address)
         } else if let attempt {

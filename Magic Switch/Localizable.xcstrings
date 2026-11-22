@@ -187,6 +187,16 @@
         }
       }
     },
+    "%@ is connected." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está conectado."
+          }
+        }
+      }
+    },
     "%@ is no longer visible on the network." : {
       "localizations" : {
         "es" : {
