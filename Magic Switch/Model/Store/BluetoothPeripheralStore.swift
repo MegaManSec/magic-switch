@@ -1820,6 +1820,27 @@ final class BluetoothPeripheralStore: NSObject, ObservableObject, BluetoothPerip
 
   // MARK: - Pair Delegate & Connection Tracking
 
+  @objc func devicePairingStarted(_ sender: Any!) {
+    logPairingProgress(sender, "started")
+  }
+
+  @objc func devicePairingConnecting(_ sender: Any!) {
+    logPairingProgress(sender, "connecting")
+  }
+
+  @objc func devicePairingConnected(_ sender: Any!) {
+    logPairingProgress(sender, "connected")
+  }
+
+  @objc func deviceSimplePairingComplete(_ sender: Any!, status: BluetoothHCIEventStatus) {
+    logPairingProgress(sender, "simple pairing complete (status \(status))")
+  }
+
+  private func logPairingProgress(_ sender: Any!, _ step: String) {
+    guard let device = (sender as? IOBluetoothDevicePair)?.device() else { return }
+    Log.bluetooth.notice("Pairing progress for \(device.resolvedName): \(step)")
+  }
+
   /// `IOBluetoothDevicePairDelegate` callback. Open the actual connection here
   /// once pairing has actually completed (the pre-rewrite code called
   /// `openConnection()` synchronously after `start()` and lost the device).
